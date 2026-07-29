@@ -3,18 +3,18 @@
 Welcome to my data analytics portfolio. This repository showcases end-to-end projects solving real business problems using SQL, Python, and automated pipelines.
 
 ## 📋 Table of Contents
-* [1. SQL Analytics](#1-sql-analytics)
+* [1. NHS Scotland Elective Care Analytics](#1-NHS-Scotland-Elective-Care-Analytics)
 * [2. Data Pipeline](#2-data-pipeline)
 * [3. Business Analysis](#3-business-analysis)
 * [Contact Information](#contact-information)
 
 ***
 
-## 1. SQL Analytics
+## 1. NHS Scotland Elective Care Analytics
 * **Business Problem:** [Placeholder: e.g., Optimizing operational efficiency or customer retention using unique public datasets]
 * **Tools Used:** SQL
 * **Key Outcome:** [Placeholder: Brief description of the core financial or operational recommendation]
-* **🔗 [View Project Folder](./01_SQL_Analytics/)**
+* **🔗 [View Project Folder](./01_NHS_Scotland_Elective_Care_Analytics/)**
 
 ***
 

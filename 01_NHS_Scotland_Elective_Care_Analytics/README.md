@@ -20,4 +20,6 @@ By building a defensive engineering pipeline and a robust normalization layer (`
 * `Ongoing_and_Completed_Waits_Monthly.csv`: The core dataset containing 41,000+ records from Public Health Scotland.
 
 ## 🚀 The Bottom Line
-This project proves that healthcare recovery is not just about clearing easy cases to reduce raw numbers. By engineering clean, structured data, we can pinpoint the exact specialties (like Plastic Surgery) and regions (like Grampian) that require targeted operational intervention to resolve extreme long-tail wait times. Read more here **[LinkedIn Article](https://www.linkedin.com/in/osimosu/](https://www.linkedin.com/pulse/data-vs-delays-engineering-recovery-nhs-scotlands-elective-osimosu-ljgde/)** 
+This project proves that healthcare recovery is not just about clearing easy cases to reduce raw numbers. By engineering clean, structured data, we can pinpoint the exact specialties (like Plastic Surgery) and regions (like Grampian) that require targeted operational intervention to resolve extreme long-tail wait times.
+
+Read more here: **[LinkedIn Article](https://www.linkedin.com/pulse/data-vs-delays-engineering-recovery-nhs-scotlands-elective-osimosu-ljgde/)**

@@ -8,7 +8,7 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 * [3. Business Analysis](#3-business-analysis)
 * [Contact Information](#contact-information)
 
----
+***
 
 ## 1. SQL Analytics
 * **Business Problem:** [Placeholder: e.g., Optimizing operational efficiency or customer retention using unique public datasets]
@@ -16,7 +16,7 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 * **Key Outcome:** [Placeholder: Brief description of the core financial or operational recommendation]
 * **🔗 [View Project Folder](./01_SQL_Analytics/)**
 
----
+***
 
 ## 2. Data Pipeline
 * **Business Problem:** Automated data extraction and transformation to remove manual reporting overhead.
@@ -24,7 +24,7 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 * **Key Outcome:** Production-ready pipeline that automates data workflows.
 * **🔗 [View Project Folder](./02_Data_Pipeline/)**
 
----
+***
 
 ## 3. Business Analysis
 * **Business Problem:** High-stakes strategic decision analysis where data defends a specific corporate action.
@@ -32,10 +32,10 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 * **Key Outcome:** Data-backed strategic recommendation telling a company exactly what to stop doing.
 * **🔗 [View Project Folder](./03_Business_Analysis/)**
 
----
+***
 
 ## Contact Information
 * **Name:** Olumayowa Osimosu
 * **Role:** Data Analyst
 * **Location:** Glasgow, United Kingdom
-* **Connect:** [https://www.linkedin.com/in/osimosu/] | [olumayowaosimosu@gmail.com]
+* **Connect:** [LinkedIn](https://www.linkedin.com/in/osimosu/) | [Email](mailto:olumayowaosimosu@gmail.com)

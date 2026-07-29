@@ -38,4 +38,4 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 * **Name:** Olumayowa Osimosu
 * **Role:** Data Analyst
 * **Location:** Glasgow, United Kingdom
-* **Connect:** [[LinkedIn Link](https://www.linkedin.com/in/osimosu/)] | [olumayowaosimosu@gmail.com]
+* **Connect:** [https://www.linkedin.com/in/osimosu/] | [olumayowaosimosu@gmail.com]

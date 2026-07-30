@@ -4,7 +4,7 @@ on:
   schedule:
     # Runs at 08:00 UTC every Monday
     - cron: '0 8 * * 1'
-  workflow_dispatch: # This allows you to manually trigger it for testing
+  workflow_dispatch: # This allows manually trigger for testing
 
 jobs:
   run-extraction:

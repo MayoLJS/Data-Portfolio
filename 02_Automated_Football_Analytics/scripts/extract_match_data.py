@@ -4,8 +4,8 @@ import os
 import time
 from datetime import datetime
 
-def fetch_rolling_5_year_matches():
-    """Fetches up to 5 years of rolling Premier League match results."""
+def fetch_rolling_3_year_matches():
+    """Fetches up to 3 years of rolling Premier League match results."""
     api_key = os.environ.get("FOOTBALL_API_KEY")
     
     if not api_key:
@@ -27,8 +27,8 @@ def fetch_rolling_5_year_matches():
     else:
         latest_season = current_year
         
-    # Create a list of the last 5 seasons dynamically
-    seasons = [str(latest_season - i) for i in range(5)]
+    # Create a list of the last 3 seasons dynamically
+    seasons = [str(latest_season - i) for i in range(3)]
     print(f"Fetching data for seasons: {seasons}")
     
     for season in seasons:
@@ -80,12 +80,12 @@ def transform_and_save_data(df):
     
     # Save to a timestamped CSV file
     timestamp = datetime.now().strftime("%Y%m%d")
-    output_path = f"{output_dir}/pl_rolling_5_years_{timestamp}.csv"
+    output_path = f"{output_dir}/pl_rolling_3_years_{timestamp}.csv"
     
     df.to_csv(output_path, index=False)
     print(f"Extraction complete. {len(df)} matches saved to {output_path}")
 
 if __name__ == "__main__":
-    print("Starting rolling 5-year football data pipeline...")
-    raw_df = fetch_rolling_5_year_matches()
+    print("Starting rolling 3-year football data pipeline...")
+    raw_df = fetch_rolling_3_year_matches()
     transform_and_save_data(raw_df)

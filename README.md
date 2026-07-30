@@ -5,7 +5,7 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 ## 📋 Table of Contents
 * [1. NHS Scotland Elective Care Analytics](#1-nhs-scotland-elective-care-analytics)
 * [2. Automated Football Analytics](#2-automated-football-analytics)
-* [3. Business Analysis](#3-business-analysis)
+* [3. ScotRail Delay Attribution](#3-scotrail-delay-attribution)
 * [Contact Information](#contact-information)
 
 ***
@@ -26,11 +26,11 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 
 ***
 
-## 3. Business Analysis
-* **Business Problem:** High-stakes strategic decision analysis where data defends a specific corporate action.
-* **Tools Used:** Python, Tableau/Power BI
-* **Key Outcome:** Data-backed strategic recommendation telling a company exactly what to stop doing.
-* **🔗 [View Project Folder](./03_Business_Analysis/)**
+## 3. ScotRail Delay Attribution
+* **Business Problem:** Public-facing metrics incorrectly place the burden of system delays on the Train Operating Company (TOC) rather than the infrastructure provider.
+* **Tools Used:** Python (Pandas, Seaborn, Matplotlib, Regex)
+* **Key Outcome:** Analyzed 2025 ORR periodic statistics to prove external infrastructure failures caused the majority of delays, delivering a strategic recommendation to renegotiate penalty clauses.
+* **🔗 [View Project Folder](./03_Scotrail_Delay_Attribution/)**
 
 ***
 

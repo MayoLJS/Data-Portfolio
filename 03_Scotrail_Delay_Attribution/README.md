@@ -1,38 +1,40 @@
-# ScotRail Performance Audit: The Cost of External Accountability
+# 🚆 ScotRail Delay Attribution & Revenue Protection Analysis
 
-## 🏢 The Firm Position
-ScotRail must immediately cease absorbing the primary financial and reputational penalties for network delays. The data definitively proves that infrastructure failures, managed entirely by Network Rail, are the overwhelming driver of system delays, not ScotRail's internal operations. 
+## 📌 The Business Problem
+In the UK rail network, punctuality is tied directly to revenue. Train operating companies (TOCs) face severe financial penalties and franchise risks for delays. However, not all delays are the operator's fault; many are caused by infrastructure failures managed by Network Rail. 
 
-## 📊 The Data Defense
-By reshaping and analyzing the ORR 2025 periodic statistics, the delay attribution data removes operational ambiguity:
+The objective of this project was to untangle messy Office of Rail and Road (ORR) delay data to determine the true root causes of ScotRail service disruptions, separate controllable vs. uncontrollable delays, and identify areas for operational intervention to protect brand equity and revenue.
 
-* **The Accountability Imbalance:** Network Rail (Infrastructure) accounted for **886,906 delay minutes** in 2025, severely overshadowing ScotRail's operational contribution of 636,614 minutes. 
-* **External Primary Drivers:** The absolute largest bottlenecks on the grid are outside of train operator control. *Network Management Other* (244,642 mins) and *Non-Track Assets* (218,478 mins) dictate the failure rate of the network.
-* **The Period 08 Crisis:** Total delay minutes spiked past 100,000 in a single period. Public-facing metrics currently force the operator to take the hit for severe infrastructure degradation.
+## 🛠️ Tools & Techniques
+* **Data Wrangling:** Python (Pandas), unpivoting complex matrixed datasets to create flat, relational tables.
+* **Exploratory Data Analysis (EDA):** Time-series analysis, categorization grouping, and fault-attribution logic.
+* **Data Visualization:** Matplotlib & Seaborn (exported for stakeholder reporting).
 
-## 🎯 Strategic Recommendation: What to Stop Doing
-1. **Stop Absorbing Compensation Costs:** Delay Repay schemes and passenger compensation should be automatically cross-charged to Network Rail via Service Level Agreement (SLA) penalty clauses whenever the root cause is flagged as *Non-Track Assets* or *Network Management*.
-2. **Stop Blanket Apologies:** Transition corporate communications and station dashboards to clearly delineate between operator errors (Traincrew, Fleet) and infrastructure failures. Protect the operator's brand equity by redirecting accountability to the infrastructure provider.
+## 💡 Key Analytical Outcomes & Visual Insights
 
-## 🛠️ Technical Implementation
-* **Language:** Python (Pandas, Seaborn, Matplotlib)
-* **Techniques Used:** Regex feature extraction, data unpivoting (Melt), categorical mapping, temporal trend analysis.
+### 1. The True Cost of Infrastructure (Responsibility Breakdown)
+By isolating delays by the responsible party, the data reveals a critical narrative: ScotRail absorbs significant public frustration for delays that are fundamentally outside of their operational control. 
 
-### Core Data Transformation
-To enable time-series and categorical analysis, the raw 'wide' data was unpivoted into a 'long' format, and regex was used to extract sortable chronological periods.
+![Responsibility Breakdown](assets/responsibility_breakdown.png)
+*Figure 1: Proportion of delay minutes attributed to ScotRail (Controllable) vs. Network Rail/External (Uncontrollable).*
 
-```python
-# 1. Feature Engineering: Extract numeric periods and years using Regex
-df_2025['period'] = df_2025['time period'].str.extract(r'\(Period (\d+)\)').astype(int)
-df_2025['year'] = df_2025['time period'].str.split(r' \(').str[0]
+### 2. Identifying Controllable Bottlenecks (Delay by Category)
+When drilling down into specific delay categories, clear patterns emerge. While infrastructure issues dominate the macro-level, specific operational categories (like train crew shortages or fleet maintenance) represent the largest *controllable* losses.
 
-# 2. Data Reshaping: Unpivot columns into a single delay_cause feature
-id_vars = ['train operating company name', 'period', 'year']
-value_vars = [col for col in df_2025.columns if col not in id_vars]
+![Delay by Category](assets/delay_by_category.png)
+*Figure 2: Root cause analysis of delay minutes across all operational and infrastructure categories.*
 
-df_unpivot = df_2025.melt(
-    id_vars=id_vars,
-    value_vars=value_vars,
-    var_name='delay_cause',
-    value_name='minutes'
-)
+### 3. Tracking Systemic Performance (Trend Timeline)
+Analyzing the delay minutes across time highlights seasonal vulnerabilities and tracks whether operational interventions are actually improving service reliability month-over-month.
+
+![Delay Trend Timeline](assets/delay_trend_timeline.png)
+*Figure 3: Time-series analysis tracking delay volatility over the reporting period.*
+
+## 🎯 Business Recommendations
+Based on the data, I recommend a two-pronged operational strategy for ScotRail leadership:
+1. **Aggressive Dispute Protocols (External):** A significant portion of delays are incorrectly defaulted or attributed to operations. ScotRail's commercial team must leverage this granular data to aggressively dispute delays bordering on Network Rail infrastructure boundaries to avoid unfair financial penalties.
+2. **Targeted Crew Resourcing (Internal):** Rather than blanket investments in operations, HR and Operations must specifically target the highest-contributing controllable category (e.g., Crew Availability). Implementing predictive standby scheduling during peak disruption seasons (identified in the trend timeline) will yield the highest ROI on delay reduction.
+
+## 📂 Project Structure
+* `scotrail_delay_analysis.ipynb`: The core Jupyter Notebook containing the data cleaning (unpivoting), transformation logic, and visualization code.
+* `assets/`: Contains the exported visual insights used for stakeholder reporting.

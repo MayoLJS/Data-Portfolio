@@ -9,7 +9,7 @@ def fetch_rolling_3_year_matches():
     api_key = os.environ.get("FOOTBALL_API_KEY")
     
     if not api_key:
-        raise ValueError("Missing API Key")
+        raise ValueError("Missing API Key. Check your environment variables.")
 
     url = "https://api.football-data.org/v4/competitions/PL/matches"
     headers = {
@@ -42,15 +42,22 @@ def fetch_rolling_3_year_matches():
         if response.status_code == 200:
             data = response.json()
             for match in data.get('matches', []):
+                # Safely extract score data to avoid KeyErrors
+                score_data = match.get('score', {})
+                ht_data = score_data.get('halfTime', {})
+                ft_data = score_data.get('fullTime', {})
+
                 match_records.append({
                     'Match_ID': match.get('id'),
                     'Date': match.get('utcDate'),
                     'Season': season,
                     'Home_Team': match.get('homeTeam', {}).get('name'),
                     'Away_Team': match.get('awayTeam', {}).get('name'),
-                    'Home_Score': match.get('score', {}).get('fullTime', {}).get('home'),
-                    'Away_Score': match.get('score', {}).get('fullTime', {}).get('away'),
-                    'Winner': match.get('score', {}).get('winner')
+                    'Home_Score_HT': ht_data.get('home'), # NEW: Halftime Home
+                    'Away_Score_HT': ht_data.get('away'), # NEW: Halftime Away
+                    'Home_Score_FT': ft_data.get('home'), 
+                    'Away_Score_FT': ft_data.get('away'),
+                    'Winner': score_data.get('winner')
                 })
             print(f"Successfully fetched season {season}")
         else:
@@ -78,9 +85,8 @@ def transform_and_save_data(df):
     output_dir = "02_Automated_Football_Analytics/data"
     os.makedirs(output_dir, exist_ok=True)
     
-    # Save to a timestamped CSV file
-    timestamp = datetime.now().strftime("%Y%m%d")
-    output_path = f"{output_dir}/pl_rolling_3_years_{timestamp}.csv"
+    # Save to a STATIC filename for stable Power BI Web Connection
+    output_path = f"{output_dir}/pl_rolling_3_years_latest.csv"
     
     df.to_csv(output_path, index=False)
     print(f"Extraction complete. {len(df)} matches saved to {output_path}")

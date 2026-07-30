@@ -3,25 +3,25 @@
 Welcome to my data analytics portfolio. This repository showcases end-to-end projects solving real business problems using SQL, Python, and automated pipelines.
 
 ## 📋 Table of Contents
-* [1. NHS Scotland Elective Care Analytics](#1-NHS-Scotland-Elective-Care-Analytics)
-* [2. Automated Football Analytics](#2-Automated-Football-Analytics)
+* [1. NHS Scotland Elective Care Analytics](#1-nhs-scotland-elective-care-analytics)
+* [2. Automated Football Analytics](#2-automated-football-analytics)
 * [3. Business Analysis](#3-business-analysis)
 * [Contact Information](#contact-information)
 
 ***
 
 ## 1. NHS Scotland Elective Care Analytics
-* **Business Problem:** [Placeholder: e.g., Optimizing operational efficiency or customer retention using unique public datasets]
+* **Business Problem:** Analyzing elective care wait times across health boards to identify operational bottlenecks and improve patient throughput.
 * **Tools Used:** SQL
-* **Key Outcome:** [Placeholder: Brief description of the core financial or operational recommendation]
+* **Key Outcome:** Extracted and aggregated public healthcare data to highlight backlog trends, providing clear recommendations for resource allocation.
 * **🔗 [View Project Folder](./01_NHS_Scotland_Elective_Care_Analytics/)**
 
 ***
 
 ## 2. Automated Football Analytics
-* **Business Problem:** Automated data extraction and transformation to remove manual reporting overhead.
-* **Tools Used:** Python, Automation tools, Cloud Storage
-* **Key Outcome:** Production-ready pipeline that automates data workflows.
+* **Business Problem:** Tracking weekly team performance and match statistics requires manual spreadsheet updates, causing reporting delays.
+* **Tools Used:** Python (Pandas, Requests), REST APIs, GitHub Actions, Power BI
+* **Key Outcome:** Engineered a zero-touch, automated cloud ETL pipeline that extracts and processes a rolling 3-year Premier League dataset every week.
 * **🔗 [View Project Folder](./02_Automated_Football_Analytics/)**
 
 ***
@@ -35,7 +35,7 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 ***
 
 ## Contact Information
-* **Name:** Olumayowa Osimosu
+* **Name:** Olumayowa (Olu) Osimosu
 * **Role:** Data Analyst
 * **Location:** Glasgow, United Kingdom
 * **Connect:** [LinkedIn](https://www.linkedin.com/in/osimosu/) | [Email](mailto:olumayowaosimosu@gmail.com)

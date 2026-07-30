@@ -34,4 +34,4 @@ Utilized Month-over-Month (MoM) velocity calculations to prove that the national
 
 ## 📂 Project Structure
 * `NHS_Elective_Care_Analysis.sql`: The complete T-SQL script containing the environment setup, data normalization views, QA checks, and advanced KPI calculations.
-* `Ongoing_and_Completed_Waits_Monthly.csv`: The core dataset containing 41,000+ records from Public Health Scotland. *(Future iteration: Migrate from static CSV ingestion to automated ETL via the Public Health Scotland CKAN API).*
+* `Ongoing_and_Completed_Waits_Monthly.csv`: The core dataset containing 41,000+ records from Public Health Scotland.

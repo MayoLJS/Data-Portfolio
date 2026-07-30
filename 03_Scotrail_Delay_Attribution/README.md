@@ -37,4 +37,4 @@ Based on the data, I recommend a two-pronged operational strategy for ScotRail l
 
 ## 📂 Project Structure
 * `scotrail_delay_analysis.ipynb`: The core Jupyter Notebook containing the data cleaning (unpivoting), transformation logic, and visualization code.
-* `assets/`: Contains the exported visual insights used for stakeholder reporting.
+* `data/`: Contains the raw downloaded data.

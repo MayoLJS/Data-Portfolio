@@ -4,7 +4,7 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 
 ## 📋 Table of Contents
 * [1. NHS Scotland Elective Care Analytics](#1-NHS-Scotland-Elective-Care-Analytics)
-* [2. Data Pipeline](#2-data-pipeline)
+* [2. Automated Football Analytics](#2-Automated-Football-Analytics)
 * [3. Business Analysis](#3-business-analysis)
 * [Contact Information](#contact-information)
 
@@ -18,11 +18,11 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 
 ***
 
-## 2. Data Pipeline
+## 2. Automated Football Analytics
 * **Business Problem:** Automated data extraction and transformation to remove manual reporting overhead.
 * **Tools Used:** Python, Automation tools, Cloud Storage
 * **Key Outcome:** Production-ready pipeline that automates data workflows.
-* **🔗 [View Project Folder](./02_Data_Pipeline/)**
+* **🔗 [View Project Folder](./02_Automated_Football_Analytics/)**
 
 ***
 

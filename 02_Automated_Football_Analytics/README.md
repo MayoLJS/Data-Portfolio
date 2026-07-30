@@ -20,8 +20,8 @@ The objective of this project was to build a **Zero-Touch ETL (Extract, Transfor
 
 ## 📂 Project Structure
 * `extract_match_data.py`: The core Python ETL script. Handles the API GET requests, normalizes the JSON payloads, and stages the final dataframe.
-* `.github/workflows/`: (If applicable) Contains the YAML file dictating the automated scheduling of the script.
+* `.github/workflows/`: Contains the YAML file dictating the automated scheduling of the script.
 
 ## 🚀 Future Scalability & Next Steps
-* **Database Migration:** Phase 2 of this project will replace the flat `football_data.csv` output with an automated load mechanism into a cloud data warehouse (e.g., PostgreSQL or Google BigQuery) for persistent storage.
+* **Database Migration:** Phase 2 of this project will replace the flat `rolling_file.csv` output with an automated load mechanism into a cloud data warehouse (e.g., PostgreSQL or Google BigQuery) for persistent storage.
 * **BI Integration:** Connect the future cloud database to Power BI for a live-updating dashboard tracking team performance metrics.

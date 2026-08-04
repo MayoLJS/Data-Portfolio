@@ -5,7 +5,6 @@ def download_historical_fpl_data():
     seasons = ["2023-24", "2024-25", "2025-26"]
     base_url = "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/{}/cleaned_players.csv"
     
-    # Exact same schema you defined for the current API data
     columns_to_keep = [
         'id', 'first_name', 'second_name', 'team', 'element_type',
         'now_cost', 'selected_by_percent', 'form', 'total_points',
@@ -24,11 +23,8 @@ def download_historical_fpl_data():
         
         try:
             df = pd.read_csv(url)
-            
-            # Add a season identifier for Power BI
             df['season'] = season
             
-            # Enforce the schema by only keeping matching columns
             available_columns = [col for col in columns_to_keep if col in df.columns]
             df_filtered = df[available_columns + ['season']]
             
@@ -37,10 +33,9 @@ def download_historical_fpl_data():
         except Exception as e:
             print(f"Failed to download data for {season}. Error: {e}")
 
-    # Concatenate all historical years into one clean dataset
     if all_seasons_df:
         final_df = pd.concat(all_seasons_df, ignore_index=True)
-        filename = "data/fpl_players_historical.csv"
+        filename = "data/fpl_players_previous.csv"
         final_df.to_csv(filename, index=False)
         print(f"Successfully combined and saved all historical stats to {filename}")
 

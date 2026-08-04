@@ -29,6 +29,6 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add data/
+          git add 04_Fantasy_PL/data/*.csv
           git commit -m "Automated update of Premier League player stats" || exit 0
           git push

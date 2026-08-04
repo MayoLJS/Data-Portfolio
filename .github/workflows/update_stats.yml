@@ -23,7 +23,7 @@ jobs:
           pip install requests pandas
 
       - name: Run Python script
-        run: python 03_Fantasy_PL/scripts/extract_data.py
+        run: python 04_Fantasy_PL/scripts/extract_data.py
 
       - name: Commit and push changes
         run: |

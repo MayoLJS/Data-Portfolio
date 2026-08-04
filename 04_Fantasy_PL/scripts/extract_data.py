@@ -1,7 +1,6 @@
 import requests
 import pandas as pd
 import os
-from datetime import datetime
 
 def fetch_and_save_fpl_data():
     url = "https://fantasy.premierleague.com/api/bootstrap-static/"
@@ -9,8 +8,17 @@ def fetch_and_save_fpl_data():
     
     if response.status_code == 200:
         data = response.json()
+        
+        # 1. Extract teams and create a mapping dictionary
+        teams_data = data.get("teams", [])
+        team_mapping = {team['id']: team['name'] for team in teams_data}
+        
+        # 2. Extract players
         players = data.get("elements", [])
         df = pd.DataFrame(players)
+        
+        # 3. Map team IDs to Team Names
+        df['team'] = df['team'].map(team_mapping)
         
         columns_to_keep = [
             'id', 'first_name', 'second_name', 'team', 'element_type',
@@ -26,8 +34,8 @@ def fetch_and_save_fpl_data():
         
         os.makedirs("data", exist_ok=True)
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"data/fpl_players_{timestamp}.csv"
+        # Consistent filename for Power BI
+        filename = "data/fpl_players_current.csv"
         
         df_filtered.to_csv(filename, index=False)
         print(f"Successfully saved player stats to {filename}")

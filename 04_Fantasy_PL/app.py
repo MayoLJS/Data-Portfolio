@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS
 # ==========================================
-st.set_page_config(page_title="Premier League Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
@@ -73,7 +73,7 @@ match_df = load_match_data()
 # ==========================================
 # 3. SIDEBAR NAVIGATION
 # ==========================================
-st.sidebar.title("⚽ PREMIER LEAGUE HUB")
+st.sidebar.title("⚽ EPL HUB")
 st.sidebar.markdown("---")
 app_mode = st.sidebar.radio("Select Module:", [
     "👤 Player Scout Card", 
@@ -167,7 +167,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     st.sidebar.header("3. Locked Players (Optional)")
     if players_df is not None:
         player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
-        locked_players = st.sidebar.multiselect("Select up to 5 must-have players:", player_choices, max_selections=5)
+        locked_players = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices, max_selections=14)
     else:
         locked_players = []
 

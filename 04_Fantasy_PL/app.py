@@ -143,23 +143,42 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
     
     st.sidebar.header("2. Custom Strategy Weights")
-    w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
-    w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
-    w_ict = st.sidebar.slider("ICT Index (Quality)", 0, 100, 40, 5)
     
-    weights = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
+    # RESTORED: Advanced Mode Toggle
+    advanced_mode = st.sidebar.toggle("Advanced Metric Breakdown", value=False)
+    
+    if not advanced_mode:
+        st.sidebar.info("💡 **Base Mode:** Uses bundled ICT Index alongside Form & Ownership.")
+        w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
+        w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
+        w_ict = st.sidebar.slider("ICT Index (Quality)", 0, 100, 40, 5)
+        weights = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
+    else:
+        st.sidebar.info("⚙️ **Advanced Mode:** Unbundles ICT into Influence, Creativity, and Threat.")
+        w_form = st.sidebar.slider("Form", 0, 100, 20, 5)
+        w_own = st.sidebar.slider("Ownership %", 0, 100, 20, 5)
+        w_inf = st.sidebar.slider("Influence (Impact)", 0, 100, 20, 5)
+        w_cre = st.sidebar.slider("Creativity (Assists)", 0, 100, 20, 5)
+        w_thr = st.sidebar.slider("Threat (Goals)", 0, 100, 20, 5)
+        weights = {'form': w_form, 'selected_by_percent': w_own, 'influence': w_inf, 'creativity': w_cre, 'threat': w_thr}
+
+    # Normalize weights so they sum to 1.0
     total_w = sum(weights.values())
     if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
 
     if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
         if players_df is not None:
             df = players_df.copy()
+            
+            # Normalization
             for metric in weights.keys():
                 min_v, max_v = df[metric].min(), df[metric].max()
                 df[f'{metric}_norm'] = (df[metric] - min_v) / (max_v - min_v) if max_v > min_v else 0.0
             
+            # Composite Score Calculation
             df['custom_score'] = sum(df[f'{metric}_norm'] * w for metric, w in weights.items())
                 
+            # PuLP Optimizer
             prob = pulp.LpProblem("Optimal_FPL_Squad", pulp.LpMaximize)
             player_vars = pulp.LpVariable.dicts("player", df.index, cat='Binary')
             
@@ -230,13 +249,12 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Budget too tight to field 15 players. Adjust constraints.")
 
 # ==========================================
-# MODULE 3: TEAM BETTING EDGE (Expanded)
+# MODULE 3: TEAM BETTING EDGE
 # ==========================================
 elif app_mode == "📈 Team Betting Edge":
     st.title("📈 Predictive Match Analytics")
     
     if match_df is not None and not match_df.empty:
-        # Dynamic Season Filter (Added "All Seasons")
         available_seasons = ["All Seasons"] + sorted(match_df['Season'].unique().tolist(), reverse=True)
         selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
         
@@ -288,12 +306,13 @@ elif app_mode == "📈 Team Betting Edge":
                 st.plotly_chart(fig3, use_container_width=True)
 
             with tab4:
-                # SWAPPED AXES: Conceded is now X (left is better), Scored is Y (top is better). Top-Left is BEST.
                 team_stats = fact_matches.groupby('Team').agg(Avg_Scored=('Scored_FT', 'mean'), Avg_Conceded=('Conceded_FT', 'mean')).reset_index()
                 fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', color_discrete_sequence=['#00f2fe'])
                 fig4.update_traces(textposition='top center', marker=dict(size=12, line=dict(width=2, color='DarkSlateGrey')))
                 fig4.add_hline(y=team_stats['Avg_Scored'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
                 fig4.add_vline(x=team_stats['Avg_Conceded'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
+                
+                fig4.update_yaxes(autorange="reversed")
                 
                 fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Top Left = Best Defense & Best Attack", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
@@ -306,13 +325,12 @@ elif app_mode == "📈 Team Betting Edge":
         st.warning("Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 4: LIVE LEAGUE TABLE (Filtered & Trended)
+# MODULE 4: LIVE LEAGUE TABLE
 # ==========================================
 elif app_mode == "📊 Live League Table":
     st.title("📊 League Table & Gameweek Trends")
     
     if match_df is not None and not match_df.empty:
-        # Dynamic Season Filter
         available_seasons = ["All Seasons"] + sorted(match_df['Season'].unique().tolist(), reverse=True)
         selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
         
@@ -377,7 +395,6 @@ elif app_mode == "📊 Live League Table":
                 trend_df = trend_df.sort_values(by=['Match_Num', 'Pts', 'GD', 'GF'], ascending=[True, False, False, False])
                 trend_df['Position'] = trend_df.groupby('Match_Num').cumcount() + 1
                 
-                # Multi-select filter for teams
                 all_teams = sorted(trend_df['Team'].unique().tolist())
                 selected_teams = st.multiselect("Select Teams to Compare (Click 'X' to clear):", all_teams, default=all_teams)
                 

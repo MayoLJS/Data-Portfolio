@@ -29,7 +29,7 @@ st.markdown("""
     .badge-cyan { background-color: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid #00f2fe; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
     .badge-pink { background-color: rgba(255, 0, 127, 0.15); color: #ff007f; border: 1px solid #ff007f; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
     
-    /* Progress Bars (Cyan Gradient) */
+    /* Progress Bars */
     .stProgress > div > div > div > div { background-image: linear-gradient(to right, #00c6ff, #00f2fe); }
 </style>
 """, unsafe_allow_html=True)
@@ -83,7 +83,7 @@ app_mode = st.sidebar.radio("Select Module:", [
 ])
 
 # ==========================================
-# MODULE 1: PLAYER SCOUT CARD (With Filters)
+# MODULE 1: PLAYER SCOUT CARD
 # ==========================================
 if app_mode == "👤 Player Scout Card":
     st.title("👤 Player Performance Profile")
@@ -134,7 +134,7 @@ if app_mode == "👤 Player Scout Card":
             st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER (With Pitch)
+# MODULE 2: FPL SQUAD OPTIMIZER
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
     st.title("⚡ Prescriptive FPL Squad Optimizer")
@@ -230,17 +230,20 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Budget too tight to field 15 players. Adjust constraints.")
 
 # ==========================================
-# MODULE 3: TEAM BETTING EDGE (Expanded & Filtered)
+# MODULE 3: TEAM BETTING EDGE (Expanded)
 # ==========================================
 elif app_mode == "📈 Team Betting Edge":
     st.title("📈 Predictive Match Analytics")
     
     if match_df is not None and not match_df.empty:
-        # Dynamic Season Filter
-        available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
+        # Dynamic Season Filter (Added "All Seasons")
+        available_seasons = ["All Seasons"] + sorted(match_df['Season'].unique().tolist(), reverse=True)
         selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
         
-        szn_match_df = match_df[match_df['Season'] == selected_season]
+        if selected_season == "All Seasons":
+            szn_match_df = match_df.copy()
+        else:
+            szn_match_df = match_df[match_df['Season'] == selected_season]
         
         if not szn_match_df.empty:
             home_m = szn_match_df[['Match_ID', 'Home_Team', 'Home_Score_HT', 'Away_Score_HT', 'Home_Score_FT', 'Away_Score_FT']].copy()
@@ -285,20 +288,20 @@ elif app_mode == "📈 Team Betting Edge":
                 st.plotly_chart(fig3, use_container_width=True)
 
             with tab4:
+                # SWAPPED AXES: Conceded is now X (left is better), Scored is Y (top is better). Top-Left is BEST.
                 team_stats = fact_matches.groupby('Team').agg(Avg_Scored=('Scored_FT', 'mean'), Avg_Conceded=('Conceded_FT', 'mean')).reset_index()
-                fig4 = px.scatter(team_stats, x='Avg_Scored', y='Avg_Conceded', text='Team', color_discrete_sequence=['#00f2fe'])
+                fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', color_discrete_sequence=['#00f2fe'])
                 fig4.update_traces(textposition='top center', marker=dict(size=12, line=dict(width=2, color='DarkSlateGrey')))
-                fig4.add_hline(y=team_stats['Avg_Conceded'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
-                fig4.add_vline(x=team_stats['Avg_Scored'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
+                fig4.add_hline(y=team_stats['Avg_Scored'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
+                fig4.add_vline(x=team_stats['Avg_Conceded'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
                 
-                # INVERT THE Y AXIS: Low Conceded (Best) goes to the TOP.
-                fig4.update_yaxes(autorange="reversed")
-                
-                fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Top Right = Best Defense & Best Attack", 
+                fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Top Left = Best Defense & Best Attack", 
+                                   xaxis_title="Average Goals Conceded (Fewer is Better)",
+                                   yaxis_title="Average Goals Scored (More is Better)",
                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
                 st.plotly_chart(fig4, use_container_width=True)
         else:
-            st.warning("No matches found for this season.")
+            st.warning("No matches found for this season/filter.")
     else:
         st.warning("Match dataset is currently loading or unavailable.")
 
@@ -310,28 +313,29 @@ elif app_mode == "📊 Live League Table":
     
     if match_df is not None and not match_df.empty:
         # Dynamic Season Filter
-        available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
+        available_seasons = ["All Seasons"] + sorted(match_df['Season'].unique().tolist(), reverse=True)
         selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
         
-        szn_df = match_df[match_df['Season'] == selected_season].sort_values('Date')
+        if selected_season == "All Seasons":
+            szn_df = match_df.copy().sort_values('Date')
+            st.info("Aggregating cumulative 3-year points and form data.")
+        else:
+            szn_df = match_df[match_df['Season'] == selected_season].sort_values('Date')
         
         if not szn_df.empty:
             teams = pd.concat([szn_df['Home_Team'], szn_df['Away_Team']]).unique()
             team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'Matches': 0} for team in teams}
             trend_data = []
 
-            # Iterative chronological loop to calculate real-time points & positions
             for _, row in szn_df.iterrows():
                 home = row['Home_Team']
                 away = row['Away_Team']
                 h_score = row['Home_Score_FT']
                 a_score = row['Away_Score_FT']
                 
-                # Update Matches Played
                 team_records[home]['Matches'] += 1
                 team_records[away]['Matches'] += 1
                 
-                # Update Goals
                 team_records[home]['GF'] += h_score
                 team_records[home]['GA'] += a_score
                 team_records[home]['GD'] += (h_score - a_score)
@@ -340,7 +344,6 @@ elif app_mode == "📊 Live League Table":
                 team_records[away]['GA'] += h_score
                 team_records[away]['GD'] += (a_score - h_score)
                 
-                # Update Points & Results
                 if h_score > a_score:
                     team_records[home]['Pts'] += 3
                     team_records[home]['W'] += 1
@@ -355,40 +358,43 @@ elif app_mode == "📊 Live League Table":
                     team_records[home]['D'] += 1
                     team_records[away]['D'] += 1
                     
-                # Snapshots for Trend Chart
                 trend_data.append({'Team': home, 'Match_Num': team_records[home]['Matches'], 'Pts': team_records[home]['Pts'], 'GD': team_records[home]['GD'], 'GF': team_records[home]['GF']})
                 trend_data.append({'Team': away, 'Match_Num': team_records[away]['Matches'], 'Pts': team_records[away]['Pts'], 'GD': team_records[away]['GD'], 'GF': team_records[away]['GF']})
             
-            # --- TABS FOR UI ---
-            t1, t2 = st.tabs(["📋 Final League Table", "📈 Position Trend Line"])
+            t1, t2 = st.tabs(["📋 League Table", "📈 Position Trend Line"])
 
             with t1:
-                # Build Final Table
                 final_table = []
                 for team, stats in team_records.items():
                     final_table.append({'Club': team, 'MP': stats['Matches'], 'W': stats['W'], 'D': stats['D'], 'L': stats['L'], 'GF': stats['GF'], 'GA': stats['GA'], 'GD': stats['GD'], 'Pts': stats['Pts']})
                 
                 table_df = pd.DataFrame(final_table).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
-                table_df.index += 1 # 1-based indexing for Rank
+                table_df.index += 1
                 st.dataframe(table_df, use_container_width=True)
             
             with t2:
-                # Process Trend Data to compute Rank at each Matchweek
                 trend_df = pd.DataFrame(trend_data)
                 trend_df = trend_df.sort_values(by=['Match_Num', 'Pts', 'GD', 'GF'], ascending=[True, False, False, False])
                 trend_df['Position'] = trend_df.groupby('Match_Num').cumcount() + 1
                 
-                fig_trend = px.line(trend_df, x="Match_Num", y="Position", color="Team", 
-                                    title=f"Gameweek by Gameweek League Position ({selected_season})",
-                                    height=600)
+                # Multi-select filter for teams
+                all_teams = sorted(trend_df['Team'].unique().tolist())
+                selected_teams = st.multiselect("Select Teams to Compare (Click 'X' to clear):", all_teams, default=all_teams)
                 
-                # Invert Y-axis so Position 1 is at the top
-                fig_trend.update_yaxes(autorange="reversed", title="League Position", tickmode='linear', tick0=1, dtick=1)
-                fig_trend.update_xaxes(title="Matches Played")
-                fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
-                st.plotly_chart(fig_trend, use_container_width=True)
+                if selected_teams:
+                    filtered_trend_df = trend_df[trend_df['Team'].isin(selected_teams)]
+                    fig_trend = px.line(filtered_trend_df, x="Match_Num", y="Position", color="Team", 
+                                        title=f"Gameweek by Gameweek League Position ({selected_season})",
+                                        height=600)
+                    
+                    fig_trend.update_yaxes(autorange="reversed", title="League Position", tickmode='linear', tick0=1, dtick=1)
+                    fig_trend.update_xaxes(title="Matches Played")
+                    fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
+                    st.plotly_chart(fig_trend, use_container_width=True)
+                else:
+                    st.info("Please select at least one team to display the trend line.")
 
         else:
-            st.warning("No matches found for this season.")
+            st.warning("No matches found for this filter.")
     else:
         st.warning("Match dataset is currently loading or unavailable.")

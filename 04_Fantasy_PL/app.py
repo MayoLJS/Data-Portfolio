@@ -59,6 +59,7 @@ def load_fpl_data():
 
 @st.cache_data(ttl=3600)
 def load_match_data():
+    # Make sure this matches your raw GitHub dataset URL exactly
     raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/02_Automated_Football_Analytics/data/pl_rolling_3_years_latest.csv"
     try:
         df = pd.read_csv(raw_url)
@@ -83,7 +84,7 @@ app_mode = st.sidebar.radio("Select Module:", [
 ])
 
 # ==========================================
-# MODULE 1: PLAYER SCOUT CARD (Now with Filters)
+# MODULE 1: PLAYER SCOUT CARD (With Filters)
 # ==========================================
 if app_mode == "👤 Player Scout Card":
     st.title("👤 Player Performance Profile")
@@ -98,158 +99,4 @@ if app_mode == "👤 Player Scout Card":
         # Step 2: Apply Filters
         filtered_df = players_df.copy()
         if selected_team != "All": filtered_df = filtered_df[filtered_df['team_name'] == selected_team]
-        if selected_pos != "All": filtered_df = filtered_df[filtered_df['position'] == selected_pos]
-        
-        # Step 3: Player Search
-        player_list = sorted((filtered_df['first_name'] + " " + filtered_df['second_name']).tolist())
-        
-        if len(player_list) > 0:
-            selected_player = st.selectbox("Select Player:", player_list)
-            p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
-            
-            # Scout Banner
-            st.markdown(f"""
-            <div class="scout-card">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span class="badge-cyan">{p_data['position'].upper()}</span>
-                        <span class="badge-pink">{p_data['team_name']}</span>
-                        <h1 style="color: white; margin: 10px 0 0 0;">{p_data['first_name']} {p_data['second_name']}</h1>
-                        <p style="color: #8f9bba; margin: 0;">Price: £{p_data['cost_m']}M | Ownership: {p_data['selected_by_percent']}% | Points: {int(p_data['total_points'])}</p>
-                    </div>
-                    <div style="text-align: right;">
-                        <h2 style="color: #00f2fe; margin:0;">ICT: {p_data['ict_index']}</h2>
-                        <p style="color: #8f9bba; margin:0;">Form: {p_data['form']}</p>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Percentile Progress Bars
-            metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
-            col1, col2 = st.columns(2)
-            for i, (label, col_name) in enumerate(metrics.items()):
-                val = p_data[col_name]
-                percentile = int((players_df[col_name] < val).mean() * 100)
-                target_col = col1 if i < 3 else col2
-                with target_col:
-                    st.write(f"**{label}**: `{val}` *(Top {100-percentile}%)*")
-                    st.progress(percentile / 100.0)
-        else:
-            st.warning("No players found with these filters.")
-
-# ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER (Now with Pitch)
-# ==========================================
-elif app_mode == "⚡ FPL Squad Optimizer":
-    st.title("⚡ Prescriptive FPL Squad Optimizer")
-    
-    st.sidebar.header("1. Budget Constraints")
-    budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
-    
-    st.sidebar.header("2. Custom Strategy Weights")
-    w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
-    w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
-    w_ict = st.sidebar.slider("ICT Index (Quality)", 0, 100, 40, 5)
-    
-    weights = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
-    total_w = sum(weights.values())
-    if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
-
-    if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
-        if players_df is not None:
-            df = players_df.copy()
-            for metric in weights.keys():
-                min_v, max_v = df[metric].min(), df[metric].max()
-                df[f'{metric}_norm'] = (df[metric] - min_v) / (max_v - min_v) if max_v > min_v else 0.0
-            
-            df['custom_score'] = sum(df[f'{metric}_norm'] * w for metric, w in weights.items())
-                
-            prob = pulp.LpProblem("Optimal_FPL_Squad", pulp.LpMaximize)
-            player_vars = pulp.LpVariable.dicts("player", df.index, cat='Binary')
-            
-            prob += pulp.lpSum([df.loc[i, 'custom_score'] * player_vars[i] for i in df.index])
-            prob += pulp.lpSum([df.loc[i, 'now_cost'] * player_vars[i] for i in df.index]) <= (budget * 10) 
-            prob += pulp.lpSum([player_vars[i] for i in df.index]) == 15 
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
-            
-            for t_id in df['team'].unique(): prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
-                
-            prob.solve(pulp.PULP_CBC_CMD(msg=False))
-            
-            squad = df.loc[[i for i in df.index if player_vars[i].varValue == 1]].copy()
-            
-            if len(squad) == 15:
-                # --- STARTING XI vs BENCH LOGIC ---
-                squad = squad.sort_values(by='custom_score', ascending=False)
-                
-                # Separate by position
-                gkps = squad[squad['element_type'] == 1]
-                defs = squad[squad['element_type'] == 2]
-                mids = squad[squad['element_type'] == 3]
-                fwds = squad[squad['element_type'] == 4]
-
-                # Lock in minimum formation requirements (1 GK, 3 DEF, 2 MID, 1 FWD)
-                start_gkp = gkps.head(1)
-                bench_gkp = gkps.tail(1)
-                
-                start_def = defs.head(3)
-                start_mid = mids.head(2)
-                start_fwd = fwds.head(1)
-                
-                # Take the 4 best remaining outfielders regardless of position
-                remaining_outfield = pd.concat([defs.iloc[3:], mids.iloc[2:], fwds.iloc[1:]]).sort_values(by='custom_score', ascending=False)
-                start_rest = remaining_outfield.head(4)
-                bench_rest = remaining_outfield.tail(3)
-                
-                starters = pd.concat([start_gkp, start_def, start_mid, start_fwd, start_rest])
-                bench = pd.concat([bench_gkp, bench_rest]).sort_values(by='element_type')
-
-                # --- UI RENDERING ---
-                st.success("✅ Optimization Complete!")
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
-                c2.metric("Starting XI Proj. Score", f"{starters['custom_score'].sum():.2f}")
-                c3.metric("Bench Proj. Score", f"{bench['custom_score'].sum():.2f}")
-
-                st.markdown("### 🏟️ The Starting XI")
-                st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
-                
-                # Helper function to render rows
-                def render_row(players_in_row):
-                    cols = st.columns(len(players_in_row))
-                    for col, (_, p) in zip(cols, players_in_row.iterrows()):
-                        col.markdown(f"<div class='pitch-card'><b>{p['second_name']}</b><br><span style='font-size:12px; color:#8f9bba;'>{p['team_name']}</span><br><span style='color:#00f2fe;'>£{p['cost_m']}m</span></div>", unsafe_allow_html=True)
-                    st.write("") # Spacing
-
-                render_row(starters[starters['element_type'] == 1]) # GK
-                render_row(starters[starters['element_type'] == 2]) # DEF
-                render_row(starters[starters['element_type'] == 3]) # MID
-                render_row(starters[starters['element_type'] == 4]) # FWD
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                st.markdown("### 🪑 The Bench")
-                b_cols = st.columns(4)
-                for col, (_, p) in zip(b_cols, bench.iterrows()):
-                    col.markdown(f"<div class='bench-card'><b>{p['second_name']}</b> ({p['position']})<br>£{p['cost_m']}m</div>", unsafe_allow_html=True)
-
-            else:
-                st.error("⚠️ Budget too tight to field 15 players. Adjust constraints.")
-
-# ==========================================
-# MODULE 3: TEAM BETTING EDGE (Expanded)
-# ==========================================
-elif app_mode == "📈 Team Betting Edge":
-    st.title("📈 Predictive Match Analytics")
-    
-    if match_df is not None and not match_df.empty:
-        # Restructure Data
-        home_m = match_df[['Match_ID', 'Home_Team', 'Home_Score_HT', 'Away_Score_HT', 'Home_Score_FT', 'Away_Score_FT']].copy()
-        home_m.columns = ['Match_ID', 'Team', 'Scored_HT', 'Conceded_HT', 'Scored_FT', 'Conceded_FT']
-        home_m['Venue'] = 'Home'
-        
-        away_m = match_df[['Match_ID', 'Away_Team', 'Away_Score_HT', 'Home_Score_HT', 'Away_Score_FT', 'Home_Score_FT']].copy()
-        away_
+        if selected_pos != "All": filtered_df = filtered_df

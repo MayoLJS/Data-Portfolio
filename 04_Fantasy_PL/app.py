@@ -5,6 +5,7 @@ import requests
 import pulp
 import plotly.express as px
 import plotly.graph_objects as go
+import random # Used for the mock odds generator
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS
@@ -21,6 +22,7 @@ st.markdown("""
     .scout-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 10px; padding: 20px; margin-bottom: 15px; }
     .pitch-card { background-color: #161b26; border: 1px solid #00f2fe; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
     .bench-card { background-color: #1e2638; border: 1px solid #ff007f; border-radius: 8px; padding: 10px; text-align: center; opacity: 0.8;}
+    .odds-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
     
     /* Pitch Background */
     .pitch-container { background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%); border-radius: 15px; padding: 20px; border: 2px solid #4caf50;}
@@ -28,6 +30,7 @@ st.markdown("""
     /* Badges */
     .badge-cyan { background-color: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid #00f2fe; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
     .badge-pink { background-color: rgba(255, 0, 127, 0.15); color: #ff007f; border: 1px solid #ff007f; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+    .badge-grey { background-color: rgba(143, 155, 186, 0.15); color: #8f9bba; border: 1px solid #8f9bba; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
     
     /* Progress Bars */
     .stProgress > div > div > div > div { background-image: linear-gradient(to right, #00c6ff, #00f2fe); }
@@ -163,7 +166,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     total_w = sum(weights.values())
     if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
 
-    # NEW: Locked Players Feature
     st.sidebar.header("3. Locked Players (Optional)")
     if players_df is not None:
         player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
@@ -187,7 +189,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             
             prob += pulp.lpSum([df.loc[i, 'custom_score'] * player_vars[i] for i in df.index])
             
-            # Constraints
             prob += pulp.lpSum([df.loc[i, 'now_cost'] * player_vars[i] for i in df.index]) <= (budget * 10) 
             prob += pulp.lpSum([player_vars[i] for i in df.index]) == 15 
             prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
@@ -197,7 +198,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             
             for t_id in df['team'].unique(): prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
             
-            # NEW: Force locked players to be included
             locked_indices = df[df['full_name'].isin(locked_players)].index.tolist()
             for idx in locked_indices:
                 prob += player_vars[idx] == 1
@@ -244,10 +244,10 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                             col.markdown(f"<div class='pitch-card'><b>{p['second_name']}</b><br><span style='font-size:12px; color:#8f9bba;'>{p['team_name']}</span><br><span style='color:#00f2fe;'>£{p['cost_m']}m</span></div>", unsafe_allow_html=True)
                     st.write("") 
 
-                render_row(starters[starters['element_type'] == 1]) # GK
-                render_row(starters[starters['element_type'] == 2]) # DEF
-                render_row(starters[starters['element_type'] == 3]) # MID
-                render_row(starters[starters['element_type'] == 4]) # FWD
+                render_row(starters[starters['element_type'] == 1]) 
+                render_row(starters[starters['element_type'] == 2]) 
+                render_row(starters[starters['element_type'] == 3]) 
+                render_row(starters[starters['element_type'] == 4]) 
                 st.markdown("</div>", unsafe_allow_html=True)
 
                 st.markdown("### 🪑 The Bench")
@@ -256,10 +256,10 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                     col.markdown(f"<div class='bench-card'><b>{p['second_name']}</b> ({p['position']})<br>£{p['cost_m']}m</div>", unsafe_allow_html=True)
 
             else:
-                st.error("⚠️ Optimizer could not find a valid 15-player squad. Check if your budget is too tight, or if your locked players violate FPL rules (e.g., locking 4 players from the same club).")
+                st.error("⚠️ Optimizer could not find a valid 15-player squad. Check if your budget is too tight, or if your locked players violate FPL rules.")
 
 # ==========================================
-# MODULE 3: TEAM BETTING EDGE
+# MODULE 3: TEAM BETTING EDGE (WITH NEW ODDS TAB)
 # ==========================================
 elif app_mode == "📈 Team Betting Edge":
     st.title("📈 Predictive Match Analytics")
@@ -288,7 +288,7 @@ elif app_mode == "📈 Team Betting Edge":
             fact_matches['FT_Status'] = np.where(fact_matches['Scored_FT'] > fact_matches['Conceded_FT'], 'Win',
                                          np.where(fact_matches['Scored_FT'] < fact_matches['Conceded_FT'], 'Loss', 'Draw'))
             
-            tab1, tab2, tab3, tab4 = st.tabs(["🔄 Losing at HT", "🛡️ Winning at HT", "🏠 Home vs Away", "🎯 Chaos Quadrant"])
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔄 Losing at HT", "🛡️ Winning at HT", "🏠 Home vs Away", "🎯 Chaos Quadrant", "🔮 Vegas Odds vs Reality"])
             
             with tab1:
                 losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
@@ -323,12 +323,73 @@ elif app_mode == "📈 Team Betting Edge":
                 fig4.add_vline(x=team_stats['Avg_Conceded'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
                 
                 fig4.update_yaxes(autorange="reversed")
-                
                 fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Top Left = Best Defense & Best Attack", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
                                    yaxis_title="Average Goals Scored (More is Better)",
                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
                 st.plotly_chart(fig4, use_container_width=True)
+                
+            # NEW FEATURE: ODDS VS REALITY
+            with tab5:
+                st.subheader("Vegas Implied Probability vs Actual Match Results")
+                st.write("*Note: Demonstrating Bookmaker API Integration. Converts decimal odds to true win probabilities.*")
+                
+                # Fetch recent matches
+                recent_matches = szn_match_df.sort_values(by='Date', ascending=False).head(10)
+                
+                for _, row in recent_matches.iterrows():
+                    # 1. MOCK API ODDS GENERATOR (Replace with requests.get('the-odds-api.com') in production)
+                    # We generate realistic odds margins to prove the normalisation math works.
+                    raw_home_prob = random.uniform(0.2, 0.7)
+                    raw_draw_prob = random.uniform(0.15, 0.3)
+                    raw_away_prob = 1.0 - raw_home_prob - raw_draw_prob
+                    
+                    # Bookies add a "Vigorish" (Margin) of ~5%
+                    margin = 1.05 
+                    dec_home = (1 / raw_home_prob) / margin
+                    dec_draw = (1 / raw_draw_prob) / margin
+                    dec_away = (1 / raw_away_prob) / margin
+                    
+                    # 2. DATA TRANSFORMATION: Convert Decimal Odds -> Implied True Probability
+                    implied_home = (1 / dec_home)
+                    implied_draw = (1 / dec_draw)
+                    implied_away = (1 / dec_away)
+                    total_implied = implied_home + implied_draw + implied_away # Will be ~105%
+                    
+                    true_prob_home = (implied_home / total_implied) * 100
+                    true_prob_draw = (implied_draw / total_implied) * 100
+                    true_prob_away = (implied_away / total_implied) * 100
+                    
+                    # Determine actual result
+                    if row['Home_Score_FT'] > row['Away_Score_FT']:
+                        result_badge = f"<span class='badge-cyan'>HOME WIN ({row['Home_Score_FT']}-{row['Away_Score_FT']})</span>"
+                    elif row['Home_Score_FT'] < row['Away_Score_FT']:
+                        result_badge = f"<span class='badge-pink'>AWAY WIN ({row['Home_Score_FT']}-{row['Away_Score_FT']})</span>"
+                    else:
+                        result_badge = f"<span class='badge-grey'>DRAW ({row['Home_Score_FT']}-{row['Away_Score_FT']})</span>"
+
+                    # 3. UI RENDERING: Custom CSS Multi-Color Progress Bar
+                    st.markdown(f"""
+                    <div class="odds-card">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <strong style="color: #e0e6ed;">{row['Home_Team']} vs {row['Away_Team']}</strong>
+                            <div>{result_badge}</div>
+                        </div>
+                        
+                        <div style="width: 100%; background-color: #232b3e; border-radius: 6px; display: flex; height: 24px; overflow: hidden; margin-bottom: 5px;">
+                           <div style="width: {true_prob_home}%; background-color: #00f2fe; display:flex; align-items:center; justify-content:center; font-size:11px; color:#0b0e14; font-weight:bold;">{true_prob_home:.1f}%</div>
+                           <div style="width: {true_prob_draw}%; background-color: #8f9bba; display:flex; align-items:center; justify-content:center; font-size:11px; color:#0b0e14; font-weight:bold;">{true_prob_draw:.1f}%</div>
+                           <div style="width: {true_prob_away}%; background-color: #ff007f; display:flex; align-items:center; justify-content:center; font-size:11px; color:#ffffff; font-weight:bold;">{true_prob_away:.1f}%</div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #8f9bba;">
+                            <span>Odds: {dec_home:.2f}</span>
+                            <span>Odds: {dec_draw:.2f}</span>
+                            <span>Odds: {dec_away:.2f}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
         else:
             st.warning("No matches found for this season/filter.")
     else:

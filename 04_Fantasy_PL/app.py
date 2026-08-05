@@ -156,4 +156,62 @@ if app_mode == "⚡ Squad Optimizer":
                 c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M")
                 c2.metric("Remaining Bank", f"£{budget - squad['cost_m'].sum():.1f}M")
                 c3.metric("Avg Squad Form", f"{squad['form'].mean():.2f}")
-                c4.metric("Avg
+                c4.metric("Avg Ownership", f"{squad['selected_by_percent'].mean():.1f}%")
+                
+                # Display Squad Table cleanly
+                display_cols = ['position', 'first_name', 'second_name', 'team_name', 'cost_m', 'form', 'selected_by_percent', 'custom_score']
+                
+                # Clean up formatting for display
+                display_df = squad[display_cols].copy()
+                display_df['custom_score'] = display_df['custom_score'].round(4)
+                
+                st.dataframe(
+                    display_df.rename(columns={
+                        'position': 'POS',
+                        'first_name': 'First Name',
+                        'second_name': 'Surname',
+                        'team_name': 'Club',
+                        'cost_m': 'Price (£M)',
+                        'form': 'Form',
+                        'selected_by_percent': 'Owned (%)',
+                        'custom_score': 'Algorithm Score (0-1)'
+                    }), 
+                    use_container_width=True, 
+                    hide_index=True
+                )
+            else:
+                st.error("⚠️ The optimizer could not find a valid 15-player squad with this budget. Try increasing your budget.")
+
+# ==========================================
+# MODULE 2: EXPLORATORY PLAYER DATABASE
+# ==========================================
+elif app_mode == "👤 Player Database":
+    st.title("👤 Premier League Player Database")
+    st.write("Explore raw data from the live Fantasy Premier League API.")
+    
+    if players_df is not None and not players_df.empty:
+        # User Filters
+        col1, col2 = st.columns(2)
+        selected_team = col1.selectbox("Filter by Team:", ["All"] + sorted(players_df['team_name'].unique().tolist()))
+        selected_pos = col2.selectbox("Filter by Position:", ["All", "GKP", "DEF", "MID", "FWD"])
+        
+        filtered_df = players_df.copy()
+        if selected_team != "All":
+            filtered_df = filtered_df[filtered_df['team_name'] == selected_team]
+        if selected_pos != "All":
+            filtered_df = filtered_df[filtered_df['position'] == selected_pos]
+            
+        st.dataframe(
+            filtered_df[['first_name', 'second_name', 'position', 'team_name', 'cost_m', 'total_points', 'form', 'ict_index']].rename(columns={
+                'first_name': 'First Name',
+                'second_name': 'Surname',
+                'position': 'POS',
+                'team_name': 'Club',
+                'cost_m': 'Price (£M)',
+                'total_points': 'Total Points',
+                'form': 'Form',
+                'ict_index': 'ICT Index'
+            }),
+            use_container_width=True,
+            hide_index=True
+        )

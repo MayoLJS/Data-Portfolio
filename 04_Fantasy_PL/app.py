@@ -130,6 +130,30 @@ if app_mode == "⚡ Squad Optimizer":
             # Constraint 2: Total 15 Players
             prob += pulp.lpSum([player_vars[i] for i in df.index]) == 15 
             
-            # Constraint 3: Strict Position Limits
+            # Constraint 3: Strict Position Limits (Fully closed brackets)
             prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2 # Exactly 2 GK
-            prob += pulp.lpSum([player_vars[i]
+            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5 # Exactly 5 DEF
+            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5 # Exactly 5 MID
+            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3 # Exactly 3 FWD
+            
+            # Constraint 4: Max 3 players per Premier League club
+            for t_id in df['team'].unique():
+                prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
+                
+            # Solve the mathematical model
+            prob.solve(pulp.PULP_CBC_CMD(msg=False))
+            
+            # Step 4: Extract and Format Results
+            selected_indices = [i for i in df.index if player_vars[i].varValue == 1]
+            squad = df.loc[selected_indices].copy()
+            squad = squad.sort_values(by=['element_type', 'cost_m'], ascending=[True, False])
+            
+            if len(squad) == 15:
+                st.success("✅ Optimization Complete! Here is your mathematically perfect squad based on your parameters.")
+                
+                # Top Summary Metrics
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M")
+                c2.metric("Remaining Bank", f"£{budget - squad['cost_m'].sum():.1f}M")
+                c3.metric("Avg Squad Form", f"{squad['form'].mean():.2f}")
+                c4.metric("Avg

@@ -143,8 +143,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
     
     st.sidebar.header("2. Custom Strategy Weights")
-    
-    # RESTORED: Advanced Mode Toggle
     advanced_mode = st.sidebar.toggle("Advanced Metric Breakdown", value=False)
     
     if not advanced_mode:
@@ -162,27 +160,34 @@ elif app_mode == "⚡ FPL Squad Optimizer":
         w_thr = st.sidebar.slider("Threat (Goals)", 0, 100, 20, 5)
         weights = {'form': w_form, 'selected_by_percent': w_own, 'influence': w_inf, 'creativity': w_cre, 'threat': w_thr}
 
-    # Normalize weights so they sum to 1.0
     total_w = sum(weights.values())
     if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
+
+    # NEW: Locked Players Feature
+    st.sidebar.header("3. Locked Players (Optional)")
+    if players_df is not None:
+        player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
+        locked_players = st.sidebar.multiselect("Select up to 5 must-have players:", player_choices, max_selections=5)
+    else:
+        locked_players = []
 
     if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
         if players_df is not None:
             df = players_df.copy()
+            df['full_name'] = df['first_name'] + " " + df['second_name']
             
-            # Normalization
             for metric in weights.keys():
                 min_v, max_v = df[metric].min(), df[metric].max()
                 df[f'{metric}_norm'] = (df[metric] - min_v) / (max_v - min_v) if max_v > min_v else 0.0
             
-            # Composite Score Calculation
             df['custom_score'] = sum(df[f'{metric}_norm'] * w for metric, w in weights.items())
                 
-            # PuLP Optimizer
             prob = pulp.LpProblem("Optimal_FPL_Squad", pulp.LpMaximize)
             player_vars = pulp.LpVariable.dicts("player", df.index, cat='Binary')
             
             prob += pulp.lpSum([df.loc[i, 'custom_score'] * player_vars[i] for i in df.index])
+            
+            # Constraints
             prob += pulp.lpSum([df.loc[i, 'now_cost'] * player_vars[i] for i in df.index]) <= (budget * 10) 
             prob += pulp.lpSum([player_vars[i] for i in df.index]) == 15 
             prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
@@ -191,6 +196,11 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
             
             for t_id in df['team'].unique(): prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
+            
+            # NEW: Force locked players to be included
+            locked_indices = df[df['full_name'].isin(locked_players)].index.tolist()
+            for idx in locked_indices:
+                prob += player_vars[idx] == 1
                 
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
@@ -246,7 +256,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                     col.markdown(f"<div class='bench-card'><b>{p['second_name']}</b> ({p['position']})<br>£{p['cost_m']}m</div>", unsafe_allow_html=True)
 
             else:
-                st.error("⚠️ Budget too tight to field 15 players. Adjust constraints.")
+                st.error("⚠️ Optimizer could not find a valid 15-player squad. Check if your budget is too tight, or if your locked players violate FPL rules (e.g., locking 4 players from the same club).")
 
 # ==========================================
 # MODULE 3: TEAM BETTING EDGE

@@ -4,9 +4,10 @@ import numpy as np
 import requests
 import pulp
 import plotly.express as px
+import plotly.graph_objects as go
 
 # ==========================================
-# 1. PAGE CONFIG & CUSTOM SCOUT LAB CSS
+# 1. PAGE CONFIG & CUSTOM CSS
 # ==========================================
 st.set_page_config(page_title="FPL Squad Architect & Scout", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
@@ -18,6 +19,11 @@ st.markdown("""
     
     /* Custom Card Containers */
     .scout-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 10px; padding: 20px; margin-bottom: 15px; }
+    .pitch-card { background-color: #161b26; border: 1px solid #00f2fe; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .bench-card { background-color: #1e2638; border: 1px solid #ff007f; border-radius: 8px; padding: 10px; text-align: center; opacity: 0.8;}
+    
+    /* Pitch Background */
+    .pitch-container { background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%); border-radius: 15px; padding: 20px; border: 2px solid #4caf50;}
     
     /* Badges */
     .badge-cyan { background-color: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid #00f2fe; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
@@ -33,7 +39,6 @@ st.markdown("""
 # ==========================================
 @st.cache_data(ttl=3600)
 def load_fpl_data():
-    """Fetches live FPL player metrics from the official API."""
     url = "https://fantasy.premierleague.com/api/bootstrap-static/"
     try:
         response = requests.get(url, timeout=10)
@@ -54,8 +59,6 @@ def load_fpl_data():
 
 @st.cache_data(ttl=3600)
 def load_match_data():
-    """Reads rolling 3-year match results dataset from GitHub."""
-    # Ensure this URL matches your actual raw GitHub link to the CSV
     raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/02_Automated_Football_Analytics/data/pl_rolling_3_years_latest.csv"
     try:
         df = pd.read_csv(raw_url)
@@ -64,60 +67,79 @@ def load_match_data():
     except Exception:
         return pd.DataFrame()
 
+players_df = load_fpl_data()
+match_df = load_match_data()
+
 # ==========================================
 # 3. SIDEBAR NAVIGATION
 # ==========================================
 st.sidebar.title("⚽ SCOUT LAB PRO")
 st.sidebar.markdown("---")
-app_mode = st.sidebar.radio("Select Module:", ["👤 Player Scout Card", "⚡ FPL Squad Optimizer", "📈 Team Betting Edge"])
-
-players_df = load_fpl_data()
-match_df = load_match_data()
+app_mode = st.sidebar.radio("Select Module:", [
+    "👤 Player Scout Card", 
+    "⚡ FPL Squad Optimizer", 
+    "📈 Team Betting Edge",
+    "📊 Live League Table"
+])
 
 # ==========================================
-# MODULE 1: PLAYER SCOUT CARD
+# MODULE 1: PLAYER SCOUT CARD (Now with Filters)
 # ==========================================
 if app_mode == "👤 Player Scout Card":
     st.title("👤 Player Performance Profile")
     
     if players_df is not None and not players_df.empty:
-        player_list = (players_df['first_name'] + " " + players_df['second_name']).tolist()
-        selected_player = st.selectbox("Search Player:", sorted(player_list), index=player_list.index("Erling Haaland") if "Erling Haaland" in player_list else 0)
+        # Step 1: UI Filters
+        f_col1, f_col2 = st.columns(2)
+        teams_list = ["All"] + sorted(players_df['team_name'].unique().tolist())
+        selected_team = f_col1.selectbox("Filter by Team:", teams_list)
+        selected_pos = f_col2.selectbox("Filter by Position:", ["All", "GKP", "DEF", "MID", "FWD"])
         
-        p_data = players_df[(players_df['first_name'] + " " + players_df['second_name']) == selected_player].iloc[0]
+        # Step 2: Apply Filters
+        filtered_df = players_df.copy()
+        if selected_team != "All": filtered_df = filtered_df[filtered_df['team_name'] == selected_team]
+        if selected_pos != "All": filtered_df = filtered_df[filtered_df['position'] == selected_pos]
         
-        # Scout Banner
-        st.markdown(f"""
-        <div class="scout-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <span class="badge-cyan">{p_data['position'].upper()}</span>
-                    <span class="badge-pink">{p_data['team_name']}</span>
-                    <h1 style="color: white; margin: 10px 0 0 0;">{p_data['first_name']} {p_data['second_name']}</h1>
-                    <p style="color: #8f9bba; margin: 0;">Price: £{p_data['cost_m']}M | Ownership: {p_data['selected_by_percent']}% | Points: {int(p_data['total_points'])}</p>
-                </div>
-                <div style="text-align: right;">
-                    <h2 style="color: #00f2fe; margin:0;">ICT: {p_data['ict_index']}</h2>
-                    <p style="color: #8f9bba; margin:0;">Form: {p_data['form']}</p>
+        # Step 3: Player Search
+        player_list = sorted((filtered_df['first_name'] + " " + filtered_df['second_name']).tolist())
+        
+        if len(player_list) > 0:
+            selected_player = st.selectbox("Select Player:", player_list)
+            p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
+            
+            # Scout Banner
+            st.markdown(f"""
+            <div class="scout-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="badge-cyan">{p_data['position'].upper()}</span>
+                        <span class="badge-pink">{p_data['team_name']}</span>
+                        <h1 style="color: white; margin: 10px 0 0 0;">{p_data['first_name']} {p_data['second_name']}</h1>
+                        <p style="color: #8f9bba; margin: 0;">Price: £{p_data['cost_m']}M | Ownership: {p_data['selected_by_percent']}% | Points: {int(p_data['total_points'])}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h2 style="color: #00f2fe; margin:0;">ICT: {p_data['ict_index']}</h2>
+                        <p style="color: #8f9bba; margin:0;">Form: {p_data['form']}</p>
+                    </div>
                 </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
-        
-        col1, col2 = st.columns(2)
-        for i, (label, col_name) in enumerate(metrics.items()):
-            val = p_data[col_name]
-            percentile = int((players_df[col_name] < val).mean() * 100)
+            """, unsafe_allow_html=True)
             
-            target_col = col1 if i < 3 else col2
-            with target_col:
-                st.write(f"**{label}**: `{val}` *(Top {100-percentile}%)*")
-                st.progress(percentile / 100.0)
+            # Percentile Progress Bars
+            metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
+            col1, col2 = st.columns(2)
+            for i, (label, col_name) in enumerate(metrics.items()):
+                val = p_data[col_name]
+                percentile = int((players_df[col_name] < val).mean() * 100)
+                target_col = col1 if i < 3 else col2
+                with target_col:
+                    st.write(f"**{label}**: `{val}` *(Top {100-percentile}%)*")
+                    st.progress(percentile / 100.0)
+        else:
+            st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER
+# MODULE 2: FPL SQUAD OPTIMIZER (Now with Pitch)
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
     st.title("⚡ Prescriptive FPL Squad Optimizer")
@@ -159,68 +181,75 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
             squad = df.loc[[i for i in df.index if player_vars[i].varValue == 1]].copy()
-            squad = squad.sort_values(by=['element_type', 'cost_m'], ascending=[True, False])
             
             if len(squad) == 15:
-                st.success("✅ Optimization Complete!")
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M")
-                c2.metric("Remaining Bank", f"£{budget - squad['cost_m'].sum():.1f}M")
-                c3.metric("Avg Squad Form", f"{squad['form'].mean():.2f}")
-                c4.metric("Avg Ownership", f"{squad['selected_by_percent'].mean():.1f}%")
+                # --- STARTING XI vs BENCH LOGIC ---
+                squad = squad.sort_values(by='custom_score', ascending=False)
                 
-                display_df = squad[['position', 'first_name', 'second_name', 'team_name', 'cost_m', 'form', 'selected_by_percent', 'custom_score']].copy()
-                display_df['custom_score'] = display_df['custom_score'].round(4)
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                # Separate by position
+                gkps = squad[squad['element_type'] == 1]
+                defs = squad[squad['element_type'] == 2]
+                mids = squad[squad['element_type'] == 3]
+                fwds = squad[squad['element_type'] == 4]
+
+                # Lock in minimum formation requirements (1 GK, 3 DEF, 2 MID, 1 FWD)
+                start_gkp = gkps.head(1)
+                bench_gkp = gkps.tail(1)
+                
+                start_def = defs.head(3)
+                start_mid = mids.head(2)
+                start_fwd = fwds.head(1)
+                
+                # Take the 4 best remaining outfielders regardless of position
+                remaining_outfield = pd.concat([defs.iloc[3:], mids.iloc[2:], fwds.iloc[1:]]).sort_values(by='custom_score', ascending=False)
+                start_rest = remaining_outfield.head(4)
+                bench_rest = remaining_outfield.tail(3)
+                
+                starters = pd.concat([start_gkp, start_def, start_mid, start_fwd, start_rest])
+                bench = pd.concat([bench_gkp, bench_rest]).sort_values(by='element_type')
+
+                # --- UI RENDERING ---
+                st.success("✅ Optimization Complete!")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
+                c2.metric("Starting XI Proj. Score", f"{starters['custom_score'].sum():.2f}")
+                c3.metric("Bench Proj. Score", f"{bench['custom_score'].sum():.2f}")
+
+                st.markdown("### 🏟️ The Starting XI")
+                st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
+                
+                # Helper function to render rows
+                def render_row(players_in_row):
+                    cols = st.columns(len(players_in_row))
+                    for col, (_, p) in zip(cols, players_in_row.iterrows()):
+                        col.markdown(f"<div class='pitch-card'><b>{p['second_name']}</b><br><span style='font-size:12px; color:#8f9bba;'>{p['team_name']}</span><br><span style='color:#00f2fe;'>£{p['cost_m']}m</span></div>", unsafe_allow_html=True)
+                    st.write("") # Spacing
+
+                render_row(starters[starters['element_type'] == 1]) # GK
+                render_row(starters[starters['element_type'] == 2]) # DEF
+                render_row(starters[starters['element_type'] == 3]) # MID
+                render_row(starters[starters['element_type'] == 4]) # FWD
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                st.markdown("### 🪑 The Bench")
+                b_cols = st.columns(4)
+                for col, (_, p) in zip(b_cols, bench.iterrows()):
+                    col.markdown(f"<div class='bench-card'><b>{p['second_name']}</b> ({p['position']})<br>£{p['cost_m']}m</div>", unsafe_allow_html=True)
+
             else:
-                st.error("⚠️ Budget too tight to field 15 players.")
+                st.error("⚠️ Budget too tight to field 15 players. Adjust constraints.")
 
 # ==========================================
-# MODULE 3: TEAM BETTING EDGE (Plotly)
+# MODULE 3: TEAM BETTING EDGE (Expanded)
 # ==========================================
 elif app_mode == "📈 Team Betting Edge":
     st.title("📈 Predictive Match Analytics")
-    st.write("Analyzing 3-year rolling match data for betting patterns and tactical setups.")
     
     if match_df is not None and not match_df.empty:
-        # Transform data to Team level (Home + Away perspectives)
+        # Restructure Data
         home_m = match_df[['Match_ID', 'Home_Team', 'Home_Score_HT', 'Away_Score_HT', 'Home_Score_FT', 'Away_Score_FT']].copy()
         home_m.columns = ['Match_ID', 'Team', 'Scored_HT', 'Conceded_HT', 'Scored_FT', 'Conceded_FT']
+        home_m['Venue'] = 'Home'
         
         away_m = match_df[['Match_ID', 'Away_Team', 'Away_Score_HT', 'Home_Score_HT', 'Away_Score_FT', 'Home_Score_FT']].copy()
-        away_m.columns = ['Match_ID', 'Team', 'Scored_HT', 'Conceded_HT', 'Scored_FT', 'Conceded_FT']
-        
-        fact_matches = pd.concat([home_m, away_m], ignore_index=True)
-        
-        fact_matches['HT_Status'] = np.where(fact_matches['Scored_HT'] > fact_matches['Conceded_HT'], 'Winning',
-                                     np.where(fact_matches['Scored_HT'] < fact_matches['Conceded_HT'], 'Losing', 'Drawing'))
-        fact_matches['FT_Status'] = np.where(fact_matches['Scored_FT'] > fact_matches['Conceded_FT'], 'Win',
-                                     np.where(fact_matches['Scored_FT'] < fact_matches['Conceded_FT'], 'Loss', 'Draw'))
-        
-        tab1, tab2 = st.tabs(["🔄 HT/FT Turnaround Kings", "🎯 The Chaos Quadrant"])
-        
-        with tab1:
-            st.subheader("Match Outcomes When Trailing at Halftime")
-            losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
-            
-            # Plotly styling to match your dark/cyan/magenta screenshot
-            fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", 
-                                color_discrete_map={'Win': '#00f2fe', 'Draw': '#8f9bba', 'Loss': '#ff007f'},
-                                orientation='h', height=600)
-            fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, 
-                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
-            st.plotly_chart(fig1, use_container_width=True)
-            
-        with tab2:
-            st.subheader("Offensive vs Defensive Style (Avg Goals Per Match)")
-            team_stats = fact_matches.groupby('Team').agg(Avg_Scored=('Scored_FT', 'mean'), Avg_Conceded=('Conceded_FT', 'mean')).reset_index()
-            
-            fig2 = px.scatter(team_stats, x='Avg_Scored', y='Avg_Conceded', text='Team', color_discrete_sequence=['#00f2fe'], height=600)
-            fig2.update_traces(textposition='top center', marker=dict(size=12, line=dict(width=2, color='DarkSlateGrey')))
-            fig2.add_hline(y=team_stats['Avg_Conceded'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="League Avg Conceded")
-            fig2.add_vline(x=team_stats['Avg_Scored'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="League Avg Scored")
-            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed',
-                               xaxis_title="Average Goals Scored", yaxis_title="Average Goals Conceded")
-            st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.warning("Match dataset is currently loading or unavailable. Check the raw GitHub CSV link.")
+        away_

@@ -5,7 +5,6 @@ import requests
 import pulp
 import plotly.express as px
 import plotly.graph_objects as go
-import random
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS
@@ -22,13 +21,7 @@ st.markdown("""
     .scout-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 10px; padding: 20px; margin-bottom: 15px; }
     .pitch-card { background-color: #161b26; border: 1px solid #00f2fe; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
     .bench-card { background-color: #1e2638; border: 1px solid #ff007f; border-radius: 8px; padding: 10px; text-align: center; opacity: 0.8;}
-    .odds-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-    
-    /* Odds Table Styling */
-    .odds-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
-    .odds-table th { color: #8f9bba; padding-bottom: 8px; border-bottom: 1px solid #232b3e; font-weight: normal;}
-    .odds-table td { padding: 8px 0; border-bottom: 1px solid rgba(35, 43, 62, 0.5); }
-    .odds-table tr:last-child td { border-bottom: none; }
+    .fixture-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 10px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
     
     /* Pitch Background */
     .pitch-container { background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%); border-radius: 15px; padding: 20px; border: 2px solid #4caf50;}
@@ -36,6 +29,7 @@ st.markdown("""
     /* Badges */
     .badge-cyan { background-color: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid #00f2fe; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
     .badge-pink { background-color: rgba(255, 0, 127, 0.15); color: #ff007f; border: 1px solid #ff007f; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+    .score-box { background-color: #0b0e14; border: 1px solid #232b3e; border-radius: 6px; padding: 6px 14px; font-size: 18px; font-weight: bold; color: #00f2fe; letter-spacing: 2px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -68,6 +62,9 @@ def load_match_data():
     try:
         df = pd.read_csv(raw_url)
         df['Date'] = pd.to_datetime(df['Date'])
+        # Dynamically assign Gameweeks (blocks of 10 matches chronologically per season)
+        df = df.sort_values(by=['Season', 'Date'])
+        df['Gameweek'] = df.groupby('Season').cumcount() // 10 + 1
         return df
     except Exception:
         return pd.DataFrame()
@@ -84,6 +81,7 @@ app_mode = st.sidebar.radio("Select Module:", [
     "👤 Player Scout Card", 
     "⚡ FPL Squad Optimizer", 
     "📈 Team Betting Edge",
+    "📅 Match Results & Fixtures",
     "📊 Live League Table"
 ])
 
@@ -261,19 +259,16 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Optimizer could not find a valid 15-player squad. Check if your budget is too tight, or if your locked players violate FPL rules.")
 
 # ==========================================
-# MODULE 3: TEAM BETTING EDGE (WITH NEW MATCHES TAB)
+# MODULE 3: TEAM BETTING EDGE
 # ==========================================
 elif app_mode == "📈 Team Betting Edge":
     st.title("📈 Predictive Match Analytics")
     
     if match_df is not None and not match_df.empty:
-        available_seasons = ["All Seasons"] + sorted(match_df['Season'].unique().tolist(), reverse=True)
+        available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
         selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
         
-        if selected_season == "All Seasons":
-            szn_match_df = match_df.copy()
-        else:
-            szn_match_df = match_df[match_df['Season'] == selected_season]
+        szn_match_df = match_df[match_df['Season'] == selected_season]
         
         if not szn_match_df.empty:
             home_m = szn_match_df[['Match_ID', 'Home_Team', 'Home_Score_HT', 'Away_Score_HT', 'Home_Score_FT', 'Away_Score_FT']].copy()
@@ -290,7 +285,7 @@ elif app_mode == "📈 Team Betting Edge":
             fact_matches['FT_Status'] = np.where(fact_matches['Scored_FT'] > fact_matches['Conceded_FT'], 'Win',
                                          np.where(fact_matches['Scored_FT'] < fact_matches['Conceded_FT'], 'Loss', 'Draw'))
             
-            tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔄 Losing at HT", "🛡️ Winning at HT", "🏠 Home vs Away", "🎯 Chaos Quadrant", "🔮 Match Odds & Results"])
+            tab1, tab2, tab3, tab4 = st.tabs(["🔄 Losing at HT", "🛡️ Winning at HT", "🏠 Home vs Away", "🎯 Chaos Quadrant"])
             
             with tab1:
                 losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
@@ -325,97 +320,68 @@ elif app_mode == "📈 Team Betting Edge":
                 fig4.add_vline(x=team_stats['Avg_Conceded'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
                 
                 fig4.update_yaxes(autorange="reversed")
-                
                 fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Top Left = Best Defense & Best Attack", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
                                    yaxis_title="Average Goals Scored (More is Better)",
                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
                 st.plotly_chart(fig4, use_container_width=True)
-                
-            # NEW MATCH LIST & ODDS TABLE TAB
-            with tab5:
-                st.subheader("Match Results & Implied Odds")
-                
-                # Filters for this specific tab
-                col_f1, col_f2 = st.columns(2)
-                min_date = szn_match_df['Date'].min().date()
-                max_date = szn_match_df['Date'].max().date()
-                
-                date_range = col_f1.date_input("Filter by Date Range", [min_date, max_date], min_value=min_date, max_value=max_date)
-                
-                search_team = col_f2.selectbox("Filter by Team (Optional):", ["All"] + sorted(pd.concat([szn_match_df['Home_Team'], szn_match_df['Away_Team']]).unique()))
-
-                # Apply Filters
-                filtered_matches = szn_match_df.copy()
-                if len(date_range) == 2:
-                    filtered_matches = filtered_matches[(filtered_matches['Date'].dt.date >= date_range[0]) & (filtered_matches['Date'].dt.date <= date_range[1])]
-                
-                if search_team != "All":
-                    filtered_matches = filtered_matches[(filtered_matches['Home_Team'] == search_team) | (filtered_matches['Away_Team'] == search_team)]
-                
-                filtered_matches = filtered_matches.sort_values(by='Date', ascending=False)
-                
-                if not filtered_matches.empty:
-                    # Display the matches in the requested table format
-                    for _, row in filtered_matches.iterrows():
-                        # Mock Odds Generator (Replace with actual data merge in the future)
-                        home_odds = f"{round(random.uniform(1.2, 3.5), 2):.2f}"
-                        draw_odds = f"{round(random.uniform(2.5, 4.5), 2):.2f}"
-                        away_odds = f"{round(random.uniform(2.5, 6.0), 2):.2f}"
-                        
-                        # Outcome Logic
-                        home_won = row['Home_Score_FT'] > row['Away_Score_FT']
-                        draw = row['Home_Score_FT'] == row['Away_Score_FT']
-                        away_won = row['Home_Score_FT'] < row['Away_Score_FT']
-                        
-                        home_badge = "<span style='color:#00f2fe; font-weight:bold;'>Yes</span>" if home_won else "<span style='color:#8f9bba;'>No</span>"
-                        draw_badge = "<span style='color:#00f2fe; font-weight:bold;'>Yes</span>" if draw else "<span style='color:#8f9bba;'>No</span>"
-                        away_badge = "<span style='color:#00f2fe; font-weight:bold;'>Yes</span>" if away_won else "<span style='color:#8f9bba;'>No</span>"
-                        
-                        home_score = int(row['Home_Score_FT'])
-                        away_score = int(row['Away_Score_FT'])
-                        match_date_str = row['Date'].strftime('%d %b %Y')
-                        
-                        st.markdown(f"""
-                        <div class="odds-card">
-                            <div style="color: #8f9bba; font-size: 12px; margin-bottom: 10px;">Date: {match_date_str}</div>
-                            <table class="odds-table">
-                                <tr>
-                                    <th style="width:40%;">Team / Result</th>
-                                    <th style="width:20%;">Odds</th>
-                                    <th style="width:20%;">Outcome</th>
-                                    <th style="width:20%;">Score</th>
-                                </tr>
-                                <tr>
-                                    <td><strong>{row['Home_Team']}</strong> (Home)</td>
-                                    <td>{home_odds}</td>
-                                    <td>{home_badge}</td>
-                                    <td><strong>{home_score}</strong></td>
-                                </tr>
-                                <tr>
-                                    <td>Draw</td>
-                                    <td>{draw_odds}</td>
-                                    <td>{draw_badge}</td>
-                                    <td>-</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>{row['Away_Team']}</strong> (Away)</td>
-                                    <td>{away_odds}</td>
-                                    <td>{away_badge}</td>
-                                    <td><strong>{away_score}</strong></td>
-                                </tr>
-                            </table>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("No matches found for the selected date range and team.")
         else:
             st.warning("No matches found for this season/filter.")
     else:
         st.warning("Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 4: LIVE LEAGUE TABLE
+# MODULE 4: MATCH RESULTS & FIXTURES (Standalone Section)
+# ==========================================
+elif app_mode == "📅 Match Results & Fixtures":
+    st.title("📅 Match Results & Fixtures")
+    st.write("Browse actual match scores and results across Premier League seasons, grouped by Gameweek.")
+    
+    if match_df is not None and not match_df.empty:
+        available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
+        selected_season = st.selectbox("Select Season:", available_seasons)
+        
+        szn_matches = match_df[match_df['Season'] == selected_season].copy()
+        
+        if not szn_matches.empty:
+            max_gw = int(szn_matches['Gameweek'].max())
+            gw_list = [f"Gameweek {i}" for i in range(1, max_gw + 1)]
+            
+            selected_gw_str = st.selectbox("Select Matchweek:", gw_list)
+            selected_gw_num = int(selected_gw_str.split(" ")[1])
+            
+            gw_matches = szn_matches[szn_matches['Gameweek'] == selected_gw_num].sort_values('Date')
+            
+            st.markdown(f"### 🗓️ {selected_season} - {selected_gw_str}")
+            st.markdown("---")
+            
+            if not gw_matches.empty:
+                for _, row in gw_matches.iterrows():
+                    match_date = row['Date'].strftime('%d %b %Y')
+                    h_team = row['Home_Team']
+                    a_team = row['Away_Team']
+                    h_score = int(row['Home_Score_FT'])
+                    a_score = int(row['Away_Score_FT'])
+                    
+                    st.markdown(f"""
+                    <div class="fixture-card">
+                        <div style="width: 35%; text-align: right; font-size: 16px; font-weight: bold; color: #e0e6ed;">{h_team}</div>
+                        <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
+                            <div class="score-box">{h_score} - {a_score}</div>
+                            <span style="font-size: 11px; color: #8f9bba; margin-top: 4px;">{match_date}</span>
+                        </div>
+                        <div style="width: 35%; text-align: left; font-size: 16px; font-weight: bold; color: #e0e6ed;">{a_team}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No fixtures found for this gameweek.")
+        else:
+            st.warning("No matches found for this season.")
+    else:
+        st.warning("Match dataset is currently loading or unavailable.")
+
+# ==========================================
+# MODULE 5: LIVE LEAGUE TABLE
 # ==========================================
 elif app_mode == "📊 Live League Table":
     st.title("📊 League Table & Gameweek Trends")

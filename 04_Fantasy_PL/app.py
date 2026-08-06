@@ -164,14 +164,14 @@ if app_mode == "👤 Player Scout Card":
             grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
             
-            # Using Streamlit's robust native dataframe
-            st.dataframe(filtered_df[available_cols], width=None, hide_index=True)
+            # THE FIX: Removed width=None entirely, restoring use_container_width=True to fix the invalid width crash
+            st.dataframe(filtered_df[available_cols], use_container_width=True, hide_index=True)
 
         else:
             st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER (ADVANCED BENCH LOGIC)
+# MODULE 2: FPL SQUAD OPTIMIZER (WITH FORMATIONS)
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
     st.title("⚡ Prescriptive FPL Squad Optimizer")
@@ -182,7 +182,12 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     st.sidebar.header("2. Bench Strategy")
     bench_weight = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1, help="0.1 = Dump cheapest fodder on bench to maximize Starting XI. 1.0 = Spread budget equally (Bench Boost).")
     
-    st.sidebar.header("3. Custom Strategy Weights")
+    # NEW FEATURE: Preferred Formation
+    st.sidebar.header("3. Target Formation")
+    formation_choices = ["Auto (Best Points)", "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]
+    target_formation = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices)
+    
+    st.sidebar.header("4. Custom Strategy Weights")
     advanced_mode = st.sidebar.toggle("Advanced Metric Breakdown", value=False)
     
     if not advanced_mode:
@@ -203,14 +208,15 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     total_w = sum(weights.values())
     if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
 
-    st.sidebar.header("4. Locked Players (Optional)")
+    st.sidebar.header("5. Locked Players (Optional)")
     if players_df is not None:
         player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
         locked_players = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices, max_selections=14)
     else:
         locked_players = []
 
-    if st.button("🚀 Generate Optimal Squad", type="primary"):
+    # Using width="stretch" to comply with future Streamlit updates for buttons
+    if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
         if players_df is not None:
             df = players_df.copy()
             df['full_name'] = df['first_name'] + " " + df['second_name']
@@ -244,12 +250,21 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
             
-            # Starting XI Formation Constraints (e.g. 3-5-2, 4-4-2, 3-4-3)
+            # Starting XI Formation Logic
             prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
-            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) >= 3
-            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
-            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
             
+            if target_formation == "Auto (Best Points)":
+                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) >= 3
+                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
+                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
+            else:
+                # Parse exact positions requested (e.g. 3-4-3)
+                def_req, mid_req, fwd_req = map(int, target_formation.split('-'))
+                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == def_req
+                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == mid_req
+                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == fwd_req
+            
+            # Team Limitations
             for t_id in df['team'].unique(): 
                 prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
             
@@ -314,7 +329,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 render_row(bench, card_class='bench-card')
 
             else:
-                st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules.")
+                st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules/formation constraints.")
 
 # ==========================================
 # MODULE 3: TEAM BETTING EDGE
@@ -350,14 +365,14 @@ elif app_mode == "📈 Team Betting Edge":
                 fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({selected_season})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig1)
+                st.plotly_chart(fig1, use_container_width=True)
                 
             with tab2:
                 winning_ht = fact_matches[fact_matches['HT_Status'] == 'Winning']
                 fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({selected_season})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig2)
+                st.plotly_chart(fig2, use_container_width=True)
                 
             with tab3:
                 ha_stats = fact_matches.groupby(['Team', 'Venue']).size().reset_index(name='Matches')
@@ -368,7 +383,7 @@ elif app_mode == "📈 Team Betting Edge":
                 fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({selected_season})",
                               color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
                 fig3.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig3)
+                st.plotly_chart(fig3, use_container_width=True)
 
             with tab4:
                 pts_map = {'Win': 3, 'Draw': 1, 'Loss': 0}
@@ -401,7 +416,7 @@ elif app_mode == "📈 Team Betting Edge":
                                    xaxis=dict(range=[x_min, x_max]),
                                    yaxis=dict(range=[y_min, y_max]),
                                    template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig4)
+                st.plotly_chart(fig4, use_container_width=True)
         else:
             st.warning("No matches found for this season/filter.")
     else:
@@ -540,7 +555,7 @@ elif app_mode == "📊 Live League Table":
                     fig_trend.update_yaxes(autorange="reversed", title="League Position", tickmode='linear', tick0=1, dtick=1)
                     fig_trend.update_xaxes(title="Matches Played")
                     fig_trend.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_trend)
+                    st.plotly_chart(fig_trend, use_container_width=True)
                 else:
                     st.info("Please select at least one team to display the trend line.")
 

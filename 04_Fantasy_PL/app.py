@@ -5,7 +5,6 @@ import requests
 import pulp
 import plotly.express as px
 import plotly.graph_objects as go
-import soccerdata as sd 
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
@@ -89,18 +88,13 @@ def load_match_data():
     except Exception:
         return pd.DataFrame()
 
-# NEW SOCCERDATA LOADER
-@st.cache_data(ttl=86400) # Cache for 24 hours to respect rate limits
+@st.cache_data(ttl=3600)
 def load_fbref_data():
+    raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/data/fbref_shooting.csv"
     try:
-        # Pull current season PL data
-        fbref = sd.FBref(leagues=['ENG-Premier League'], seasons=['2324'])
-        
-        # Pull team shooting stats as an example
-        team_shooting = fbref.read_team_season_stats(stat_type='shooting')
-        team_shooting = team_shooting.reset_index()
-        return team_shooting
-    except Exception as e:
+        df = pd.read_csv(raw_url)
+        return df
+    except Exception:
         return None
 
 players_df, teams_df = load_fpl_data()
@@ -645,4 +639,4 @@ elif app_mode == "🌐 FBref Team Stats":
     if fbref_shooting_df is not None:
         st.dataframe(fbref_shooting_df, width="stretch")
     else:
-        st.error("⚠️ FBref data could not be loaded at this time. Please ensure packages.txt is committed and the Streamlit app is rebooted.")
+        st.error("⚠️ FBref data could not be loaded at this time. Please ensure the CSV exists in your repository.")

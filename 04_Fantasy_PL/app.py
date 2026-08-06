@@ -386,16 +386,20 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='custom_score', ascending=False)
                 bench = pd.concat([bench_gkp, bench_outfield])
 
-                st.success("✅ Optimization Complete!")
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
-                c2.metric("Starting XI Rating (/11.0)", f"{starters['custom_score'].sum():.2f}")
-                c3.metric("Bench Rating (/4.0)", f"{bench['custom_score'].sum():.2f}")
-
-                # === CAPTAINCY & TRIPLE CAPTAIN LOGIC ===
+                # === CAPTAINCY & EXPECTED POINTS LOGIC ===
                 captain_id = starters['predicted_points'].idxmax()
                 captain_row = starters.loc[captain_id]
                 
+                # Sum of starting XI predicted points + Captain bonus (Captain points are doubled)
+                total_expected_points = starters['predicted_points'].sum() + captain_row['predicted_points']
+
+                st.success("✅ Optimization Complete!")
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
+                c2.metric("Projected Points", f"{total_expected_points:.1f} pts", help="Starting XI xP + Captain Bonus")
+                c3.metric("Starting XI Rating (/11.0)", f"{starters['custom_score'].sum():.2f}")
+                c4.metric("Bench Rating (/4.0)", f"{bench['custom_score'].sum():.2f}")
+
                 st.markdown("### 👑 Captaincy & Strategy")
                 if captain_row['predicted_points'] >= 7.5:
                     st.success(f"🔥 **Triple Captain Alert:** **{captain_row['second_name']}** is projected for an elite **{captain_row['predicted_points']} points** against {captain_row.get('next_opponent', 'their next opponent')}. Consider using your Triple Captain chip!")

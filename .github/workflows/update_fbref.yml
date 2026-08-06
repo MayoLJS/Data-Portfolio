@@ -8,6 +8,11 @@ on:
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./04_Fantasy_PL
 
     steps:
       - name: Check out repo
@@ -27,7 +32,7 @@ jobs:
           pip install soccerdata pandas undetected-chromedriver html5lib lxml
 
       - name: Run extraction script
-        run: python extract_fbref.py
+        run: python scripts/extract_fbref.py
 
       - name: Commit and push generated CSV
         run: |

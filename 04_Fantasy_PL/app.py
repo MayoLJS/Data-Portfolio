@@ -48,7 +48,9 @@ def load_fpl_data():
     teams = pd.DataFrame(data['teams'])
     
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
-    players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength'])))
+    
+    # Safe mapping with a default fallback of 3 (Average Strength)
+    players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
     
     # Adding xG and xA from official FPL Data
     num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'expected_goal_involvements']
@@ -156,7 +158,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     st.sidebar.info("💡 Optimizer uses a blend of Form, Ownership, and ICT Index.")
     weights = {'form': 0.3, 'selected_by_percent': 0.3, 'ict_index': 0.4}
 
-    if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
+    if st.button("🚀 Generate Optimal Squad", type="primary", width="stretch"):
         if players_df is not None:
             df = players_df.copy()
             df['full_name'] = df['first_name'] + " " + df['second_name']
@@ -218,7 +220,10 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                     if not players_in_row.empty:
                         cols = st.columns(len(players_in_row))
                         for col, row_data in zip(cols, players_in_row.itertuples()):
-                            strength_val = int(row_data.team_strength)
+                            # Double safeguard for float/NaN conversion
+                            val = row_data.team_strength
+                            strength_val = int(val) if pd.notna(val) else 3
+                            
                             fdr_class = f"fdr-{strength_val}" if strength_val in [2, 3, 4, 5] else "fdr-3"
                             
                             col.markdown(f"""
@@ -257,7 +262,7 @@ elif app_mode == "📈 Team Betting Edge":
             fig = px.scatter(team_stats, x='Conceded_FT', y='Scored_FT', text='Team', size='Scored_FT', color_discrete_sequence=['#00f2fe'])
             fig.update_traces(textposition='top center')
             fig.update_layout(title="Home Performance Matrix", template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
 elif app_mode == "📊 Live League Table":
     st.title("📊 League Table & Trends")

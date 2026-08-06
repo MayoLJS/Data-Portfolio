@@ -7,12 +7,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # ==========================================
-# 1. PAGE CONFIG & CUSTOM CSS (PREMIUM THEME)
+# 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
-# Removed the hardcoded dark .stApp gradient so native Light/Dark toggle works.
-# Swapped fixed colors for var(--secondary-background-color) and var(--text-color).
+# We use CSS variables here so it dynamically adapts to Streamlit's native Light/Dark toggle
 st.markdown("""
 <style>
     /* Custom Card Containers */
@@ -56,6 +55,18 @@ def load_fpl_data():
     
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
     players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
+    
+    # --- AVAILABILITY LOGIC: Extract Status & Chance of Playing ---
+    if 'status' in players.columns:
+        players['status'] = players['status'].fillna('a')
+    else:
+        players['status'] = 'a'
+        
+    if 'chance_of_playing_next_round' in players.columns:
+        players['chance_of_playing_next_round'] = pd.to_numeric(players['chance_of_playing_next_round'], errors='coerce').fillna(100.0)
+    else:
+        players['chance_of_playing_next_round'] = 100.0
+    # --------------------------------------------------------------
     
     num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'bps']
     
@@ -118,7 +129,10 @@ if app_mode == "👤 Player Scout Card":
             selected_player = st.selectbox("Select Player:", player_list)
             p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
             
-            # Swapped hardcoded #fff and dark backgrounds for var(--text-color) and var(--background-color)
+            # Extract Fit % for the Scout Card
+            chance_val = int(p_data.get('chance_of_playing_next_round', 100)) if pd.notna(p_data.get('chance_of_playing_next_round')) else 100
+            chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
+            
             st.markdown(f"""
             <div class="scout-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -128,7 +142,12 @@ if app_mode == "👤 Player Scout Card":
                             <span class="badge-pink">{p_data['team_name']}</span>
                         </div>
                         <h1 style="margin: 0; font-size: 2.5rem; font-weight: 800; color: var(--text-color);">{p_data['first_name'].upper()} {p_data['second_name'].upper()}</h1>
-                        <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.1rem;">Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; Ownership: <b>{p_data['selected_by_percent']}%</b> &nbsp;|&nbsp; Points: <b>{int(p_data['total_points'])}</b></p>
+                        <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.1rem;">
+                            Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; 
+                            Ownership: <b>{p_data['selected_by_percent']}%</b> &nbsp;|&nbsp; 
+                            Points: <b>{int(p_data['total_points'])}</b> &nbsp;|&nbsp;
+                            Fit: <b style="color: {chance_color};">{chance_val}%</b>
+                        </p>
                     </div>
                     <div style="text-align: right; background: var(--background-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
                         <h4 style="color: #0088cc; margin:0 0 5px 0; font-weight: 600;">xG: {p_data.get('expected_goals', 0.0):.2f}</h4>
@@ -173,7 +192,7 @@ if app_mode == "👤 Player Scout Card":
             
             st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
             st.markdown("### 🔍 Interactive Player Database")
-            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index']
+            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
             
             st.dataframe(
@@ -189,7 +208,8 @@ if app_mode == "👤 Player Scout Card":
                     "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
                     "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
                     "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
-                    "ict_index": st.column_config.NumberColumn("ICT", format="%.1f")
+                    "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
+                    "chance_of_playing_next_round": st.column_config.NumberColumn("Fit %", format="%d%%")
                 }
             )
 
@@ -244,6 +264,10 @@ elif app_mode == "⚡ FPL Squad Optimizer":
         if players_df is not None:
             df = players_df.copy()
             df['full_name'] = df['first_name'] + " " + df['second_name']
+            
+            # --- AVAILABILITY LOGIC: Filter Out Injured/Suspended (unless Locked) ---
+            df = df[(df['status'] == 'a') | (df['full_name'].isin(locked_players))].copy()
+            # ------------------------------------------------------------------------
             
             for metric in weights.keys():
                 min_v, max_v = df[metric].min(), df[metric].max()
@@ -323,6 +347,10 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                             strength_val = int(row_data.team_strength) if pd.notna(row_data.team_strength) else 3
                             inline_fdr = get_fdr_style(strength_val)
                             
+                            # Availability Display Logic
+                            chance_val = int(row_data.chance_of_playing_next_round) if pd.notna(row_data.chance_of_playing_next_round) else 100
+                            chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
+                            
                             col.markdown(f"""
                             <div class='{card_class}'>
                                 <div style='position: absolute; top: -8px; right: -8px; padding: 4px 8px; border-radius: 50%; font-size: 11px; font-weight: bold; border: 1px solid var(--border-color); z-index: 10; {inline_fdr} box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
@@ -330,7 +358,8 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                                 </div>
                                 <b style='color: var(--text-color); font-size: 14px;'>{row_data.second_name}</b><br>
                                 <span style='font-size:11px; opacity:0.8;'>{row_data.team_name}</span><br>
-                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{row_data.cost_m}m</span>
+                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{row_data.cost_m}m</span><br>
+                                <span style='font-size:10px; color:{chance_color}; font-weight:bold;'>Fit: {chance_val}%</span>
                             </div>
                             """, unsafe_allow_html=True)
                     st.write("") 

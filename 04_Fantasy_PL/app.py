@@ -141,7 +141,14 @@ if app_mode == "👤 Player Scout Card":
             gb.configure_default_column(editable=True, groupable=True, value=True, enableRowGroup=True)
             gridOptions = gb.build()
             
-            AgGrid(filtered_df[available_cols], gridOptions=gridOptions, enable_enterprise_modules=False, height=400, fit_columns_on_grid_load=True)
+            AgGrid(
+                filtered_df[available_cols], 
+                gridOptions=gridOptions, 
+                enable_enterprise_modules=False, 
+                height=400, 
+                fit_columns_on_grid_load=True,
+                theme="streamlit"
+            )
 
         else:
             st.warning("No players found with these filters.")

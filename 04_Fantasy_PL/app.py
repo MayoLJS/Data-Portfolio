@@ -11,33 +11,28 @@ import plotly.graph_objects as go
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
-# Advanced CSS injection for a SaaS-like gradient and card UI
+# Removed the hardcoded dark .stApp gradient so native Light/Dark toggle works.
+# Swapped fixed colors for var(--secondary-background-color) and var(--text-color).
 st.markdown("""
 <style>
-    /* App-wide subtle gradient background */
-    .stApp {
-        background: linear-gradient(135deg, #0a1118 0%, #1a0f1c 100%);
-    }
-    
     /* Custom Card Containers */
-    .scout-card { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 12px; padding: 24px; margin-bottom: 15px; backdrop-filter: blur(10px); }
-    .pitch-card { background: rgba(15, 23, 42, 0.8); border: 1px solid #00f2fe; border-radius: 10px; padding: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,242,254,0.1); position: relative; }
-    .bench-card { background: rgba(15, 23, 42, 0.5); border: 1px solid #ff007f; border-radius: 10px; padding: 12px; text-align: center; position: relative;}
-    .fixture-card { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;}
-    .fixture-card:hover { background: rgba(30, 41, 59, 0.8); border-color: rgba(0, 136, 204, 0.5); }
+    .scout-card { background: var(--secondary-background-color); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 12px; padding: 24px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .pitch-card { background: var(--secondary-background-color); border: 1px solid #00f2fe; border-radius: 10px; padding: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,242,254,0.1); position: relative; }
+    .bench-card { background: var(--secondary-background-color); border: 1px solid #ff007f; border-radius: 10px; padding: 12px; text-align: center; position: relative;}
+    .fixture-card { background: var(--secondary-background-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;}
+    .fixture-card:hover { border-color: rgba(0, 136, 204, 0.5); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
     
-    /* Pitch Background */
-    .pitch-container { background: linear-gradient(180deg, rgba(27, 67, 50, 0.7) 0%, rgba(45, 106, 79, 0.7) 100%); border-radius: 16px; padding: 25px; border: 1px solid rgba(76, 175, 80, 0.5); margin-bottom: 25px;}
+    /* Pitch Background - Opacity lowered so it looks good in light and dark mode */
+    .pitch-container { background: linear-gradient(180deg, rgba(27, 67, 50, 0.25) 0%, rgba(45, 106, 79, 0.25) 100%); border-radius: 16px; padding: 25px; border: 1px solid rgba(76, 175, 80, 0.5); margin-bottom: 25px;}
     
     /* Badges */
-    .badge-cyan { background: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid #00f2fe; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
-    .badge-pink { background: rgba(255, 0, 127, 0.15); color: #ff007f; border: 1px solid #ff007f; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
-    .score-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 8px 18px; font-size: 20px; font-weight: 800; letter-spacing: 3px; color: #fff; }
+    .badge-cyan { background: rgba(0, 242, 254, 0.15); color: #0088cc; border: 1px solid #00f2fe; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
+    .badge-pink { background: rgba(255, 0, 127, 0.15); color: #cc0066; border: 1px solid #ff007f; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
+    .score-box { background: var(--background-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 18px; font-size: 20px; font-weight: 800; letter-spacing: 3px; color: var(--text-color); }
     
     /* Leaderboard Styling */
-    .leaderboard-item { font-size: 14px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .leaderboard-item b { color: #f8fafc; }
-    .leaderboard-stat { color: #00f2fe; font-weight: 700; font-size: 15px; }
+    .leaderboard-item { font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--border-color); color: var(--text-color); }
+    .leaderboard-stat { color: #0088cc; font-weight: 700; font-size: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -123,7 +118,7 @@ if app_mode == "👤 Player Scout Card":
             selected_player = st.selectbox("Select Player:", player_list)
             p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
             
-            # Upgraded Scout Card Header
+            # Swapped hardcoded #fff and dark backgrounds for var(--text-color) and var(--background-color)
             st.markdown(f"""
             <div class="scout-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -132,19 +127,18 @@ if app_mode == "👤 Player Scout Card":
                             <span class="badge-cyan" style="margin-right: 8px;">{p_data['position']}</span>
                             <span class="badge-pink">{p_data['team_name']}</span>
                         </div>
-                        <h1 style="margin: 0; font-size: 2.5rem; font-weight: 800; color: #fff;">{p_data['first_name'].upper()} {p_data['second_name'].upper()}</h1>
-                        <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 1.1rem;">Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; Ownership: <b>{p_data['selected_by_percent']}%</b> &nbsp;|&nbsp; Points: <b>{int(p_data['total_points'])}</b></p>
+                        <h1 style="margin: 0; font-size: 2.5rem; font-weight: 800; color: var(--text-color);">{p_data['first_name'].upper()} {p_data['second_name'].upper()}</h1>
+                        <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.1rem;">Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; Ownership: <b>{p_data['selected_by_percent']}%</b> &nbsp;|&nbsp; Points: <b>{int(p_data['total_points'])}</b></p>
                     </div>
-                    <div style="text-align: right; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                        <h4 style="color: #00f2fe; margin:0 0 5px 0; font-weight: 600;">xG: {p_data.get('expected_goals', 0.0):.2f}</h4>
-                        <h4 style="color: #ff007f; margin:0 0 10px 0; font-weight: 600;">xA: {p_data.get('expected_assists', 0.0):.2f}</h4>
-                        <div style="color: #cbd5e1; font-size: 0.9rem;">Form: <b>{p_data['form']}</b> &nbsp;|&nbsp; ICT: <b>{p_data['ict_index']}</b></div>
+                    <div style="text-align: right; background: var(--background-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <h4 style="color: #0088cc; margin:0 0 5px 0; font-weight: 600;">xG: {p_data.get('expected_goals', 0.0):.2f}</h4>
+                        <h4 style="color: #cc0066; margin:0 0 10px 0; font-weight: 600;">xA: {p_data.get('expected_assists', 0.0):.2f}</h4>
+                        <div style="color: var(--text-color); font-size: 0.9rem;">Form: <b>{p_data['form']}</b> &nbsp;|&nbsp; ICT: <b>{p_data['ict_index']}</b></div>
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            # Refined Progress Metrics
             metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
             st.markdown("### 📊 Performance Percentiles")
             col1, col2 = st.columns(2)
@@ -154,10 +148,10 @@ if app_mode == "👤 Player Scout Card":
                     percentile = int((players_df[col_name] < val).mean() * 100)
                     target_col = col1 if i < 3 else col2
                     with target_col:
-                        st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px;'><b>{label}</b>: <span style='color:#00f2fe;'>{val}</span> <span style='color:#64748b; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
                         st.progress(percentile / 100.0)
             
-            st.markdown("<br><hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
             st.markdown("### 🏆 Top Performers by Metric")
             st.caption(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
             
@@ -166,10 +160,10 @@ if app_mode == "👤 Player Scout Card":
             def display_top_5(df, metric_col, title, col):
                 top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
                 with col:
-                    st.markdown(f"<div style='background: rgba(30,41,59,0.3); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;'>", unsafe_allow_html=True)
-                    st.markdown(f"<h5 style='color: #e2e8f0; margin-top:0;'>{title}</h5>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background: var(--secondary-background-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 10px;'>", unsafe_allow_html=True)
+                    st.markdown(f"<h5 style='color: var(--text-color); margin-top:0;'>{title}</h5>", unsafe_allow_html=True)
                     for _, row in top_5.iterrows():
-                        st.markdown(f"<div class='leaderboard-item'><b>{row['first_name'][0]}. {row['second_name']}</b><br><span class='leaderboard-stat'>{row[metric_col]}</span> <span style='font-size:11px; color:#64748b;'>({row['team_name']})</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='leaderboard-item'><b>{row['first_name'][0]}. {row['second_name']}</b><br><span class='leaderboard-stat'>{row[metric_col]}</span> <span style='font-size:11px; opacity: 0.7;'>({row['team_name']})</span></div>", unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
                         
             display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
@@ -177,12 +171,11 @@ if app_mode == "👤 Player Scout Card":
             display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
             display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
             
-            st.markdown("<br><hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
             st.markdown("### 🔍 Interactive Player Database")
             grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
             
-            # High-Impact Upgrade: st.column_config for visual progress bars
             st.dataframe(
                 filtered_df[available_cols], 
                 use_container_width=True, 
@@ -332,12 +325,12 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                             
                             col.markdown(f"""
                             <div class='{card_class}'>
-                                <div style='position: absolute; top: -8px; right: -8px; padding: 4px 8px; border-radius: 50%; font-size: 11px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); z-index: 10; {inline_fdr} box-shadow: 0 2px 4px rgba(0,0,0,0.5);'>
+                                <div style='position: absolute; top: -8px; right: -8px; padding: 4px 8px; border-radius: 50%; font-size: 11px; font-weight: bold; border: 1px solid var(--border-color); z-index: 10; {inline_fdr} box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
                                     {strength_val}
                                 </div>
-                                <b style='color: #f8fafc; font-size: 14px;'>{row_data.second_name}</b><br>
-                                <span style='font-size:11px; color:#cbd5e1;'>{row_data.team_name}</span><br>
-                                <span style='color:#00f2fe; font-weight:800; font-size:13px;'>£{row_data.cost_m}m</span>
+                                <b style='color: var(--text-color); font-size: 14px;'>{row_data.second_name}</b><br>
+                                <span style='font-size:11px; opacity:0.8;'>{row_data.team_name}</span><br>
+                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{row_data.cost_m}m</span>
                             </div>
                             """, unsafe_allow_html=True)
                     st.write("") 
@@ -386,14 +379,14 @@ elif app_mode == "📈 Team Betting Edge":
             with tab1:
                 losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
                 fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({selected_season})",
-                                    color_discrete_map={'Win': '#00f2fe', 'Draw': '#64748b', 'Loss': '#ff007f'}, orientation='h')
+                                    color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig1, use_container_width=True)
                 
             with tab2:
                 winning_ht = fact_matches[fact_matches['HT_Status'] == 'Winning']
                 fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({selected_season})",
-                                    color_discrete_map={'Win': '#00f2fe', 'Draw': '#64748b', 'Loss': '#ff007f'}, orientation='h')
+                                    color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig2, use_container_width=True)
                 
@@ -404,7 +397,7 @@ elif app_mode == "📈 Team Betting Edge":
                 ha_merged['Win_Rate'] = (ha_merged['Wins'] / ha_merged['Matches']) * 100
                 
                 fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({selected_season})",
-                              color_discrete_map={'Home': '#00f2fe', 'Away': '#ff007f'})
+                              color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
                 fig3.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig3, use_container_width=True)
 
@@ -420,8 +413,8 @@ elif app_mode == "📈 Team Betting Edge":
                 
                 fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', 
                                   size='Total_Pts', size_max=25,
-                                  color_discrete_sequence=['#00f2fe'])
-                fig4.update_traces(textposition='top center', marker=dict(line=dict(width=1, color='#ffffff')))
+                                  color_discrete_sequence=['#0088cc'])
+                fig4.update_traces(textposition='top center', marker=dict(line=dict(width=1, color='DarkSlateGrey')))
                 
                 x_mean = team_stats['Avg_Conceded'].mean()
                 y_mean = team_stats['Avg_Scored'].mean()
@@ -430,16 +423,16 @@ elif app_mode == "📈 Team Betting Edge":
                 y_min = max(0, team_stats['Avg_Scored'].min() - 0.5)
                 y_max = team_stats['Avg_Scored'].max() + 0.5
                 
-                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
-                fig4.add_vline(x=x_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
+                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Scored")
+                fig4.add_vline(x=x_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Conceded")
                 
-                fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 242, 254, 0.05)", line_width=0, layer="below")
-                fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(255, 0, 127, 0.05)", line_width=0, layer="below")
+                fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 136, 204, 0.1)", line_width=0, layer="below")
+                fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(204, 0, 102, 0.1)", line_width=0, layer="below")
                 
-                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#00f2fe", size=16))
-                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#94a3b8", size=14))
-                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#94a3b8", size=14))
-                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#ff007f", size=14))
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#0088cc", size=16))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#8f9bba", size=14))
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#cc0066", size=14))
                 
                 fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Bubble Size = Total Points", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
@@ -488,12 +481,12 @@ elif app_mode == "📅 Match Results & Fixtures":
                     
                     st.markdown(f"""
                     <div class="fixture-card">
-                        <div style="width: 35%; text-align: right; font-size: 1.1rem; font-weight: 700; color: #f8fafc;">{h_team}</div>
+                        <div style="width: 35%; text-align: right; font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
                         <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
-                            <div class="score-box" style="color: #00f2fe;">{h_score} <span style='color:#64748b'>-</span> {a_score}</div>
-                            <span style="font-size: 0.8rem; margin-top: 6px; color: #94a3b8; text-transform: uppercase;">{match_date}</span>
+                            <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
+                            <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{match_date}</span>
                         </div>
-                        <div style="width: 35%; text-align: left; font-size: 1.1rem; font-weight: 700; color: #f8fafc;">{a_team}</div>
+                        <div style="width: 35%; text-align: left; font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -568,7 +561,6 @@ elif app_mode == "📊 Live League Table":
                 table_df = pd.DataFrame(final_table).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
                 table_df.index += 1
                 
-                # High-Impact Upgrade: st.column_config for visual progress bars in the table
                 st.dataframe(
                     table_df, 
                     use_container_width=True,

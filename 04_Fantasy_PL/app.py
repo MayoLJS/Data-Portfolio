@@ -118,7 +118,7 @@ app_mode = st.sidebar.radio("Select Module:", [
     "📈 Team Betting Edge",
     "📅 Match Results & Fixtures",
     "📊 Live League Table",
-    "🌐 FBref Team Stats" # NEW MODULE ADDED HERE
+    "🌐 FBref Team Stats" 
 ])
 
 # ==========================================
@@ -210,7 +210,7 @@ if app_mode == "👤 Player Scout Card":
             
             st.dataframe(
                 filtered_df[available_cols], 
-                use_container_width=True, 
+                width="stretch", 
                 hide_index=True,
                 column_config={
                     "first_name": "First Name",
@@ -273,7 +273,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     else:
         locked_players = []
 
-    if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
+    if st.button("🚀 Generate Optimal Squad", type="primary", width="stretch"):
         if players_df is not None:
             df = players_df.copy()
             df['full_name'] = df['first_name'] + " " + df['second_name']
@@ -387,7 +387,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules/formation constraints.")
 
 # ==========================================
-# MODULE 3: TEAM BETTING EDGE
+# MODULE 3: TEAM Betting EDGE
 # ==========================================
 elif app_mode == "📈 Team Betting Edge":
     st.title("📈 Predictive Match Analytics")
@@ -420,14 +420,14 @@ elif app_mode == "📈 Team Betting Edge":
                 fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({selected_season})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig1, use_container_width=True)
+                st.plotly_chart(fig1, width="stretch")
                 
             with tab2:
                 winning_ht = fact_matches[fact_matches['HT_Status'] == 'Winning']
                 fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({selected_season})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig2, use_container_width=True)
+                st.plotly_chart(fig2, width="stretch")
                 
             with tab3:
                 ha_stats = fact_matches.groupby(['Team', 'Venue']).size().reset_index(name='Matches')
@@ -438,7 +438,7 @@ elif app_mode == "📈 Team Betting Edge":
                 fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({selected_season})",
                               color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
                 fig3.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig3, use_container_width=True)
+                st.plotly_chart(fig3, width="stretch")
 
             with tab4:
                 pts_map = {'Win': 3, 'Draw': 1, 'Loss': 0}
@@ -479,7 +479,7 @@ elif app_mode == "📈 Team Betting Edge":
                                    xaxis=dict(range=[x_min, x_max]),
                                    yaxis=dict(range=[y_min, y_max]),
                                    template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig4, use_container_width=True)
+                st.plotly_chart(fig4, width="stretch")
         else:
             st.warning("No matches found for this season/filter.")
     else:
@@ -602,7 +602,7 @@ elif app_mode == "📊 Live League Table":
                 
                 st.dataframe(
                     table_df, 
-                    use_container_width=True,
+                    width="stretch",
                     column_config={
                         "Pts": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=int(table_df['Pts'].max())),
                         "GD": st.column_config.NumberColumn("GD")
@@ -626,7 +626,7 @@ elif app_mode == "📊 Live League Table":
                     fig_trend.update_yaxes(autorange="reversed", title="League Position", tickmode='linear', tick0=1, dtick=1)
                     fig_trend.update_xaxes(title="Matches Played")
                     fig_trend.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_trend, use_container_width=True)
+                    st.plotly_chart(fig_trend, width="stretch")
                 else:
                     st.info("Please select at least one team to display the trend line.")
 
@@ -643,6 +643,6 @@ elif app_mode == "🌐 FBref Team Stats":
     st.write("Aggregated team shooting statistics directly from FBref (via `soccerdata`).")
 
     if fbref_shooting_df is not None:
-        st.dataframe(fbref_shooting_df, use_container_width=True)
+        st.dataframe(fbref_shooting_df, width="stretch")
     else:
         st.error("⚠️ FBref data could not be loaded at this time. Please ensure packages.txt is committed and the Streamlit app is rebooted.")

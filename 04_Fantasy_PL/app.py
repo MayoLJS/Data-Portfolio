@@ -164,14 +164,13 @@ if app_mode == "👤 Player Scout Card":
             grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
             
-            # THE FIX: Removed width=None entirely, restoring use_container_width=True to fix the invalid width crash
             st.dataframe(filtered_df[available_cols], use_container_width=True, hide_index=True)
 
         else:
             st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER (WITH FORMATIONS)
+# MODULE 2: FPL SQUAD OPTIMIZER
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
     st.title("⚡ Prescriptive FPL Squad Optimizer")
@@ -182,7 +181,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     st.sidebar.header("2. Bench Strategy")
     bench_weight = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1, help="0.1 = Dump cheapest fodder on bench to maximize Starting XI. 1.0 = Spread budget equally (Bench Boost).")
     
-    # NEW FEATURE: Preferred Formation
     st.sidebar.header("3. Target Formation")
     formation_choices = ["Auto (Best Points)", "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]
     target_formation = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices)
@@ -215,7 +213,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     else:
         locked_players = []
 
-    # Using width="stretch" to comply with future Streamlit updates for buttons
     if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
         if players_df is not None:
             df = players_df.copy()
@@ -227,13 +224,11 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             
             df['custom_score'] = sum(df[f'{metric}_norm'] * w for metric, w in weights.items())
                 
-            # Advanced LP Formulation: Starters vs Bench
             prob = pulp.LpProblem("Optimal_FPL_Squad", pulp.LpMaximize)
             squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
             starter_vars = pulp.LpVariable.dicts("starter", df.index, cat='Binary')
             bench_vars = pulp.LpVariable.dicts("bench", df.index, cat='Binary')
             
-            # Objective: Maximize Starters + (Bench * Weight)
             prob += pulp.lpSum([df.loc[i, 'custom_score'] * starter_vars[i] + bench_weight * df.loc[i, 'custom_score'] * bench_vars[i] for i in df.index])
             
             for i in df.index:
@@ -244,13 +239,11 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             prob += pulp.lpSum([starter_vars[i] for i in df.index]) == 11 
             prob += pulp.lpSum([bench_vars[i] for i in df.index]) == 4 
             
-            # Global Squad Position constraints
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
             
-            # Starting XI Formation Logic
             prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
             
             if target_formation == "Auto (Best Points)":
@@ -258,13 +251,11 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
             else:
-                # Parse exact positions requested (e.g. 3-4-3)
                 def_req, mid_req, fwd_req = map(int, target_formation.split('-'))
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == def_req
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == mid_req
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == fwd_req
             
-            # Team Limitations
             for t_id in df['team'].unique(): 
                 prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
             
@@ -279,7 +270,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
                 bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
                 
-                # Sort bench: GK first, then outfield by highest score to lowest
                 bench_gkp = bench_raw[bench_raw['element_type'] == 1]
                 bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='custom_score', ascending=False)
                 bench = pd.concat([bench_gkp, bench_outfield])
@@ -287,14 +277,13 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.success("✅ Optimization Complete!")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
-                c2.metric("Starting XI Proj. Score", f"{starters['custom_score'].sum():.2f}")
-                c3.metric("Bench Proj. Score", f"{bench['custom_score'].sum():.2f}")
+                c2.metric("Starting XI Rating (/11.0)", f"{starters['custom_score'].sum():.2f}")
+                c3.metric("Bench Rating (/4.0)", f"{bench['custom_score'].sum():.2f}")
 
                 st.markdown("### 🏟️ The Starting XI (with FDR)")
                 st.caption("Dots indicate overall team strength: Green = Easy, Grey = Avg, Red = Hard")
                 st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
                 
-                # Inline HTML styling for FDR Badges ensures they render correctly regardless of cloud CSS stripping
                 def get_fdr_style(val):
                     bg = {2: "#01fc7a", 3: "#e7e7e7", 4: "#ff005a", 5: "#80002d"}.get(val, "#e7e7e7")
                     txt = "black" if val in [2, 3] else "white"
@@ -409,6 +398,15 @@ elif app_mode == "📈 Team Betting Edge":
                 
                 fig4.add_hline(y=y_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Scored")
                 fig4.add_vline(x=x_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Conceded")
+                
+                fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 242, 254, 0.1)", line_width=0, layer="below")
+                fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(255, 0, 127, 0.1)", line_width=0, layer="below")
+                
+                # RESTORED: Chaos Quadrant Labels
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#0088cc", size=16))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#8f9bba", size=14))
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#cc0066", size=14))
                 
                 fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Bubble Size = Total Points", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",

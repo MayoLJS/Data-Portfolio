@@ -5,13 +5,13 @@ import requests
 import pulp
 import plotly.express as px
 import plotly.graph_objects as go
+import re
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
-# We use CSS variables here so it dynamically adapts to Streamlit's native Light/Dark toggle
 st.markdown("""
 <style>
     /* Custom Card Containers */
@@ -21,7 +21,7 @@ st.markdown("""
     .fixture-card { background: var(--secondary-background-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;}
     .fixture-card:hover { border-color: rgba(0, 136, 204, 0.5); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
     
-    /* Pitch Background - Opacity lowered so it looks good in light and dark mode */
+    /* Pitch Background */
     .pitch-container { background: linear-gradient(180deg, rgba(27, 67, 50, 0.25) 0%, rgba(45, 106, 79, 0.25) 100%); border-radius: 16px; padding: 25px; border: 1px solid rgba(76, 175, 80, 0.5); margin-bottom: 25px;}
     
     /* Badges */
@@ -36,6 +36,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 chart_theme = "streamlit"
+
+def format_season(season_str):
+    """Dynamically handles both '2025' and '2526' string formats"""
+    season_str = str(season_str)
+    if re.match(r'^20\d{2}$', season_str):
+        # Format 2025 -> 2025/2026 Season
+        next_year = int(season_str) + 1
+        return f"{season_str}/{next_year} Season"
+    elif re.match(r'^\d{4}$', season_str):
+        # Format 2526 -> 2025/2026 Season
+        return f"20{season_str[:2]}/20{season_str[2:]} Season"
+    return season_str
 
 # ==========================================
 # 2. DATA LOADERS (Cached)
@@ -56,7 +68,6 @@ def load_fpl_data():
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
     players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
     
-    # --- AVAILABILITY LOGIC: Extract Status & Chance of Playing ---
     if 'status' in players.columns:
         players['status'] = players['status'].fillna('a')
     else:
@@ -66,7 +77,6 @@ def load_fpl_data():
         players['chance_of_playing_next_round'] = pd.to_numeric(players['chance_of_playing_next_round'], errors='coerce').fillna(100.0)
     else:
         players['chance_of_playing_next_round'] = 100.0
-    # --------------------------------------------------------------
     
     num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'bps']
     
@@ -91,21 +101,44 @@ def load_match_data():
     except Exception:
         return pd.DataFrame()
 
+@st.cache_data(ttl=3600)
+def load_understat_data():
+    raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/04_Fantasy_PL/data/team_shooting.csv"
+    try:
+        df = pd.read_csv(raw_url)
+        df['date'] = pd.to_datetime(df['date'])
+        return df
+    except Exception:
+        return None
+
 players_df, teams_df = load_fpl_data()
 match_df = load_match_data()
+understat_shooting_df = load_understat_data() 
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION
+# 3. SIDEBAR NAVIGATION (Subfolder Layout)
 # ==========================================
 st.sidebar.title("⚽ EPL HUB")
 st.sidebar.markdown("---")
-app_mode = st.sidebar.radio("Select Module:", [
-    "👤 Player Scout Card", 
-    "⚡ FPL Squad Optimizer", 
-    "📈 Team Betting Edge",
-    "📅 Match Results & Fixtures",
-    "📊 Live League Table"
-])
+
+menu_category = st.sidebar.selectbox("Select Category:", ["Fantasy", "Real", "Betting"])
+st.sidebar.markdown("---")
+
+if menu_category == "Fantasy":
+    app_mode = st.sidebar.radio("Select Module:", [
+        "👤 Player Scout Card", 
+        "⚡ FPL Squad Optimizer"
+    ])
+elif menu_category == "Real":
+    app_mode = st.sidebar.radio("Select Module:", [
+        "📅 Match Results & Fixtures",
+        "📊 Live League Table",
+        "🌐 Understat Team Stats" 
+    ])
+elif menu_category == "Betting":
+    app_mode = st.sidebar.radio("Select Module:", [
+        "📈 For your information only"
+    ])
 
 # ==========================================
 # MODULE 1: PLAYER SCOUT CARD
@@ -129,7 +162,6 @@ if app_mode == "👤 Player Scout Card":
             selected_player = st.selectbox("Select Player:", player_list)
             p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
             
-            # Extract Fit % for the Scout Card
             chance_val = int(p_data.get('chance_of_playing_next_round', 100)) if pd.notna(p_data.get('chance_of_playing_next_round')) else 100
             chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
             
@@ -197,7 +229,7 @@ if app_mode == "👤 Player Scout Card":
             
             st.dataframe(
                 filtered_df[available_cols], 
-                use_container_width=True, 
+                width="stretch", 
                 hide_index=True,
                 column_config={
                     "first_name": "First Name",
@@ -260,14 +292,12 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     else:
         locked_players = []
 
-    if st.button("🚀 Generate Optimal Squad", type="primary", use_container_width=True):
+    if st.button("🚀 Generate Optimal Squad", type="primary", width="stretch"):
         if players_df is not None:
             df = players_df.copy()
             df['full_name'] = df['first_name'] + " " + df['second_name']
             
-            # --- AVAILABILITY LOGIC: Filter Out Injured/Suspended (unless Locked) ---
             df = df[(df['status'] == 'a') | (df['full_name'].isin(locked_players))].copy()
-            # ------------------------------------------------------------------------
             
             for metric in weights.keys():
                 min_v, max_v = df[metric].min(), df[metric].max()
@@ -347,7 +377,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                             strength_val = int(row_data.team_strength) if pd.notna(row_data.team_strength) else 3
                             inline_fdr = get_fdr_style(strength_val)
                             
-                            # Availability Display Logic
                             chance_val = int(row_data.chance_of_playing_next_round) if pd.notna(row_data.chance_of_playing_next_round) else 100
                             chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
                             
@@ -377,16 +406,16 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules/formation constraints.")
 
 # ==========================================
-# MODULE 3: TEAM BETTING EDGE
+# MODULE 3: TEAM Betting EDGE (For your information only)
 # ==========================================
-elif app_mode == "📈 Team Betting Edge":
+elif app_mode == "📈 For your information only":
     st.title("📈 Predictive Match Analytics")
     
     if match_df is not None and not match_df.empty:
         available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
-        selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
+        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
         
-        szn_match_df = match_df[match_df['Season'] == selected_season]
+        szn_match_df = match_df[match_df['Season'] == selected_season_raw]
         
         if not szn_match_df.empty:
             home_m = szn_match_df[['Match_ID', 'Home_Team', 'Home_Score_HT', 'Away_Score_HT', 'Home_Score_FT', 'Away_Score_FT']].copy()
@@ -407,17 +436,17 @@ elif app_mode == "📈 Team Betting Edge":
             
             with tab1:
                 losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
-                fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({selected_season})",
+                fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({format_season(selected_season_raw)})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig1, use_container_width=True)
+                st.plotly_chart(fig1, width="stretch")
                 
             with tab2:
                 winning_ht = fact_matches[fact_matches['HT_Status'] == 'Winning']
-                fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({selected_season})",
+                fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({format_season(selected_season_raw)})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig2, use_container_width=True)
+                st.plotly_chart(fig2, width="stretch")
                 
             with tab3:
                 ha_stats = fact_matches.groupby(['Team', 'Venue']).size().reset_index(name='Matches')
@@ -425,10 +454,10 @@ elif app_mode == "📈 Team Betting Edge":
                 ha_merged = pd.merge(ha_stats, ha_wins, on=['Team', 'Venue'], how='left').fillna(0)
                 ha_merged['Win_Rate'] = (ha_merged['Wins'] / ha_merged['Matches']) * 100
                 
-                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({selected_season})",
+                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({format_season(selected_season_raw)})",
                               color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
                 fig3.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig3, use_container_width=True)
+                st.plotly_chart(fig3, width="stretch")
 
             with tab4:
                 pts_map = {'Win': 3, 'Draw': 1, 'Loss': 0}
@@ -463,13 +492,13 @@ elif app_mode == "📈 Team Betting Edge":
                 fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
                 fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#cc0066", size=14))
                 
-                fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Bubble Size = Total Points", 
+                fig4.update_layout(title=f"The Chaos Quadrant ({format_season(selected_season_raw)}) - Bubble Size = Total Points", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
                                    yaxis_title="Average Goals Scored (More is Better)",
                                    xaxis=dict(range=[x_min, x_max]),
                                    yaxis=dict(range=[y_min, y_max]),
                                    template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig4, use_container_width=True)
+                st.plotly_chart(fig4, width="stretch")
         else:
             st.warning("No matches found for this season/filter.")
     else:
@@ -480,42 +509,54 @@ elif app_mode == "📈 Team Betting Edge":
 # ==========================================
 elif app_mode == "📅 Match Results & Fixtures":
     st.title("📅 Match Results & Fixtures")
-    st.write("Browse actual match scores and results across Premier League seasons, grouped by Gameweek.")
+    st.write("Browse actual match scores alongside Understat Expected Goals (xG), filtered by Gameweek.")
     
-    if match_df is not None and not match_df.empty:
-        available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
-        selected_season = st.selectbox("Select Season:", available_seasons)
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
+        selected_season_raw = st.selectbox("Select Season:", available_seasons, format_func=format_season)
         
-        szn_matches = match_df[match_df['Season'] == selected_season].copy()
+        szn_matches = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].copy()
         
         if not szn_matches.empty:
-            max_gw = int(szn_matches['Gameweek'].max())
+            szn_matches = szn_matches.sort_values('date', ascending=True)
+            szn_matches['gameweek'] = (szn_matches.groupby('season').cumcount() // 10) + 1
+            
+            max_gw = int(szn_matches['gameweek'].max())
             gw_list = [f"Gameweek {i}" for i in range(1, max_gw + 1)]
             
             selected_gw_str = st.selectbox("Select Matchweek:", gw_list)
             selected_gw_num = int(selected_gw_str.split(" ")[1])
             
-            gw_matches = szn_matches[szn_matches['Gameweek'] == selected_gw_num].sort_values('Date')
+            gw_matches = szn_matches[szn_matches['gameweek'] == selected_gw_num].sort_values('date')
             
-            st.markdown(f"### 🗓️ {selected_season} - {selected_gw_str}")
+            st.markdown(f"### 🗓️ {format_season(selected_season_raw)} - {selected_gw_str}")
             st.markdown("---")
             
             if not gw_matches.empty:
                 for _, row in gw_matches.iterrows():
-                    match_date = row['Date'].strftime('%d %b %Y')
-                    h_team = row['Home_Team']
-                    a_team = row['Away_Team']
-                    h_score = int(row['Home_Score_FT'])
-                    a_score = int(row['Away_Score_FT'])
+                    match_date = row['date'].strftime('%d %b %Y')
+                    h_team = row['home_team']
+                    a_team = row['away_team']
+                    h_score = int(row['home_goals'])
+                    a_score = int(row['away_goals'])
+                    
+                    h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
+                    a_xg = float(row.get('away_xG', row.get('away_xg', 0.0)))
                     
                     st.markdown(f"""
                     <div class="fixture-card">
-                        <div style="width: 35%; text-align: right; font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
+                        <div style="width: 35%; text-align: right;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
+                            <div style="font-size: 0.85rem; color: #0088cc;">xG: {h_xg:.2f}</div>
+                        </div>
                         <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
                             <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
                             <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{match_date}</span>
                         </div>
-                        <div style="width: 35%; text-align: left; font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
+                        <div style="width: 35%; text-align: left;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
+                            <div style="font-size: 0.85rem; color: #cc0066;">xG: {a_xg:.2f}</div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -523,34 +564,29 @@ elif app_mode == "📅 Match Results & Fixtures":
         else:
             st.warning("No matches found for this season.")
     else:
-        st.warning("Match dataset is currently loading or unavailable.")
+        st.warning("Understat Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 5: LIVE LEAGUE TABLE
+# MODULE 5: LIVE LEAGUE TABLE (Upgraded with xG)
 # ==========================================
 elif app_mode == "📊 Live League Table":
-    st.title("📊 League Table & Gameweek Trends")
+    st.title("📊 Expected vs Actual League Table")
     
-    if match_df is not None and not match_df.empty:
-        available_seasons = ["All Seasons"] + sorted(match_df['Season'].unique().tolist(), reverse=True)
-        selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
+        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
         
-        if selected_season == "All Seasons":
-            szn_df = match_df.copy().sort_values('Date')
-            st.info("Aggregating cumulative 3-year points and form data.")
-        else:
-            szn_df = match_df[match_df['Season'] == selected_season].sort_values('Date')
+        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
         
         if not szn_df.empty:
-            teams = pd.concat([szn_df['Home_Team'], szn_df['Away_Team']]).unique()
-            team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'Matches': 0} for team in teams}
-            trend_data = []
+            teams = pd.concat([szn_df['home_team'], szn_df['away_team']]).unique()
+            team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'xG': 0.0, 'xGA': 0.0, 'xPts': 0.0, 'Matches': 0} for team in teams}
 
             for _, row in szn_df.iterrows():
-                home = row['Home_Team']
-                away = row['Away_Team']
-                h_score = row['Home_Score_FT']
-                a_score = row['Away_Score_FT']
+                home = row['home_team']
+                away = row['away_team']
+                h_score = row['home_goals']
+                a_score = row['away_goals']
                 
                 team_records[home]['Matches'] += 1
                 team_records[away]['Matches'] += 1
@@ -558,10 +594,16 @@ elif app_mode == "📊 Live League Table":
                 team_records[home]['GF'] += h_score
                 team_records[home]['GA'] += a_score
                 team_records[home]['GD'] += (h_score - a_score)
+                team_records[home]['xG'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
+                team_records[home]['xGA'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
+                team_records[home]['xPts'] += float(row.get('home_expected_points', row.get('home_xpts', 0.0)))
                 
                 team_records[away]['GF'] += a_score
                 team_records[away]['GA'] += h_score
                 team_records[away]['GD'] += (a_score - h_score)
+                team_records[away]['xG'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
+                team_records[away]['xGA'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
+                team_records[away]['xPts'] += float(row.get('away_expected_points', row.get('away_xpts', 0.0)))
                 
                 if h_score > a_score:
                     team_records[home]['Pts'] += 3
@@ -576,51 +618,38 @@ elif app_mode == "📊 Live League Table":
                     team_records[away]['Pts'] += 1
                     team_records[home]['D'] += 1
                     team_records[away]['D'] += 1
-                    
-                trend_data.append({'Team': home, 'Match_Num': team_records[home]['Matches'], 'Pts': team_records[home]['Pts'], 'GD': team_records[home]['GD'], 'GF': team_records[home]['GF']})
-                trend_data.append({'Team': away, 'Match_Num': team_records[away]['Matches'], 'Pts': team_records[away]['Pts'], 'GD': team_records[away]['GD'], 'GF': team_records[away]['GF']})
             
-            t1, t2 = st.tabs(["📋 League Table", "📈 Position Trend Line"])
-
-            with t1:
-                final_table = []
-                for team, stats in team_records.items():
-                    final_table.append({'Club': team, 'MP': stats['Matches'], 'W': stats['W'], 'D': stats['D'], 'L': stats['L'], 'GF': stats['GF'], 'GA': stats['GA'], 'GD': stats['GD'], 'Pts': stats['Pts']})
-                
-                table_df = pd.DataFrame(final_table).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
-                table_df.index += 1
-                
-                st.dataframe(
-                    table_df, 
-                    use_container_width=True,
-                    column_config={
-                        "Pts": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=int(table_df['Pts'].max())),
-                        "GD": st.column_config.NumberColumn("GD")
-                    }
-                )
+            final_table = []
+            for team, stats in team_records.items():
+                final_table.append({'Club': team, 'MP': stats['Matches'], 'Pts': stats['Pts'], 'xPts': stats['xPts'], 'GD': stats['GD'], 'GF': stats['GF'], 'xG': stats['xG'], 'GA': stats['GA'], 'xGA': stats['xGA']})
             
-            with t2:
-                trend_df = pd.DataFrame(trend_data)
-                trend_df = trend_df.sort_values(by=['Match_Num', 'Pts', 'GD', 'GF'], ascending=[True, False, False, False])
-                trend_df['Position'] = trend_df.groupby('Match_Num').cumcount() + 1
-                
-                all_teams = sorted(trend_df['Team'].unique().tolist())
-                selected_teams = st.multiselect("Select Teams to Compare (Click 'X' to clear):", all_teams, default=all_teams)
-                
-                if selected_teams:
-                    filtered_trend_df = trend_df[trend_df['Team'].isin(selected_teams)]
-                    fig_trend = px.line(filtered_trend_df, x="Match_Num", y="Position", color="Team", 
-                                        title=f"Gameweek by Gameweek League Position ({selected_season})",
-                                        height=600)
-                    
-                    fig_trend.update_yaxes(autorange="reversed", title="League Position", tickmode='linear', tick0=1, dtick=1)
-                    fig_trend.update_xaxes(title="Matches Played")
-                    fig_trend.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_trend, use_container_width=True)
-                else:
-                    st.info("Please select at least one team to display the trend line.")
-
+            table_df = pd.DataFrame(final_table).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
+            table_df.index += 1
+            
+            st.dataframe(
+                table_df, 
+                width="stretch",
+                column_config={
+                    "Pts": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=int(table_df['Pts'].max())),
+                    "xPts": st.column_config.NumberColumn("xPts", format="%.1f"),
+                    "GD": st.column_config.NumberColumn("GD"),
+                    "xG": st.column_config.NumberColumn("xG", format="%.1f"),
+                    "xGA": st.column_config.NumberColumn("xGA", format="%.1f")
+                }
+            )
         else:
             st.warning("No matches found for this filter.")
     else:
-        st.warning("Match dataset is currently loading or unavailable.")
+        st.warning("Understat dataset is currently loading or unavailable.")
+
+# ==========================================
+# MODULE 6: UNDERSTAT TEAM STATS (soccerdata)
+# ==========================================
+elif app_mode == "🌐 Understat Team Stats":
+    st.title("🌐 Understat Team Match Stats")
+    st.write("Aggregated team match statistics directly from Understat (via `soccerdata`).")
+
+    if understat_shooting_df is not None:
+        st.dataframe(understat_shooting_df, width="stretch")
+    else:
+        st.error("⚠️ Understat data could not be loaded at this time. Please ensure the CSV exists in your repository.")

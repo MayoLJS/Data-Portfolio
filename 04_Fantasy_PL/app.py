@@ -133,6 +133,7 @@ elif menu_category == "Real":
     app_mode = st.sidebar.radio("Select Module:", [
         "📅 Match Results & Fixtures",
         "📊 Live League Table",
+        "📈 Team Trends (xG vs Actual)",
         "🌐 Understat Team Stats" 
     ])
 elif menu_category == "Betting":
@@ -643,7 +644,113 @@ elif app_mode == "📊 Live League Table":
         st.warning("Understat dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 6: UNDERSTAT TEAM STATS (soccerdata)
+# MODULE 6: TEAM TRENDS (xG vs Actual) - NEW!
+# ==========================================
+elif app_mode == "📈 Team Trends (xG vs Actual)":
+    st.title("📈 Team Trends: Expected vs Actual")
+    st.write("Track a team's cumulative performance over the season (up to 38 gameweeks), comparing actual results against expected metrics.")
+    
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
+        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
+        
+        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
+        
+        if not szn_df.empty:
+            # Create list of unique teams
+            teams = sorted(list(set(szn_df['home_team'].tolist() + szn_df['away_team'].tolist())))
+            
+            col1, col2 = st.columns(2)
+            # Default to the first team alphabetically
+            selected_team = col1.selectbox("Select Team:", teams, index=0)
+            # Metric filter
+            metric_choice = col2.selectbox("Select Metric:", ["Goals For", "Goals Against", "Points"])
+            
+            # Extract matches only involving the selected team
+            team_matches = szn_df[(szn_df['home_team'] == selected_team) | (szn_df['away_team'] == selected_team)].copy()
+            
+            if not team_matches.empty:
+                actual_vals = []
+                expected_vals = []
+                
+                # Loop through chronological matches
+                for _, row in team_matches.iterrows():
+                    is_home = (row['home_team'] == selected_team)
+                    
+                    # Core Data
+                    h_score = row['home_goals']
+                    a_score = row['away_goals']
+                    h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
+                    a_xg = float(row.get('away_xG', row.get('away_xg', 0.0)))
+                    h_xpts = float(row.get('home_expected_points', row.get('home_xpts', 0.0)))
+                    a_xpts = float(row.get('away_expected_points', row.get('away_xpts', 0.0)))
+                    
+                    if metric_choice == "Goals For":
+                        actual_vals.append(h_score if is_home else a_score)
+                        expected_vals.append(h_xg if is_home else a_xg)
+                    elif metric_choice == "Goals Against":
+                        actual_vals.append(a_score if is_home else h_score)
+                        expected_vals.append(a_xg if is_home else h_xg)
+                    elif metric_choice == "Points":
+                        gf = h_score if is_home else a_score
+                        ga = a_score if is_home else h_score
+                        pts = 3 if gf > ga else (1 if gf == ga else 0)
+                        xpts = h_xpts if is_home else a_xpts
+                        
+                        actual_vals.append(pts)
+                        expected_vals.append(xpts)
+                        
+                # Create rolling Cumulative Dataframe
+                trend_df = pd.DataFrame({
+                    'Gameweek': range(1, len(actual_vals) + 1),
+                    'Actual': np.cumsum(actual_vals),
+                    'Expected': np.cumsum(expected_vals)
+                })
+                
+                # Build the Interactive Plotly Line Graph
+                fig = go.Figure()
+                
+                # Plot Actual values as a Solid Line
+                fig.add_trace(go.Scatter(
+                    x=trend_df['Gameweek'], 
+                    y=trend_df['Actual'], 
+                    mode='lines+markers',
+                    name=f'Actual {metric_choice}',
+                    line=dict(color='#0088cc', width=3, dash='solid'),
+                    marker=dict(size=6)
+                ))
+                
+                # Plot Expected values as a Dotted Line
+                fig.add_trace(go.Scatter(
+                    x=trend_df['Gameweek'], 
+                    y=trend_df['Expected'], 
+                    mode='lines',
+                    name=f'Expected {metric_choice} (xG/xPts)',
+                    line=dict(color='#cc0066', width=3, dash='dot')
+                ))
+                
+                fig.update_layout(
+                    title=f"{selected_team} - Cumulative {metric_choice} ({format_season(selected_season_raw)})",
+                    xaxis_title="Matches Played (Gameweek)",
+                    yaxis_title=f"Cumulative {metric_choice}",
+                    xaxis=dict(tickmode='linear', tick0=1, dtick=1),
+                    template=chart_theme,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    hovermode='x unified',
+                    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No matches found for this team in the selected season.")
+        else:
+            st.warning("No matches found for this filter.")
+    else:
+        st.warning("Understat dataset is currently loading or unavailable.")
+
+# ==========================================
+# MODULE 7: UNDERSTAT TEAM STATS (soccerdata)
 # ==========================================
 elif app_mode == "🌐 Understat Team Stats":
     st.title("🌐 Understat Team Match Stats")

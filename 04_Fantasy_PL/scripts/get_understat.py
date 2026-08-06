@@ -4,7 +4,7 @@ import soccerdata as sd
 
 def extract_and_save():
     # Pivot to Understat: Great for xG, xA, and shooting stats without the CAPTCHAs
-    understat = sd.Understat(leagues=['ENG-Premier League'], seasons=['2324'])
+    understat = sd.Understat(leagues=['ENG-Premier League'], seasons=['2526'])
     
     # Extract team stats
     df = understat.read_team_match_stats()

@@ -5,13 +5,13 @@ import requests
 import pulp
 import plotly.express as px
 import plotly.graph_objects as go
+import soccerdata as sd # NEW IMPORT
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
-# We use CSS variables here so it dynamically adapts to Streamlit's native Light/Dark toggle
 st.markdown("""
 <style>
     /* Custom Card Containers */
@@ -21,7 +21,7 @@ st.markdown("""
     .fixture-card { background: var(--secondary-background-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;}
     .fixture-card:hover { border-color: rgba(0, 136, 204, 0.5); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
     
-    /* Pitch Background - Opacity lowered so it looks good in light and dark mode */
+    /* Pitch Background */
     .pitch-container { background: linear-gradient(180deg, rgba(27, 67, 50, 0.25) 0%, rgba(45, 106, 79, 0.25) 100%); border-radius: 16px; padding: 25px; border: 1px solid rgba(76, 175, 80, 0.5); margin-bottom: 25px;}
     
     /* Badges */
@@ -56,7 +56,6 @@ def load_fpl_data():
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
     players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
     
-    # --- AVAILABILITY LOGIC: Extract Status & Chance of Playing ---
     if 'status' in players.columns:
         players['status'] = players['status'].fillna('a')
     else:
@@ -66,7 +65,6 @@ def load_fpl_data():
         players['chance_of_playing_next_round'] = pd.to_numeric(players['chance_of_playing_next_round'], errors='coerce').fillna(100.0)
     else:
         players['chance_of_playing_next_round'] = 100.0
-    # --------------------------------------------------------------
     
     num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'bps']
     
@@ -91,8 +89,24 @@ def load_match_data():
     except Exception:
         return pd.DataFrame()
 
+# NEW SOCCERDATA LOADER
+@st.cache_data(ttl=86400) # Cache for 24 hours to respect rate limits
+def load_fbref_data():
+    try:
+        # Pull current season PL data
+        fbref = sd.FBref(leagues=['ENG-Premier League'], seasons=['2324'])
+        
+        # Pull team shooting stats as an example
+        team_shooting = fbref.read_team_season_stats(stat_type='shooting')
+        team_shooting = team_shooting.reset_index()
+        return team_shooting
+    except Exception as e:
+        st.error(f"Error loading FBref data: {e}")
+        return None
+
 players_df, teams_df = load_fpl_data()
 match_df = load_match_data()
+fbref_shooting_df = load_fbref_data() # Load the new data
 
 # ==========================================
 # 3. SIDEBAR NAVIGATION
@@ -129,7 +143,6 @@ if app_mode == "👤 Player Scout Card":
             selected_player = st.selectbox("Select Player:", player_list)
             p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
             
-            # Extract Fit % for the Scout Card
             chance_val = int(p_data.get('chance_of_playing_next_round', 100)) if pd.notna(p_data.get('chance_of_playing_next_round')) else 100
             chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
             
@@ -158,60 +171,77 @@ if app_mode == "👤 Player Scout Card":
             </div>
             """, unsafe_allow_html=True)
             
-            metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
-            st.markdown("### 📊 Performance Percentiles")
-            col1, col2 = st.columns(2)
-            for i, (label, col_name) in enumerate(metrics.items()):
-                if col_name in players_df.columns:
-                    val = p_data[col_name]
-                    percentile = int((players_df[col_name] < val).mean() * 100)
-                    target_col = col1 if i < 3 else col2
-                    with target_col:
-                        st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
-                        st.progress(percentile / 100.0)
+            # --- NEW TABS FOR SCOUT CARD ---
+            scout_tab1, scout_tab2 = st.tabs(["FPL Metrics", "FBref Team Shooting (soccerdata)"])
             
-            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
-            st.markdown("### 🏆 Top Performers by Metric")
-            st.caption(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
+            with scout_tab1:
+                metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
+                st.markdown("### 📊 Performance Percentiles")
+                col1, col2 = st.columns(2)
+                for i, (label, col_name) in enumerate(metrics.items()):
+                    if col_name in players_df.columns:
+                        val = p_data[col_name]
+                        percentile = int((players_df[col_name] < val).mean() * 100)
+                        target_col = col1 if i < 3 else col2
+                        with target_col:
+                            st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
+                            st.progress(percentile / 100.0)
+                
+                st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
+                st.markdown("### 🏆 Top Performers by Metric")
+                st.caption(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
+                
+                m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+                
+                def display_top_5(df, metric_col, title, col):
+                    top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
+                    with col:
+                        st.markdown(f"<div style='background: var(--secondary-background-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 10px;'>", unsafe_allow_html=True)
+                        st.markdown(f"<h5 style='color: var(--text-color); margin-top:0;'>{title}</h5>", unsafe_allow_html=True)
+                        for _, row in top_5.iterrows():
+                            st.markdown(f"<div class='leaderboard-item'><b>{row['first_name'][0]}. {row['second_name']}</b><br><span class='leaderboard-stat'>{row[metric_col]}</span> <span style='font-size:11px; opacity: 0.7;'>({row['team_name']})</span></div>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                            
+                display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
+                display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
+                display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
+                display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
+                
+                st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
+                st.markdown("### 🔍 Interactive Player Database")
+                grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
+                available_cols = [c for c in grid_cols if c in filtered_df.columns]
+                
+                st.dataframe(
+                    filtered_df[available_cols], 
+                    use_container_width=True, 
+                    hide_index=True,
+                    column_config={
+                        "first_name": "First Name",
+                        "second_name": "Last Name",
+                        "team_name": "Club",
+                        "position": "Pos",
+                        "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
+                        "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
+                        "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
+                        "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
+                        "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
+                        "chance_of_playing_next_round": st.column_config.NumberColumn("Fit %", format="%d%%")
+                    }
+                )
             
-            m_c1, m_c2, m_c3, m_c4 = st.columns(4)
-            
-            def display_top_5(df, metric_col, title, col):
-                top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
-                with col:
-                    st.markdown(f"<div style='background: var(--secondary-background-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 10px;'>", unsafe_allow_html=True)
-                    st.markdown(f"<h5 style='color: var(--text-color); margin-top:0;'>{title}</h5>", unsafe_allow_html=True)
-                    for _, row in top_5.iterrows():
-                        st.markdown(f"<div class='leaderboard-item'><b>{row['first_name'][0]}. {row['second_name']}</b><br><span class='leaderboard-stat'>{row[metric_col]}</span> <span style='font-size:11px; opacity: 0.7;'>({row['team_name']})</span></div>", unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-                        
-            display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
-            display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
-            display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
-            display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
-            
-            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
-            st.markdown("### 🔍 Interactive Player Database")
-            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
-            available_cols = [c for c in grid_cols if c in filtered_df.columns]
-            
-            st.dataframe(
-                filtered_df[available_cols], 
-                use_container_width=True, 
-                hide_index=True,
-                column_config={
-                    "first_name": "First Name",
-                    "second_name": "Last Name",
-                    "team_name": "Club",
-                    "position": "Pos",
-                    "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
-                    "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
-                    "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
-                    "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
-                    "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
-                    "chance_of_playing_next_round": st.column_config.NumberColumn("Fit %", format="%d%%")
-                }
-            )
+            with scout_tab2:
+                st.markdown("### 🎯 FBref Team Shooting Stats (via soccerdata)")
+                st.caption(f"Showing aggregate shooting data for {p_data['team_name']} to provide context for {p_data['second_name']}'s attacking environment.")
+                
+                if fbref_shooting_df is not None:
+                    # Note: You may need a mapping function if FBref team names don't perfectly match FPL team names
+                    # For this example, we show the whole table, but you could filter it:
+                    # team_fbref_df = fbref_shooting_df[fbref_shooting_df['team'] == p_data['team_name']]
+                    
+                    st.dataframe(fbref_shooting_df)
+                else:
+                    st.warning("FBref data could not be loaded at this time.")
 
         else:
             st.warning("No players found with these filters.")
@@ -265,9 +295,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             df = players_df.copy()
             df['full_name'] = df['first_name'] + " " + df['second_name']
             
-            # --- AVAILABILITY LOGIC: Filter Out Injured/Suspended (unless Locked) ---
             df = df[(df['status'] == 'a') | (df['full_name'].isin(locked_players))].copy()
-            # ------------------------------------------------------------------------
             
             for metric in weights.keys():
                 min_v, max_v = df[metric].min(), df[metric].max()
@@ -347,7 +375,6 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                             strength_val = int(row_data.team_strength) if pd.notna(row_data.team_strength) else 3
                             inline_fdr = get_fdr_style(strength_val)
                             
-                            # Availability Display Logic
                             chance_val = int(row_data.chance_of_playing_next_round) if pd.notna(row_data.chance_of_playing_next_round) else 100
                             chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
                             

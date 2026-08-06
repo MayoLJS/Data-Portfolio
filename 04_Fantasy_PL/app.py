@@ -89,8 +89,9 @@ def load_match_data():
         return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
-def load_fbref_data():
-    raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/data/fbref_shooting.csv"
+def load_understat_data():
+    # URL UPDATED TO MATCH YOUR 04_Fantasy_PL DIRECTORY STRUCTURE
+    raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/04_Fantasy_PL/data/team_shooting.csv"
     try:
         df = pd.read_csv(raw_url)
         return df
@@ -99,7 +100,7 @@ def load_fbref_data():
 
 players_df, teams_df = load_fpl_data()
 match_df = load_match_data()
-fbref_shooting_df = load_fbref_data() 
+understat_shooting_df = load_understat_data() 
 
 # ==========================================
 # 3. SIDEBAR NAVIGATION
@@ -112,7 +113,7 @@ app_mode = st.sidebar.radio("Select Module:", [
     "📈 Team Betting Edge",
     "📅 Match Results & Fixtures",
     "📊 Live League Table",
-    "🌐 FBref Team Stats" 
+    "🌐 Understat Team Stats" 
 ])
 
 # ==========================================
@@ -630,13 +631,13 @@ elif app_mode == "📊 Live League Table":
         st.warning("Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 6: FBREF TEAM STATS (soccerdata)
+# MODULE 6: UNDERSTAT TEAM STATS (soccerdata)
 # ==========================================
-elif app_mode == "🌐 FBref Team Stats":
-    st.title("🌐 FBref Team Shooting Stats")
-    st.write("Aggregated team shooting statistics directly from FBref (via `soccerdata`).")
+elif app_mode == "🌐 Understat Team Stats":
+    st.title("🌐 Understat Team Match Stats")
+    st.write("Aggregated team match statistics directly from Understat (via `soccerdata`).")
 
-    if fbref_shooting_df is not None:
-        st.dataframe(fbref_shooting_df, width="stretch")
+    if understat_shooting_df is not None:
+        st.dataframe(understat_shooting_df, width="stretch")
     else:
-        st.error("⚠️ FBref data could not be loaded at this time. Please ensure the CSV exists in your repository.")
+        st.error("⚠️ Understat data could not be loaded at this time. Please ensure the CSV exists in your repository.")

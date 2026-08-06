@@ -38,8 +38,16 @@ st.markdown("""
 chart_theme = "streamlit"
 
 def format_season(season_str):
-    """Formats '2526' to '2025/2026 Season'"""
-    return re.sub(r'^(\d{2})(\d{2})$', r'20\1/20\2 Season', str(season_str))
+    """Dynamically handles both '2025' and '2526' string formats"""
+    season_str = str(season_str)
+    if re.match(r'^20\d{2}$', season_str):
+        # Format 2025 -> 2025/2026 Season
+        next_year = int(season_str) + 1
+        return f"{season_str}/{next_year} Season"
+    elif re.match(r'^\d{4}$', season_str):
+        # Format 2526 -> 2025/2026 Season
+        return f"20{season_str[:2]}/20{season_str[2:]} Season"
+    return season_str
 
 # ==========================================
 # 2. DATA LOADERS (Cached)
@@ -108,18 +116,29 @@ match_df = load_match_data()
 understat_shooting_df = load_understat_data() 
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION
+# 3. SIDEBAR NAVIGATION (Subfolder Layout)
 # ==========================================
 st.sidebar.title("⚽ EPL HUB")
 st.sidebar.markdown("---")
-app_mode = st.sidebar.radio("Select Module:", [
-    "👤 Player Scout Card", 
-    "⚡ FPL Squad Optimizer", 
-    "📈 Team Betting Edge",
-    "📅 Match Results & Fixtures",
-    "📊 Live League Table",
-    "🌐 Understat Team Stats" 
-])
+
+menu_category = st.sidebar.selectbox("Select Category:", ["Fantasy", "Real", "Betting"])
+st.sidebar.markdown("---")
+
+if menu_category == "Fantasy":
+    app_mode = st.sidebar.radio("Select Module:", [
+        "👤 Player Scout Card", 
+        "⚡ FPL Squad Optimizer"
+    ])
+elif menu_category == "Real":
+    app_mode = st.sidebar.radio("Select Module:", [
+        "📅 Match Results & Fixtures",
+        "📊 Live League Table",
+        "🌐 Understat Team Stats" 
+    ])
+elif menu_category == "Betting":
+    app_mode = st.sidebar.radio("Select Module:", [
+        "📈 For your information only"
+    ])
 
 # ==========================================
 # MODULE 1: PLAYER SCOUT CARD
@@ -387,9 +406,9 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules/formation constraints.")
 
 # ==========================================
-# MODULE 3: TEAM Betting EDGE
+# MODULE 3: TEAM Betting EDGE (For your information only)
 # ==========================================
-elif app_mode == "📈 Team Betting Edge":
+elif app_mode == "📈 For your information only":
     st.title("📈 Predictive Match Analytics")
     
     if match_df is not None and not match_df.empty:
@@ -486,7 +505,7 @@ elif app_mode == "📈 Team Betting Edge":
         st.warning("Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 4: MATCH RESULTS & FIXTURES (with Gameweek Filter)
+# MODULE 4: MATCH RESULTS & FIXTURES
 # ==========================================
 elif app_mode == "📅 Match Results & Fixtures":
     st.title("📅 Match Results & Fixtures")

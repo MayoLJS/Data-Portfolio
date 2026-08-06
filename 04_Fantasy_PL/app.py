@@ -7,12 +7,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # ==========================================
-# 1. PAGE CONFIG & CUSTOM CSS (PREMIUM THEME)
+# 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
-# Removed the hardcoded dark .stApp gradient so native Light/Dark toggle works.
-# Swapped fixed colors for var(--secondary-background-color) and var(--text-color).
+# We use CSS variables here so it dynamically adapts to Streamlit's native Light/Dark toggle
 st.markdown("""
 <style>
     /* Custom Card Containers */
@@ -130,7 +129,10 @@ if app_mode == "👤 Player Scout Card":
             selected_player = st.selectbox("Select Player:", player_list)
             p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
             
-            # Swapped hardcoded #fff and dark backgrounds for var(--text-color) and var(--background-color)
+            # Extract Fit % for the Scout Card
+            chance_val = int(p_data.get('chance_of_playing_next_round', 100)) if pd.notna(p_data.get('chance_of_playing_next_round')) else 100
+            chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
+            
             st.markdown(f"""
             <div class="scout-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -140,7 +142,12 @@ if app_mode == "👤 Player Scout Card":
                             <span class="badge-pink">{p_data['team_name']}</span>
                         </div>
                         <h1 style="margin: 0; font-size: 2.5rem; font-weight: 800; color: var(--text-color);">{p_data['first_name'].upper()} {p_data['second_name'].upper()}</h1>
-                        <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.1rem;">Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; Ownership: <b>{p_data['selected_by_percent']}%</b> &nbsp;|&nbsp; Points: <b>{int(p_data['total_points'])}</b></p>
+                        <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.1rem;">
+                            Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; 
+                            Ownership: <b>{p_data['selected_by_percent']}%</b> &nbsp;|&nbsp; 
+                            Points: <b>{int(p_data['total_points'])}</b> &nbsp;|&nbsp;
+                            Fit: <b style="color: {chance_color};">{chance_val}%</b>
+                        </p>
                     </div>
                     <div style="text-align: right; background: var(--background-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
                         <h4 style="color: #0088cc; margin:0 0 5px 0; font-weight: 600;">xG: {p_data.get('expected_goals', 0.0):.2f}</h4>
@@ -185,7 +192,7 @@ if app_mode == "👤 Player Scout Card":
             
             st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
             st.markdown("### 🔍 Interactive Player Database")
-            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index']
+            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
             
             st.dataframe(
@@ -201,7 +208,8 @@ if app_mode == "👤 Player Scout Card":
                     "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
                     "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
                     "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
-                    "ict_index": st.column_config.NumberColumn("ICT", format="%.1f")
+                    "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
+                    "chance_of_playing_next_round": st.column_config.NumberColumn("Fit %", format="%d%%")
                 }
             )
 

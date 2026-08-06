@@ -36,4 +36,8 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add data/team_shooting.csv
-          git diff-index --quiet HEAD || (git commit -m "Automated update of Understat data" && git push)
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "Automated update of Understat data"
+            git pull origin main --rebase
+            git push
+          fi

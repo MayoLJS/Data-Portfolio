@@ -7,40 +7,30 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # ==========================================
-# 1. PAGE CONFIG & CUSTOM CSS
+# 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
+# We use CSS variables here so it dynamically adapts to Streamlit's native Light/Dark toggle
 st.markdown("""
 <style>
-    /* Global Dark Theme */
-    .stApp { background-color: #0b0e14; color: #e0e6ed; }
-    section[data-testid="stSidebar"] { background-color: #121621; border-right: 1px solid #1e2638; }
-    
     /* Custom Card Containers */
-    .scout-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 10px; padding: 20px; margin-bottom: 15px; }
-    .pitch-card { background-color: #161b26; border: 1px solid #00f2fe; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); position: relative; }
-    .bench-card { background-color: #1e2638; border: 1px solid #ff007f; border-radius: 8px; padding: 10px; text-align: center; opacity: 0.8; }
-    .fixture-card { background-color: #161b26; border: 1px solid #232b3e; border-radius: 10px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .scout-card { background-color: var(--secondary-background-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-bottom: 15px; }
+    .pitch-card { background-color: var(--secondary-background-color); border: 1px solid #00f2fe; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; }
+    .bench-card { background-color: var(--background-color); border: 1px solid #ff007f; border-radius: 8px; padding: 10px; text-align: center; opacity: 0.9; position: relative;}
+    .fixture-card { background-color: var(--secondary-background-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
     
     /* Pitch Background */
-    .pitch-container { background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%); border-radius: 15px; padding: 20px; border: 2px solid #4caf50;}
+    .pitch-container { background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%); border-radius: 15px; padding: 20px; border: 2px solid #4caf50; color: white; margin-bottom: 20px;}
     
     /* Badges */
-    .badge-cyan { background-color: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid #00f2fe; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
-    .badge-pink { background-color: rgba(255, 0, 127, 0.15); color: #ff007f; border: 1px solid #ff007f; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
-    .score-box { background-color: #0b0e14; border: 1px solid #232b3e; border-radius: 6px; padding: 6px 14px; font-size: 18px; font-weight: bold; color: #00f2fe; letter-spacing: 2px; }
-
-    /* FDR Badges */
-    .fdr-badge { position: absolute; top: -5px; right: -5px; padding: 4px 6px; border-radius: 50%; font-size: 10px; font-weight: bold; color: white; border: 1px solid white; z-index: 10;}
-    .fdr-2 { background-color: #01fc7a; color: black; } /* Easy */
-    .fdr-3 { background-color: #e7e7e7; color: black; } /* Medium */
-    .fdr-4 { background-color: #ff005a; } /* Hard */
-    .fdr-5 { background-color: #80002d; } /* Very Hard */
+    .badge-cyan { background-color: rgba(0, 242, 254, 0.15); color: #0088cc; border: 1px solid #00f2fe; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+    .badge-pink { background-color: rgba(255, 0, 127, 0.15); color: #cc0066; border: 1px solid #ff007f; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+    .score-box { background-color: var(--background-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 14px; font-size: 18px; font-weight: bold; letter-spacing: 2px; }
 </style>
 """, unsafe_allow_html=True)
 
-chart_theme = "plotly_dark"
+chart_theme = "streamlit"
 
 # ==========================================
 # 2. DATA LOADERS (Cached)
@@ -78,7 +68,6 @@ def load_match_data():
     try:
         df = pd.read_csv(raw_url)
         df['Date'] = pd.to_datetime(df['Date'])
-        # Dynamically assign Gameweeks (blocks of 10 matches chronologically per season)
         df = df.sort_values(by=['Season', 'Date'])
         df['Gameweek'] = df.groupby('Season').cumcount() // 10 + 1
         return df
@@ -129,13 +118,13 @@ if app_mode == "👤 Player Scout Card":
                     <div>
                         <span class="badge-cyan">{p_data['position'].upper()}</span>
                         <span class="badge-pink">{p_data['team_name']}</span>
-                        <h1 style="color: white; margin: 10px 0 0 0;">{p_data['first_name']} {p_data['second_name']}</h1>
-                        <p style="color: #8f9bba; margin: 0;">Price: £{p_data['cost_m']}M | Ownership: {p_data['selected_by_percent']}% | Points: {int(p_data['total_points'])}</p>
+                        <h1 style="margin: 10px 0 0 0;">{p_data['first_name']} {p_data['second_name']}</h1>
+                        <p style="margin: 0;">Price: £{p_data['cost_m']}M | Ownership: {p_data['selected_by_percent']}% | Points: {int(p_data['total_points'])}</p>
                     </div>
                     <div style="text-align: right;">
-                        <h3 style="color: #00f2fe; margin:0;">Expected Goals (xG): {p_data.get('expected_goals', 0.0):.2f}</h3>
-                        <h3 style="color: #00f2fe; margin:0;">Expected Assists (xA): {p_data.get('expected_assists', 0.0):.2f}</h3>
-                        <p style="color: #8f9bba; margin:0;">Form: {p_data['form']} | ICT: {p_data['ict_index']}</p>
+                        <h3 style="color: #0088cc; margin:0;">Expected Goals (xG): {p_data.get('expected_goals', 0.0):.2f}</h3>
+                        <h3 style="color: #0088cc; margin:0;">Expected Assists (xA): {p_data.get('expected_assists', 0.0):.2f}</h3>
+                        <p style="margin:0;">Form: {p_data['form']} | ICT: {p_data['ict_index']}</p>
                     </div>
                 </div>
             </div>
@@ -152,7 +141,6 @@ if app_mode == "👤 Player Scout Card":
                         st.write(f"**{label}**: `{val}` *(Top {100-percentile}%)*")
                         st.progress(percentile / 100.0)
             
-            # --- RESTORED: TOP PLAYERS LEADERBOARD ---
             st.markdown("---")
             st.markdown("### 🏆 Top Performers by Metric")
             st.write(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
@@ -164,27 +152,26 @@ if app_mode == "👤 Player Scout Card":
                 with col:
                     st.markdown(f"**{title}**")
                     for _, row in top_5.iterrows():
-                        st.markdown(f"<div style='font-size:14px; padding: 4px 0; border-bottom: 1px solid #232b3e;'><b>{row['first_name']} {row['second_name']}</b><br><span style='color:#00f2fe;'>{row[metric_col]}</span> <span style='font-size:11px; color:#8f9bba;'>({row['team_name']} - {row['position']})</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:14px; padding: 4px 0; border-bottom: 1px solid var(--border-color);'><b>{row['first_name']} {row['second_name']}</b><br><span style='color:#0088cc; font-weight:bold;'>{row[metric_col]}</span> <span style='font-size:11px;'>({row['team_name']} - {row['position']})</span></div>", unsafe_allow_html=True)
                         
             display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
             display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
             display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
             display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
             
-            # --- NATIVE INTERACTIVE DATABASE ---
             st.markdown("---")
             st.markdown("### 🔍 Interactive Player Database")
             grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
             
-            # Using Streamlit's native interactive dataframe (no Ag-Grid CSS clashing)
-            st.dataframe(filtered_df[available_cols], use_container_width=True, hide_index=True)
+            # Using Streamlit's robust native dataframe
+            st.dataframe(filtered_df[available_cols], width=None, hide_index=True)
 
         else:
             st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER
+# MODULE 2: FPL SQUAD OPTIMIZER (ADVANCED BENCH LOGIC)
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
     st.title("⚡ Prescriptive FPL Squad Optimizer")
@@ -192,7 +179,10 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     st.sidebar.header("1. Budget Constraints")
     budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
     
-    st.sidebar.header("2. Custom Strategy Weights")
+    st.sidebar.header("2. Bench Strategy")
+    bench_weight = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1, help="0.1 = Dump cheapest fodder on bench to maximize Starting XI. 1.0 = Spread budget equally (Bench Boost).")
+    
+    st.sidebar.header("3. Custom Strategy Weights")
     advanced_mode = st.sidebar.toggle("Advanced Metric Breakdown", value=False)
     
     if not advanced_mode:
@@ -213,14 +203,14 @@ elif app_mode == "⚡ FPL Squad Optimizer":
     total_w = sum(weights.values())
     if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
 
-    st.sidebar.header("3. Locked Players (Optional)")
+    st.sidebar.header("4. Locked Players (Optional)")
     if players_df is not None:
         player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
         locked_players = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices, max_selections=14)
     else:
         locked_players = []
 
-    if st.button("🚀 Generate Optimal Squad", type="primary", width="stretch"):
+    if st.button("🚀 Generate Optimal Squad", type="primary"):
         if players_df is not None:
             df = players_df.copy()
             df['full_name'] = df['first_name'] + " " + df['second_name']
@@ -231,50 +221,53 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             
             df['custom_score'] = sum(df[f'{metric}_norm'] * w for metric, w in weights.items())
                 
+            # Advanced LP Formulation: Starters vs Bench
             prob = pulp.LpProblem("Optimal_FPL_Squad", pulp.LpMaximize)
-            player_vars = pulp.LpVariable.dicts("player", df.index, cat='Binary')
+            squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
+            starter_vars = pulp.LpVariable.dicts("starter", df.index, cat='Binary')
+            bench_vars = pulp.LpVariable.dicts("bench", df.index, cat='Binary')
             
-            prob += pulp.lpSum([df.loc[i, 'custom_score'] * player_vars[i] for i in df.index])
+            # Objective: Maximize Starters + (Bench * Weight)
+            prob += pulp.lpSum([df.loc[i, 'custom_score'] * starter_vars[i] + bench_weight * df.loc[i, 'custom_score'] * bench_vars[i] for i in df.index])
             
-            prob += pulp.lpSum([df.loc[i, 'now_cost'] * player_vars[i] for i in df.index]) <= (budget * 10) 
-            prob += pulp.lpSum([player_vars[i] for i in df.index]) == 15 
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
-            prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
+            for i in df.index:
+                prob += squad_vars[i] == starter_vars[i] + bench_vars[i]
+            
+            prob += pulp.lpSum([df.loc[i, 'now_cost'] * squad_vars[i] for i in df.index]) <= (budget * 10) 
+            prob += pulp.lpSum([squad_vars[i] for i in df.index]) == 15 
+            prob += pulp.lpSum([starter_vars[i] for i in df.index]) == 11 
+            prob += pulp.lpSum([bench_vars[i] for i in df.index]) == 4 
+            
+            # Global Squad Position constraints
+            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
+            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
+            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
+            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
+            
+            # Starting XI Formation Constraints (e.g. 3-5-2, 4-4-2, 3-4-3)
+            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
+            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) >= 3
+            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
+            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
             
             for t_id in df['team'].unique(): 
-                prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
+                prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
             
             locked_indices = df[df['full_name'].isin(locked_players)].index.tolist()
             for idx in locked_indices:
-                prob += player_vars[idx] == 1
+                prob += squad_vars[idx] == 1
                 
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
-            squad = df.loc[[i for i in df.index if player_vars[i].varValue == 1]].copy()
-            
-            if len(squad) == 15:
-                squad = squad.sort_values(by='custom_score', ascending=False)
+            if pulp.LpStatus[prob.status] == 'Optimal':
+                squad = df.loc[[i for i in df.index if squad_vars[i].varValue == 1]].copy()
+                starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
+                bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
                 
-                gkps = squad[squad['element_type'] == 1]
-                defs = squad[squad['element_type'] == 2]
-                mids = squad[squad['element_type'] == 3]
-                fwds = squad[squad['element_type'] == 4]
-
-                start_gkp = gkps.head(1)
-                bench_gkp = gkps.tail(1)
-                
-                start_def = defs.head(3)
-                start_mid = mids.head(2)
-                start_fwd = fwds.head(1)
-                
-                remaining_outfield = pd.concat([defs.iloc[3:], mids.iloc[2:], fwds.iloc[1:]]).sort_values(by='custom_score', ascending=False)
-                start_rest = remaining_outfield.head(4)
-                bench_rest = remaining_outfield.tail(3)
-                
-                starters = pd.concat([start_gkp, start_def, start_mid, start_fwd, start_rest])
-                bench = pd.concat([bench_gkp, bench_rest]).sort_values(by='element_type')
+                # Sort bench: GK first, then outfield by highest score to lowest
+                bench_gkp = bench_raw[bench_raw['element_type'] == 1]
+                bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='custom_score', ascending=False)
+                bench = pd.concat([bench_gkp, bench_outfield])
 
                 st.success("✅ Optimization Complete!")
                 c1, c2, c3 = st.columns(3)
@@ -286,20 +279,27 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.caption("Dots indicate overall team strength: Green = Easy, Grey = Avg, Red = Hard")
                 st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
                 
+                # Inline HTML styling for FDR Badges ensures they render correctly regardless of cloud CSS stripping
+                def get_fdr_style(val):
+                    bg = {2: "#01fc7a", 3: "#e7e7e7", 4: "#ff005a", 5: "#80002d"}.get(val, "#e7e7e7")
+                    txt = "black" if val in [2, 3] else "white"
+                    return f"background-color: {bg}; color: {txt};"
+
                 def render_row(players_in_row, card_class='pitch-card'):
                     if not players_in_row.empty:
                         cols = st.columns(len(players_in_row))
                         for col, row_data in zip(cols, players_in_row.itertuples()):
-                            val = row_data.team_strength
-                            strength_val = int(val) if pd.notna(val) else 3
-                            fdr_class = f"fdr-{strength_val}" if strength_val in [2, 3, 4, 5] else "fdr-3"
+                            strength_val = int(row_data.team_strength) if pd.notna(row_data.team_strength) else 3
+                            inline_fdr = get_fdr_style(strength_val)
                             
                             col.markdown(f"""
                             <div class='{card_class}'>
-                                <div class='fdr-badge {fdr_class}'>{strength_val}</div>
+                                <div style='position: absolute; top: -8px; right: -8px; padding: 4px 8px; border-radius: 50%; font-size: 11px; font-weight: bold; border: 1px solid var(--border-color); z-index: 10; {inline_fdr}'>
+                                    {strength_val}
+                                </div>
                                 <b>{row_data.second_name}</b><br>
-                                <span style='font-size:12px; color:#8f9bba;'>{row_data.team_name}</span><br>
-                                <span style='color:#00f2fe;'>£{row_data.cost_m}m</span>
+                                <span style='font-size:12px;'>{row_data.team_name}</span><br>
+                                <span style='color:#0088cc; font-weight:bold;'>£{row_data.cost_m}m</span>
                             </div>
                             """, unsafe_allow_html=True)
                     st.write("") 
@@ -310,11 +310,11 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 render_row(starters[starters['element_type'] == 4]) 
                 st.markdown("</div>", unsafe_allow_html=True)
 
-                st.markdown("### 🪑 The Bench")
+                st.markdown("### 🪑 The Bench (Ordered by Priority)")
                 render_row(bench, card_class='bench-card')
 
             else:
-                st.error("⚠️ Optimizer could not find a valid 15-player squad. Check if your budget is too tight, or if your locked players violate FPL rules.")
+                st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules.")
 
 # ==========================================
 # MODULE 3: TEAM BETTING EDGE
@@ -348,16 +348,16 @@ elif app_mode == "📈 Team Betting Edge":
             with tab1:
                 losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
                 fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({selected_season})",
-                                    color_discrete_map={'Win': '#00f2fe', 'Draw': '#8f9bba', 'Loss': '#ff007f'}, orientation='h')
-                fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
-                st.plotly_chart(fig1, use_container_width=True)
+                                    color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
+                fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig1)
                 
             with tab2:
                 winning_ht = fact_matches[fact_matches['HT_Status'] == 'Winning']
                 fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({selected_season})",
-                                    color_discrete_map={'Win': '#00f2fe', 'Draw': '#8f9bba', 'Loss': '#ff007f'}, orientation='h')
-                fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
-                st.plotly_chart(fig2, use_container_width=True)
+                                    color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
+                fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig2)
                 
             with tab3:
                 ha_stats = fact_matches.groupby(['Team', 'Venue']).size().reset_index(name='Matches')
@@ -366,9 +366,9 @@ elif app_mode == "📈 Team Betting Edge":
                 ha_merged['Win_Rate'] = (ha_merged['Wins'] / ha_merged['Matches']) * 100
                 
                 fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({selected_season})",
-                              color_discrete_map={'Home': '#00f2fe', 'Away': '#ff007f'})
-                fig3.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
-                st.plotly_chart(fig3, use_container_width=True)
+                              color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
+                fig3.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig3)
 
             with tab4:
                 pts_map = {'Win': 3, 'Draw': 1, 'Loss': 0}
@@ -382,7 +382,7 @@ elif app_mode == "📈 Team Betting Edge":
                 
                 fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', 
                                   size='Total_Pts', size_max=25,
-                                  color_discrete_sequence=['#00f2fe'])
+                                  color_discrete_sequence=['#0088cc'])
                 fig4.update_traces(textposition='top center', marker=dict(line=dict(width=1, color='DarkSlateGrey')))
                 
                 x_mean = team_stats['Avg_Conceded'].mean()
@@ -392,24 +392,16 @@ elif app_mode == "📈 Team Betting Edge":
                 y_min = max(0, team_stats['Avg_Scored'].min() - 0.5)
                 y_max = team_stats['Avg_Scored'].max() + 0.5
                 
-                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
-                fig4.add_vline(x=x_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
-                
-                fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 242, 254, 0.1)", line_width=0, layer="below")
-                fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(255, 0, 127, 0.1)", line_width=0, layer="below")
-                
-                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#00f2fe", size=16))
-                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#8f9bba", size=14))
-                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
-                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#ff007f", size=14))
+                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Scored")
+                fig4.add_vline(x=x_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Conceded")
                 
                 fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Bubble Size = Total Points", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
                                    yaxis_title="Average Goals Scored (More is Better)",
                                    xaxis=dict(range=[x_min, x_max]),
                                    yaxis=dict(range=[y_min, y_max]),
-                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
-                st.plotly_chart(fig4, use_container_width=True)
+                                   template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig4)
         else:
             st.warning("No matches found for this season/filter.")
     else:
@@ -450,12 +442,12 @@ elif app_mode == "📅 Match Results & Fixtures":
                     
                     st.markdown(f"""
                     <div class="fixture-card">
-                        <div style="width: 35%; text-align: right; font-size: 16px; font-weight: bold; color: #e0e6ed;">{h_team}</div>
+                        <div style="width: 35%; text-align: right; font-size: 16px; font-weight: bold;">{h_team}</div>
                         <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
                             <div class="score-box">{h_score} - {a_score}</div>
-                            <span style="font-size: 11px; color: #8f9bba; margin-top: 4px;">{match_date}</span>
+                            <span style="font-size: 11px; margin-top: 4px;">{match_date}</span>
                         </div>
-                        <div style="width: 35%; text-align: left; font-size: 16px; font-weight: bold; color: #e0e6ed;">{a_team}</div>
+                        <div style="width: 35%; text-align: left; font-size: 16px; font-weight: bold;">{a_team}</div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -547,8 +539,8 @@ elif app_mode == "📊 Live League Table":
                     
                     fig_trend.update_yaxes(autorange="reversed", title="League Position", tickmode='linear', tick0=1, dtick=1)
                     fig_trend.update_xaxes(title="Matches Played")
-                    fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
-                    st.plotly_chart(fig_trend, use_container_width=True)
+                    fig_trend.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_trend)
                 else:
                     st.info("Please select at least one team to display the trend line.")
 

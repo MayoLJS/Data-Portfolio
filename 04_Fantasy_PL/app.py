@@ -41,8 +41,10 @@ def load_fpl_data():
     url = "https://fantasy.premierleague.com/api/bootstrap-static/"
     try:
         response = requests.get(url, timeout=10)
-        if response.status_code != 200: return None
-    except: return None
+        if response.status_code != 200: 
+            return None
+    except requests.exceptions.RequestException: 
+        return None
     
     data = response.json()
     players = pd.DataFrame(data['elements'])
@@ -50,7 +52,9 @@ def load_fpl_data():
     
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
     num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'bps']
-    for col in num_cols: players[col] = pd.to_numeric(players[col], errors='coerce').fillna(0.0)
+    
+    for col in num_cols: 
+        players[col] = pd.to_numeric(players[col], errors='coerce').fillna(0.0)
             
     players['cost_m'] = players['now_cost'] / 10.0
     players['position'] = players['element_type'].map({1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD'})
@@ -134,7 +138,7 @@ if app_mode == "👤 Player Scout Card":
                     st.write(f"**{label}**: `{val}` *(Top {100-percentile}%)*")
                     st.progress(percentile / 100.0)
             
-            # --- NEW FEATURE: TOP PLAYERS LEADERBOARD ---
+            # --- TOP PLAYERS LEADERBOARD ---
             st.markdown("---")
             st.markdown("### 🏆 Top Performers by Metric")
             st.write(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
@@ -145,8 +149,9 @@ if app_mode == "👤 Player Scout Card":
                 top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
                 with col:
                     st.markdown(f"**{title}**")
-                    for _, row in top_5.iterrows():
-                        st.markdown(f"<div style='font-size:14px; padding: 4px 0; border-bottom: 1px solid #232b3e;'><b>{row['first_name']} {row['second_name']}</b><br><span style='color:#00f2fe;'>{row[metric_col]}</span> <span style='font-size:11px; color:#8f9bba;'>({row['team_name']} - {row['position']})</span></div>", unsafe_allow_html=True)
+                    for row in top_5.itertuples():
+                        val = getattr(row, metric_col)
+                        st.markdown(f"<div style='font-size:14px; padding: 4px 0; border-bottom: 1px solid #232b3e;'><b>{row.first_name} {row.second_name}</b><br><span style='color:#00f2fe;'>{val}</span> <span style='font-size:11px; color:#8f9bba;'>({row.team_name} - {row.position})</span></div>", unsafe_allow_html=True)
                         
             display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
             display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
@@ -184,7 +189,8 @@ elif app_mode == "⚡ FPL Squad Optimizer":
         weights = {'form': w_form, 'selected_by_percent': w_own, 'influence': w_inf, 'creativity': w_cre, 'threat': w_thr}
 
     total_w = sum(weights.values())
-    if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
+    if total_w > 0: 
+        weights = {k: v / total_w for k, v in weights.items()}
 
     st.sidebar.header("3. Locked Players (Optional)")
     if players_df is not None:
@@ -216,7 +222,8 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
             prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
             
-            for t_id in df['team'].unique(): prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
+            for t_id in df['team'].unique(): 
+                prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
             
             locked_indices = df[df['full_name'].isin(locked_players)].index.tolist()
             for idx in locked_indices:
@@ -260,8 +267,8 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 def render_row(players_in_row):
                     if not players_in_row.empty:
                         cols = st.columns(len(players_in_row))
-                        for col, (_, p) in zip(cols, players_in_row.iterrows()):
-                            col.markdown(f"<div class='pitch-card'><b>{p['second_name']}</b><br><span style='font-size:12px; color:#8f9bba;'>{p['team_name']}</span><br><span style='color:#00f2fe;'>£{p['cost_m']}m</span></div>", unsafe_allow_html=True)
+                        for col, row_data in zip(cols, players_in_row.itertuples()):
+                            col.markdown(f"<div class='pitch-card'><b>{row_data.second_name}</b><br><span style='font-size:12px; color:#8f9bba;'>{row_data.team_name}</span><br><span style='color:#00f2fe;'>£{row_data.cost_m}m</span></div>", unsafe_allow_html=True)
                     st.write("") 
 
                 render_row(starters[starters['element_type'] == 1]) 
@@ -272,11 +279,11 @@ elif app_mode == "⚡ FPL Squad Optimizer":
 
                 st.markdown("### 🪑 The Bench")
                 b_cols = st.columns(4)
-                for col, (_, p) in zip(b_cols, bench.iterrows()):
-                    col.markdown(f"<div class='bench-card'><b>{p['second_name']}</b> ({p['position']})<br>£{p['cost_m']}m</div>", unsafe_allow_html=True)
+                for col, row_data in zip(b_cols, bench.itertuples()):
+                    col.markdown(f"<div class='bench-card'><b>{row_data.second_name}</b> ({row_data.position})<br>£{row_data.cost_m}m</div>", unsafe_allow_html=True)
 
             else:
-                st.error("⚠️ Optimizer could not find a valid 15-player squad. Check if your budget is too tight, or if your locked players violate FPL rules.")
+                st.error("⚠️ Optimizer could not find a valid 15-player squad. Check if your budget is too tight, or if your locked players violate FPL rules (e.g., >3 from one team).")
 
 # ==========================================
 # MODULE 3: TEAM BETTING EDGE
@@ -301,9 +308,9 @@ elif app_mode == "📈 Team Betting Edge":
             
             fact_matches = pd.concat([home_m, away_m], ignore_index=True)
             fact_matches['HT_Status'] = np.where(fact_matches['Scored_HT'] > fact_matches['Conceded_HT'], 'Winning',
-                                         np.where(fact_matches['Scored_HT'] < fact_matches['Conceded_HT'], 'Losing', 'Drawing'))
+                                                 np.where(fact_matches['Scored_HT'] < fact_matches['Conceded_HT'], 'Losing', 'Drawing'))
             fact_matches['FT_Status'] = np.where(fact_matches['Scored_FT'] > fact_matches['Conceded_FT'], 'Win',
-                                         np.where(fact_matches['Scored_FT'] < fact_matches['Conceded_FT'], 'Loss', 'Draw'))
+                                                 np.where(fact_matches['Scored_FT'] < fact_matches['Conceded_FT'], 'Loss', 'Draw'))
             
             tab1, tab2, tab3, tab4 = st.tabs(["🔄 Losing at HT", "🛡️ Winning at HT", "🏠 Home vs Away", "🎯 Chaos Quadrant"])
             
@@ -332,9 +339,8 @@ elif app_mode == "📈 Team Betting Edge":
                 fig3.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
                 st.plotly_chart(fig3, use_container_width=True)
 
-            # --- NEW FEATURE: UPGRADED CHAOS QUADRANT ---
+            # --- UPGRADED CHAOS QUADRANT ---
             with tab4:
-                # Calculate Points for Bubble Size
                 pts_map = {'Win': 3, 'Draw': 1, 'Loss': 0}
                 fact_matches['Pts'] = fact_matches['FT_Status'].map(pts_map)
                 
@@ -359,11 +365,9 @@ elif app_mode == "📈 Team Betting Edge":
                 fig4.add_hline(y=y_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
                 fig4.add_vline(x=x_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
                 
-                # Quadrant Tints
                 fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 242, 254, 0.1)", line_width=0, layer="below")
                 fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(255, 0, 127, 0.1)", line_width=0, layer="below")
                 
-                # Catchy Names
                 fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#00f2fe", size=16))
                 fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#8f9bba", size=14))
                 fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
@@ -407,12 +411,12 @@ elif app_mode == "📅 Match Results & Fixtures":
             st.markdown("---")
             
             if not gw_matches.empty:
-                for _, row in gw_matches.iterrows():
-                    match_date = row['Date'].strftime('%d %b %Y')
-                    h_team = row['Home_Team']
-                    a_team = row['Away_Team']
-                    h_score = int(row['Home_Score_FT'])
-                    a_score = int(row['Away_Score_FT'])
+                for row in gw_matches.itertuples():
+                    match_date = row.Date.strftime('%d %b %Y')
+                    h_team = row.Home_Team
+                    a_team = row.Away_Team
+                    h_score = int(row.Home_Score_FT)
+                    a_score = int(row.Away_Score_FT)
                     
                     st.markdown(f"""
                     <div class="fixture-card">
@@ -452,11 +456,11 @@ elif app_mode == "📊 Live League Table":
             team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'Matches': 0} for team in teams}
             trend_data = []
 
-            for _, row in szn_df.iterrows():
-                home = row['Home_Team']
-                away = row['Away_Team']
-                h_score = row['Home_Score_FT']
-                a_score = row['Away_Score_FT']
+            for row in szn_df.itertuples():
+                home = row.Home_Team
+                away = row.Away_Team
+                h_score = row.Home_Score_FT
+                a_score = row.Away_Score_FT
                 
                 team_records[home]['Matches'] += 1
                 team_records[away]['Matches'] += 1

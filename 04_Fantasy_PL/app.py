@@ -15,13 +15,13 @@ st.markdown("""
 <style>
     .scout-card { background-color: var(--secondary-background-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-bottom: 15px; }
     .pitch-card { background-color: var(--secondary-background-color); border: 1px solid #00f2fe; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; }
-    .bench-card { background-color: var(--background-color); border: 1px solid #ff007f; border-radius: 8px; padding: 10px; text-align: center; opacity: 0.8;}
-    .pitch-container { background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%); border-radius: 15px; padding: 20px; border: 2px solid #4caf50; color: white; }
+    .bench-card { background-color: var(--background-color); border: 1px solid #ff007f; border-radius: 8px; padding: 10px; text-align: center; opacity: 0.9; position: relative;}
+    .pitch-container { background: linear-gradient(180deg, #1b4332 0%, #2d6a4f 100%); border-radius: 15px; padding: 20px; border: 2px solid #4caf50; color: white; margin-bottom: 20px;}
     .badge-cyan { background-color: rgba(0, 242, 254, 0.15); color: #0088cc; border: 1px solid #00f2fe; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
     .badge-pink { background-color: rgba(255, 0, 127, 0.15); color: #cc0066; border: 1px solid #ff007f; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
     
     /* FDR Badges */
-    .fdr-badge { position: absolute; top: -5px; right: -5px; padding: 4px 6px; border-radius: 50%; font-size: 10px; font-weight: bold; color: white; border: 1px solid white;}
+    .fdr-badge { position: absolute; top: -5px; right: -5px; padding: 4px 6px; border-radius: 50%; font-size: 10px; font-weight: bold; color: white; border: 1px solid white; z-index: 10;}
     .fdr-2 { background-color: #01fc7a; color: black; } /* Easy */
     .fdr-3 { background-color: #e7e7e7; color: black; } /* Medium */
     .fdr-4 { background-color: #ff005a; } /* Hard */
@@ -48,11 +48,8 @@ def load_fpl_data():
     teams = pd.DataFrame(data['teams'])
     
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
-    
-    # Safe mapping with a default fallback of 3 (Average Strength)
     players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
     
-    # Adding xG and xA from official FPL Data
     num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'expected_goal_involvements']
     
     for col in num_cols: 
@@ -132,38 +129,67 @@ if app_mode == "👤 Player Scout Card":
             """, unsafe_allow_html=True)
             
             st.markdown("### 🔍 Interactive Player Database")
-            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists']
-            
+            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
+            
             gb = GridOptionsBuilder.from_dataframe(filtered_df[available_cols])
             gb.configure_pagination(paginationAutoPageSize=True)
             gb.configure_side_bar()
             gb.configure_default_column(editable=True, groupable=True, value=True, enableRowGroup=True)
             gridOptions = gb.build()
             
+            # Switched to Alpine theme to force rendering if Streamlit theme is bugged in the cloud
             AgGrid(
                 filtered_df[available_cols], 
                 gridOptions=gridOptions, 
                 enable_enterprise_modules=False, 
                 height=400, 
                 fit_columns_on_grid_load=True,
-                theme="streamlit"
+                theme="alpine" 
             )
 
         else:
             st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER (WITH VISUAL FDR)
+# MODULE 2: FPL SQUAD OPTIMIZER (FULL VERSION RESTORED)
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
     st.title("⚡ Prescriptive FPL Squad Optimizer")
     
+    # RESTORED: Advanced Sidebar Controls
     st.sidebar.header("1. Budget Constraints")
     budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
     
-    st.sidebar.info("💡 Optimizer uses a blend of Form, Ownership, and ICT Index.")
-    weights = {'form': 0.3, 'selected_by_percent': 0.3, 'ict_index': 0.4}
+    st.sidebar.header("2. Custom Strategy Weights")
+    advanced_mode = st.sidebar.toggle("Advanced Metric Breakdown", value=False)
+    
+    if not advanced_mode:
+        st.sidebar.info("💡 **Base Mode:** Uses bundled ICT Index alongside Form & Ownership.")
+        w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
+        w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
+        w_ict = st.sidebar.slider("ICT Index (Quality)", 0, 100, 40, 5)
+        weights = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
+    else:
+        st.sidebar.info("⚙️ **Advanced Mode:** Unbundles ICT into Influence, Creativity, and Threat.")
+        w_form = st.sidebar.slider("Form", 0, 100, 20, 5)
+        w_own = st.sidebar.slider("Ownership %", 0, 100, 20, 5)
+        w_inf = st.sidebar.slider("Influence (Impact)", 0, 100, 20, 5)
+        w_cre = st.sidebar.slider("Creativity (Assists)", 0, 100, 20, 5)
+        w_thr = st.sidebar.slider("Threat (Goals)", 0, 100, 20, 5)
+        weights = {'form': w_form, 'selected_by_percent': w_own, 'influence': w_inf, 'creativity': w_cre, 'threat': w_thr}
+
+    total_w = sum(weights.values())
+    if total_w > 0: 
+        weights = {k: v / total_w for k, v in weights.items()}
+
+    # RESTORED: Locked Players
+    st.sidebar.header("3. Locked Players (Optional)")
+    if players_df is not None:
+        player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
+        locked_players = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices, max_selections=14)
+    else:
+        locked_players = []
 
     if st.button("🚀 Generate Optimal Squad", type="primary", width="stretch"):
         if players_df is not None:
@@ -190,6 +216,11 @@ elif app_mode == "⚡ FPL Squad Optimizer":
             
             for t_id in df['team'].unique(): 
                 prob += pulp.lpSum([player_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
+                
+            # Apply locked players logic
+            locked_indices = df[df['full_name'].isin(locked_players)].index.tolist()
+            for idx in locked_indices:
+                prob += player_vars[idx] == 1
                 
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
@@ -219,22 +250,26 @@ elif app_mode == "⚡ FPL Squad Optimizer":
 
                 st.success("✅ Optimization Complete!")
 
+                # RESTORED: Top level metrics
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
+                c2.metric("Starting XI Proj. Score", f"{starters['custom_score'].sum():.2f}")
+                c3.metric("Bench Proj. Score", f"{bench['custom_score'].sum():.2f}")
+
                 st.markdown("### 🏟️ The Starting XI (with FDR)")
                 st.caption("Dots indicate overall team strength: Green = Easy, Grey = Avg, Red = Hard")
                 st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
                 
-                def render_row(players_in_row):
+                def render_row(players_in_row, card_class='pitch-card'):
                     if not players_in_row.empty:
                         cols = st.columns(len(players_in_row))
                         for col, row_data in zip(cols, players_in_row.itertuples()):
-                            # Double safeguard for float/NaN conversion
                             val = row_data.team_strength
                             strength_val = int(val) if pd.notna(val) else 3
-                            
                             fdr_class = f"fdr-{strength_val}" if strength_val in [2, 3, 4, 5] else "fdr-3"
                             
                             col.markdown(f"""
-                            <div class='pitch-card'>
+                            <div class='{card_class}'>
                                 <div class='fdr-badge {fdr_class}'>{strength_val}</div>
                                 <b>{row_data.second_name}</b><br>
                                 <span style='font-size:12px; color:#8f9bba;'>{row_data.team_name}</span><br>
@@ -249,8 +284,12 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 render_row(starters[starters['element_type'] == 4]) 
                 st.markdown("</div>", unsafe_allow_html=True)
 
+                # RESTORED: The Bench UI
+                st.markdown("### 🪑 The Bench")
+                render_row(bench, card_class='bench-card')
+
             else:
-                st.error("⚠️ Optimizer failed to find a valid squad.")
+                st.error("⚠️ Optimizer failed to find a valid squad. Check if your budget is too tight, or if locked players violate constraints.")
 
 # ==========================================
 # MODULE 3 & 4: PLOTLY MATRIX & TABLE

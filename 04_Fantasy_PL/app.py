@@ -5,6 +5,7 @@ import requests
 import pulp
 import plotly.express as px
 import plotly.graph_objects as go
+import re
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
@@ -35,6 +36,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 chart_theme = "streamlit"
+
+def format_season(season_str):
+    """Formats '2526' to '2025/2026 Season'"""
+    return re.sub(r'^(\d{2})(\d{2})$', r'20\1/20\2 Season', str(season_str))
 
 # ==========================================
 # 2. DATA LOADERS (Cached)
@@ -389,12 +394,12 @@ elif app_mode == "📈 Team Betting Edge":
     
     if match_df is not None and not match_df.empty:
         available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
-        selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
+        # Regex format apply for dropdown
+        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
         
-        szn_match_df = match_df[match_df['Season'] == selected_season]
+        szn_match_df = match_df[match_df['Season'] == selected_season_raw]
         
         if not szn_match_df.empty:
-            # Still using match_df to preserve HT analysis
             home_m = szn_match_df[['Match_ID', 'Home_Team', 'Home_Score_HT', 'Away_Score_HT', 'Home_Score_FT', 'Away_Score_FT']].copy()
             home_m.columns = ['Match_ID', 'Team', 'Scored_HT', 'Conceded_HT', 'Scored_FT', 'Conceded_FT']
             home_m['Venue'] = 'Home'
@@ -413,14 +418,14 @@ elif app_mode == "📈 Team Betting Edge":
             
             with tab1:
                 losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
-                fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({selected_season})",
+                fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({format_season(selected_season_raw)})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig1, width="stretch")
                 
             with tab2:
                 winning_ht = fact_matches[fact_matches['HT_Status'] == 'Winning']
-                fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({selected_season})",
+                fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({format_season(selected_season_raw)})",
                                     color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
                 fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig2, width="stretch")
@@ -431,7 +436,7 @@ elif app_mode == "📈 Team Betting Edge":
                 ha_merged = pd.merge(ha_stats, ha_wins, on=['Team', 'Venue'], how='left').fillna(0)
                 ha_merged['Win_Rate'] = (ha_merged['Wins'] / ha_merged['Matches']) * 100
                 
-                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({selected_season})",
+                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({format_season(selected_season_raw)})",
                               color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
                 fig3.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig3, width="stretch")
@@ -469,7 +474,7 @@ elif app_mode == "📈 Team Betting Edge":
                 fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
                 fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#cc0066", size=14))
                 
-                fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Bubble Size = Total Points", 
+                fig4.update_layout(title=f"The Chaos Quadrant ({format_season(selected_season_raw)}) - Bubble Size = Total Points", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
                                    yaxis_title="Average Goals Scored (More is Better)",
                                    xaxis=dict(range=[x_min, x_max]),
@@ -490,14 +495,14 @@ elif app_mode == "📅 Match Results & Fixtures":
     
     if understat_shooting_df is not None and not understat_shooting_df.empty:
         available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
-        selected_season = st.selectbox("Select Season:", available_seasons)
+        selected_season_raw = st.selectbox("Select Season:", available_seasons, format_func=format_season)
         
-        szn_matches = understat_shooting_df[understat_shooting_df['season'] == selected_season].copy()
+        szn_matches = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].copy()
         
         if not szn_matches.empty:
             szn_matches = szn_matches.sort_values('date', ascending=False)
             
-            st.markdown(f"### 🗓️ {selected_season} Season Results")
+            st.markdown(f"### 🗓️ {format_season(selected_season_raw)} Results")
             st.markdown("---")
             
             for _, row in szn_matches.iterrows():
@@ -506,14 +511,16 @@ elif app_mode == "📅 Match Results & Fixtures":
                 a_team = row['away_team']
                 h_score = int(row['home_goals'])
                 a_score = int(row['away_goals'])
-                h_xg = f"{row['home_xG']:.2f}"
-                a_xg = f"{row['away_xG']:.2f}"
+                
+                # Dynamic get fallback to prevent KeyError
+                h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
+                a_xg = float(row.get('away_xG', row.get('away_xg', 0.0)))
                 
                 st.markdown(f"""
                 <div class="fixture-card">
                     <div style="width: 35%; text-align: right;">
                         <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
-                        <div style="font-size: 0.85rem; color: #0088cc;">xG: {h_xg}</div>
+                        <div style="font-size: 0.85rem; color: #0088cc;">xG: {h_xg:.2f}</div>
                     </div>
                     <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
                         <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
@@ -521,7 +528,7 @@ elif app_mode == "📅 Match Results & Fixtures":
                     </div>
                     <div style="width: 35%; text-align: left;">
                         <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
-                        <div style="font-size: 0.85rem; color: #cc0066;">xG: {a_xg}</div>
+                        <div style="font-size: 0.85rem; color: #cc0066;">xG: {a_xg:.2f}</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -538,9 +545,9 @@ elif app_mode == "📊 Live League Table":
     
     if understat_shooting_df is not None and not understat_shooting_df.empty:
         available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
-        selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
+        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
         
-        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season].sort_values('date')
+        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
         
         if not szn_df.empty:
             teams = pd.concat([szn_df['home_team'], szn_df['away_team']]).unique()
@@ -558,16 +565,16 @@ elif app_mode == "📊 Live League Table":
                 team_records[home]['GF'] += h_score
                 team_records[home]['GA'] += a_score
                 team_records[home]['GD'] += (h_score - a_score)
-                team_records[home]['xG'] += row['home_xG']
-                team_records[home]['xGA'] += row['away_xG']
-                team_records[home]['xPts'] += row['home_expected_points']
+                team_records[home]['xG'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
+                team_records[home]['xGA'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
+                team_records[home]['xPts'] += float(row.get('home_expected_points', row.get('home_xpts', 0.0)))
                 
                 team_records[away]['GF'] += a_score
                 team_records[away]['GA'] += h_score
                 team_records[away]['GD'] += (a_score - h_score)
-                team_records[away]['xG'] += row['away_xG']
-                team_records[away]['xGA'] += row['home_xG']
-                team_records[away]['xPts'] += row['away_expected_points']
+                team_records[away]['xG'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
+                team_records[away]['xGA'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
+                team_records[away]['xPts'] += float(row.get('away_expected_points', row.get('away_xpts', 0.0)))
                 
                 if h_score > a_score:
                     team_records[home]['Pts'] += 3

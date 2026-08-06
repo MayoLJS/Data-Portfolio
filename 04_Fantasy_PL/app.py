@@ -5,7 +5,7 @@ import requests
 import pulp
 import plotly.express as px
 import plotly.graph_objects as go
-import soccerdata as sd # NEW IMPORT
+import soccerdata as sd 
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
@@ -101,12 +101,11 @@ def load_fbref_data():
         team_shooting = team_shooting.reset_index()
         return team_shooting
     except Exception as e:
-        st.error(f"Error loading FBref data: {e}")
         return None
 
 players_df, teams_df = load_fpl_data()
 match_df = load_match_data()
-fbref_shooting_df = load_fbref_data() # Load the new data
+fbref_shooting_df = load_fbref_data() 
 
 # ==========================================
 # 3. SIDEBAR NAVIGATION
@@ -118,7 +117,8 @@ app_mode = st.sidebar.radio("Select Module:", [
     "⚡ FPL Squad Optimizer", 
     "📈 Team Betting Edge",
     "📅 Match Results & Fixtures",
-    "📊 Live League Table"
+    "📊 Live League Table",
+    "🌐 FBref Team Stats" # NEW MODULE ADDED HERE
 ])
 
 # ==========================================
@@ -171,77 +171,60 @@ if app_mode == "👤 Player Scout Card":
             </div>
             """, unsafe_allow_html=True)
             
-            # --- NEW TABS FOR SCOUT CARD ---
-            scout_tab1, scout_tab2 = st.tabs(["FPL Metrics", "FBref Team Shooting (soccerdata)"])
+            metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
+            st.markdown("### 📊 Performance Percentiles")
+            col1, col2 = st.columns(2)
+            for i, (label, col_name) in enumerate(metrics.items()):
+                if col_name in players_df.columns:
+                    val = p_data[col_name]
+                    percentile = int((players_df[col_name] < val).mean() * 100)
+                    target_col = col1 if i < 3 else col2
+                    with target_col:
+                        st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
+                        st.progress(percentile / 100.0)
             
-            with scout_tab1:
-                metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
-                st.markdown("### 📊 Performance Percentiles")
-                col1, col2 = st.columns(2)
-                for i, (label, col_name) in enumerate(metrics.items()):
-                    if col_name in players_df.columns:
-                        val = p_data[col_name]
-                        percentile = int((players_df[col_name] < val).mean() * 100)
-                        target_col = col1 if i < 3 else col2
-                        with target_col:
-                            st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
-                            st.progress(percentile / 100.0)
-                
-                st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
-                st.markdown("### 🏆 Top Performers by Metric")
-                st.caption(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
-                
-                m_c1, m_c2, m_c3, m_c4 = st.columns(4)
-                
-                def display_top_5(df, metric_col, title, col):
-                    top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
-                    with col:
-                        st.markdown(f"<div style='background: var(--secondary-background-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 10px;'>", unsafe_allow_html=True)
-                        st.markdown(f"<h5 style='color: var(--text-color); margin-top:0;'>{title}</h5>", unsafe_allow_html=True)
-                        for _, row in top_5.iterrows():
-                            st.markdown(f"<div class='leaderboard-item'><b>{row['first_name'][0]}. {row['second_name']}</b><br><span class='leaderboard-stat'>{row[metric_col]}</span> <span style='font-size:11px; opacity: 0.7;'>({row['team_name']})</span></div>", unsafe_allow_html=True)
-                        st.markdown("</div>", unsafe_allow_html=True)
-                            
-                display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
-                display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
-                display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
-                display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
-                
-                st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
-                st.markdown("### 🔍 Interactive Player Database")
-                grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
-                available_cols = [c for c in grid_cols if c in filtered_df.columns]
-                
-                st.dataframe(
-                    filtered_df[available_cols], 
-                    use_container_width=True, 
-                    hide_index=True,
-                    column_config={
-                        "first_name": "First Name",
-                        "second_name": "Last Name",
-                        "team_name": "Club",
-                        "position": "Pos",
-                        "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
-                        "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
-                        "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
-                        "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
-                        "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
-                        "chance_of_playing_next_round": st.column_config.NumberColumn("Fit %", format="%d%%")
-                    }
-                )
+            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
+            st.markdown("### 🏆 Top Performers by Metric")
+            st.caption(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
             
-            with scout_tab2:
-                st.markdown("### 🎯 FBref Team Shooting Stats (via soccerdata)")
-                st.caption(f"Showing aggregate shooting data for {p_data['team_name']} to provide context for {p_data['second_name']}'s attacking environment.")
-                
-                if fbref_shooting_df is not None:
-                    # Note: You may need a mapping function if FBref team names don't perfectly match FPL team names
-                    # For this example, we show the whole table, but you could filter it:
-                    # team_fbref_df = fbref_shooting_df[fbref_shooting_df['team'] == p_data['team_name']]
-                    
-                    st.dataframe(fbref_shooting_df)
-                else:
-                    st.warning("FBref data could not be loaded at this time.")
+            m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+            
+            def display_top_5(df, metric_col, title, col):
+                top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
+                with col:
+                    st.markdown(f"<div style='background: var(--secondary-background-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 10px;'>", unsafe_allow_html=True)
+                    st.markdown(f"<h5 style='color: var(--text-color); margin-top:0;'>{title}</h5>", unsafe_allow_html=True)
+                    for _, row in top_5.iterrows():
+                        st.markdown(f"<div class='leaderboard-item'><b>{row['first_name'][0]}. {row['second_name']}</b><br><span class='leaderboard-stat'>{row[metric_col]}</span> <span style='font-size:11px; opacity: 0.7;'>({row['team_name']})</span></div>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                        
+            display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
+            display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
+            display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
+            display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
+            
+            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
+            st.markdown("### 🔍 Interactive Player Database")
+            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
+            available_cols = [c for c in grid_cols if c in filtered_df.columns]
+            
+            st.dataframe(
+                filtered_df[available_cols], 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "first_name": "First Name",
+                    "second_name": "Last Name",
+                    "team_name": "Club",
+                    "position": "Pos",
+                    "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
+                    "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
+                    "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
+                    "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
+                    "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
+                    "chance_of_playing_next_round": st.column_config.NumberColumn("Fit %", format="%d%%")
+                }
+            )
 
         else:
             st.warning("No players found with these filters.")
@@ -651,3 +634,15 @@ elif app_mode == "📊 Live League Table":
             st.warning("No matches found for this filter.")
     else:
         st.warning("Match dataset is currently loading or unavailable.")
+
+# ==========================================
+# MODULE 6: FBREF TEAM STATS (soccerdata)
+# ==========================================
+elif app_mode == "🌐 FBref Team Stats":
+    st.title("🌐 FBref Team Shooting Stats")
+    st.write("Aggregated team shooting statistics directly from FBref (via `soccerdata`).")
+
+    if fbref_shooting_df is not None:
+        st.dataframe(fbref_shooting_df, use_container_width=True)
+    else:
+        st.error("⚠️ FBref data could not be loaded at this time. Please ensure packages.txt is committed and the Streamlit app is rebooted.")

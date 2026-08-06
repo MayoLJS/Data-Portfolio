@@ -5,3 +5,4 @@ pulp
 plotly
 requests
 numpy
+streamlit-aggrid

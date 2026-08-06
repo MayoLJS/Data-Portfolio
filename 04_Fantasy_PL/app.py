@@ -27,6 +27,7 @@ st.markdown("""
     /* Badges */
     .badge-cyan { background: rgba(0, 242, 254, 0.15); color: #0088cc; border: 1px solid #00f2fe; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
     .badge-pink { background: rgba(255, 0, 127, 0.15); color: #cc0066; border: 1px solid #ff007f; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
+    .badge-cap { background: #ffcc00; color: #000; border: 1px solid #d4af37; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 900; margin-left: 4px;}
     .score-box { background: var(--background-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 18px; font-size: 20px; font-weight: 800; letter-spacing: 3px; color: var(--text-color); }
     
     /* Leaderboard Styling */
@@ -67,6 +68,31 @@ def load_fpl_data():
     
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
     players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
+    
+    # Extract official FPL Predicted Points (ep_next)
+    players['predicted_points'] = pd.to_numeric(players.get('ep_next', 0), errors='coerce').fillna(0.0)
+    players['next_opponent'] = "N/A"
+    
+    # Fetch fixtures to get next opponent
+    try:
+        fix_response = requests.get("https://fantasy.premierleague.com/api/fixtures/?future=1", timeout=5)
+        if fix_response.status_code == 200:
+            fixtures = pd.DataFrame(fix_response.json())
+            if not fixtures.empty and 'event' in fixtures.columns:
+                next_event = fixtures['event'].dropna().min()
+                next_fixtures = fixtures[fixtures['event'] == next_event]
+                
+                team_mapping = dict(zip(teams['id'], teams['short_name']))
+                next_opp_dict = {}
+                for _, row in next_fixtures.iterrows():
+                    h_id = row['team_h']
+                    a_id = row['team_a']
+                    next_opp_dict[h_id] = f"{team_mapping.get(a_id, 'UNK')} (H)"
+                    next_opp_dict[a_id] = f"{team_mapping.get(h_id, 'UNK')} (A)"
+                
+                players['next_opponent'] = players['team'].map(next_opp_dict).fillna("Blank GW")
+    except Exception:
+        pass
     
     if 'status' in players.columns:
         players['status'] = players['status'].fillna('a')
@@ -178,7 +204,9 @@ if app_mode == "👤 Player Scout Card":
                         <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.1rem;">
                             Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; 
                             Ownership: <b>{p_data['selected_by_percent']}%</b> &nbsp;|&nbsp; 
-                            Points: <b>{int(p_data['total_points'])}</b> &nbsp;|&nbsp;
+                            Points: <b>{int(p_data['total_points'])}</b><br>
+                            Next Opp: <b>{p_data.get('next_opponent', 'N/A')}</b> &nbsp;|&nbsp;
+                            Proj Pts: <b style="color: #0088cc;">{p_data.get('predicted_points', 0.0)}</b> &nbsp;|&nbsp;
                             Fit: <b style="color: {chance_color};">{chance_val}%</b>
                         </p>
                     </div>
@@ -225,7 +253,7 @@ if app_mode == "👤 Player Scout Card":
             
             st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
             st.markdown("### 🔍 Interactive Player Database")
-            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
+            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'next_opponent', 'predicted_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
             available_cols = [c for c in grid_cols if c in filtered_df.columns]
             
             st.dataframe(
@@ -239,6 +267,8 @@ if app_mode == "👤 Player Scout Card":
                     "position": "Pos",
                     "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
                     "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
+                    "next_opponent": "Next Match",
+                    "predicted_points": st.column_config.NumberColumn("Proj Pts", format="%.1f"),
                     "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
                     "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
                     "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
@@ -362,6 +392,17 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 c2.metric("Starting XI Rating (/11.0)", f"{starters['custom_score'].sum():.2f}")
                 c3.metric("Bench Rating (/4.0)", f"{bench['custom_score'].sum():.2f}")
 
+                # === CAPTAINCY & TRIPLE CAPTAIN LOGIC ===
+                captain_id = starters['predicted_points'].idxmax()
+                captain_row = starters.loc[captain_id]
+                
+                st.markdown("### 👑 Captaincy & Strategy")
+                if captain_row['predicted_points'] >= 7.5:
+                    st.success(f"🔥 **Triple Captain Alert:** **{captain_row['second_name']}** is projected for an elite **{captain_row['predicted_points']} points** against {captain_row.get('next_opponent', 'their next opponent')}. Consider using your Triple Captain chip!")
+                else:
+                    st.info(f"🛡️ **Captain Recommendation:** **{captain_row['second_name']}** (Projected: {captain_row['predicted_points']} pts). A Triple Captain chip is not highly advised this week.")
+
+
                 st.markdown("### 🏟️ The Starting XI (with FDR)")
                 st.caption("Dots indicate overall team strength: Green = Easy, Grey = Avg, Red = Hard")
                 st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
@@ -381,14 +422,18 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                             chance_val = int(row_data.chance_of_playing_next_round) if pd.notna(row_data.chance_of_playing_next_round) else 100
                             chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
                             
+                            is_captain = (row_data.Index == captain_id)
+                            cap_badge = "<span class='badge-cap'>C</span>" if is_captain and card_class == 'pitch-card' else ""
+                            
                             col.markdown(f"""
                             <div class='{card_class}'>
                                 <div style='position: absolute; top: -8px; right: -8px; padding: 4px 8px; border-radius: 50%; font-size: 11px; font-weight: bold; border: 1px solid var(--border-color); z-index: 10; {inline_fdr} box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
                                     {strength_val}
                                 </div>
-                                <b style='color: var(--text-color); font-size: 14px;'>{row_data.second_name}</b><br>
+                                <b style='color: var(--text-color); font-size: 14px;'>{row_data.second_name} {cap_badge}</b><br>
                                 <span style='font-size:11px; opacity:0.8;'>{row_data.team_name}</span><br>
-                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{row_data.cost_m}m</span><br>
+                                <span style='font-size:11px; color:#ff007f;'>vs {row_data.next_opponent}</span><br>
+                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{row_data.cost_m}m | xP: {row_data.predicted_points}</span><br>
                                 <span style='font-size:10px; color:{chance_color}; font-weight:bold;'>Fit: {chance_val}%</span>
                             </div>
                             """, unsafe_allow_html=True)
@@ -644,7 +689,7 @@ elif app_mode == "📊 Live League Table":
         st.warning("Understat dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 6: TEAM TRENDS (xG vs Actual) - NEW!
+# MODULE 6: TEAM TRENDS (xG vs Actual)
 # ==========================================
 elif app_mode == "📈 Team Trends (xG vs Actual)":
     st.title("📈 Team Trends: Expected vs Actual")
@@ -657,27 +702,21 @@ elif app_mode == "📈 Team Trends (xG vs Actual)":
         szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
         
         if not szn_df.empty:
-            # Create list of unique teams
             teams = sorted(list(set(szn_df['home_team'].tolist() + szn_df['away_team'].tolist())))
             
             col1, col2 = st.columns(2)
-            # Default to the first team alphabetically
             selected_team = col1.selectbox("Select Team:", teams, index=0)
-            # Metric filter
             metric_choice = col2.selectbox("Select Metric:", ["Goals For", "Goals Against", "Points"])
             
-            # Extract matches only involving the selected team
             team_matches = szn_df[(szn_df['home_team'] == selected_team) | (szn_df['away_team'] == selected_team)].copy()
             
             if not team_matches.empty:
                 actual_vals = []
                 expected_vals = []
                 
-                # Loop through chronological matches
                 for _, row in team_matches.iterrows():
                     is_home = (row['home_team'] == selected_team)
                     
-                    # Core Data
                     h_score = row['home_goals']
                     a_score = row['away_goals']
                     h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
@@ -700,17 +739,14 @@ elif app_mode == "📈 Team Trends (xG vs Actual)":
                         actual_vals.append(pts)
                         expected_vals.append(xpts)
                         
-                # Create rolling Cumulative Dataframe
                 trend_df = pd.DataFrame({
                     'Gameweek': range(1, len(actual_vals) + 1),
                     'Actual': np.cumsum(actual_vals),
                     'Expected': np.cumsum(expected_vals)
                 })
                 
-                # Build the Interactive Plotly Line Graph
                 fig = go.Figure()
                 
-                # Plot Actual values as a Solid Line
                 fig.add_trace(go.Scatter(
                     x=trend_df['Gameweek'], 
                     y=trend_df['Actual'], 
@@ -720,7 +756,6 @@ elif app_mode == "📈 Team Trends (xG vs Actual)":
                     marker=dict(size=6)
                 ))
                 
-                # Plot Expected values as a Dotted Line
                 fig.add_trace(go.Scatter(
                     x=trend_df['Gameweek'], 
                     y=trend_df['Expected'], 

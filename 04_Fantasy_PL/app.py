@@ -394,7 +394,6 @@ elif app_mode == "📈 Team Betting Edge":
     
     if match_df is not None and not match_df.empty:
         available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
-        # Regex format apply for dropdown
         selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
         
         szn_match_df = match_df[match_df['Season'] == selected_season_raw]
@@ -487,11 +486,11 @@ elif app_mode == "📈 Team Betting Edge":
         st.warning("Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 4: MATCH RESULTS & FIXTURES
+# MODULE 4: MATCH RESULTS & FIXTURES (with Gameweek Filter)
 # ==========================================
 elif app_mode == "📅 Match Results & Fixtures":
     st.title("📅 Match Results & Fixtures")
-    st.write("Browse actual match scores alongside Understat Expected Goals (xG).")
+    st.write("Browse actual match scores alongside Understat Expected Goals (xG), filtered by Gameweek.")
     
     if understat_shooting_df is not None and not understat_shooting_df.empty:
         available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
@@ -500,38 +499,49 @@ elif app_mode == "📅 Match Results & Fixtures":
         szn_matches = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].copy()
         
         if not szn_matches.empty:
-            szn_matches = szn_matches.sort_values('date', ascending=False)
+            szn_matches = szn_matches.sort_values('date', ascending=True)
+            szn_matches['gameweek'] = (szn_matches.groupby('season').cumcount() // 10) + 1
             
-            st.markdown(f"### 🗓️ {format_season(selected_season_raw)} Results")
+            max_gw = int(szn_matches['gameweek'].max())
+            gw_list = [f"Gameweek {i}" for i in range(1, max_gw + 1)]
+            
+            selected_gw_str = st.selectbox("Select Matchweek:", gw_list)
+            selected_gw_num = int(selected_gw_str.split(" ")[1])
+            
+            gw_matches = szn_matches[szn_matches['gameweek'] == selected_gw_num].sort_values('date')
+            
+            st.markdown(f"### 🗓️ {format_season(selected_season_raw)} - {selected_gw_str}")
             st.markdown("---")
             
-            for _, row in szn_matches.iterrows():
-                match_date = row['date'].strftime('%d %b %Y')
-                h_team = row['home_team']
-                a_team = row['away_team']
-                h_score = int(row['home_goals'])
-                a_score = int(row['away_goals'])
-                
-                # Dynamic get fallback to prevent KeyError
-                h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
-                a_xg = float(row.get('away_xG', row.get('away_xg', 0.0)))
-                
-                st.markdown(f"""
-                <div class="fixture-card">
-                    <div style="width: 35%; text-align: right;">
-                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
-                        <div style="font-size: 0.85rem; color: #0088cc;">xG: {h_xg:.2f}</div>
+            if not gw_matches.empty:
+                for _, row in gw_matches.iterrows():
+                    match_date = row['date'].strftime('%d %b %Y')
+                    h_team = row['home_team']
+                    a_team = row['away_team']
+                    h_score = int(row['home_goals'])
+                    a_score = int(row['away_goals'])
+                    
+                    h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
+                    a_xg = float(row.get('away_xG', row.get('away_xg', 0.0)))
+                    
+                    st.markdown(f"""
+                    <div class="fixture-card">
+                        <div style="width: 35%; text-align: right;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
+                            <div style="font-size: 0.85rem; color: #0088cc;">xG: {h_xg:.2f}</div>
+                        </div>
+                        <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
+                            <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
+                            <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{match_date}</span>
+                        </div>
+                        <div style="width: 35%; text-align: left;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
+                            <div style="font-size: 0.85rem; color: #cc0066;">xG: {a_xg:.2f}</div>
+                        </div>
                     </div>
-                    <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
-                        <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
-                        <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{match_date}</span>
-                    </div>
-                    <div style="width: 35%; text-align: left;">
-                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
-                        <div style="font-size: 0.85rem; color: #cc0066;">xG: {a_xg:.2f}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No fixtures found for this gameweek.")
         else:
             st.warning("No matches found for this season.")
     else:

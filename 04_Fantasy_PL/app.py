@@ -133,6 +133,26 @@ if app_mode == "👤 Player Scout Card":
                 with target_col:
                     st.write(f"**{label}**: `{val}` *(Top {100-percentile}%)*")
                     st.progress(percentile / 100.0)
+            
+            # --- NEW FEATURE: TOP PLAYERS LEADERBOARD ---
+            st.markdown("---")
+            st.markdown("### 🏆 Top Performers by Metric")
+            st.write(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
+            
+            m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+            
+            def display_top_5(df, metric_col, title, col):
+                top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
+                with col:
+                    st.markdown(f"**{title}**")
+                    for _, row in top_5.iterrows():
+                        st.markdown(f"<div style='font-size:14px; padding: 4px 0; border-bottom: 1px solid #232b3e;'><b>{row['first_name']} {row['second_name']}</b><br><span style='color:#00f2fe;'>{row[metric_col]}</span> <span style='font-size:11px; color:#8f9bba;'>({row['team_name']} - {row['position']})</span></div>", unsafe_allow_html=True)
+                        
+            display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
+            display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
+            display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
+            display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
+
         else:
             st.warning("No players found with these filters.")
 
@@ -312,17 +332,48 @@ elif app_mode == "📈 Team Betting Edge":
                 fig3.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
                 st.plotly_chart(fig3, use_container_width=True)
 
+            # --- NEW FEATURE: UPGRADED CHAOS QUADRANT ---
             with tab4:
-                team_stats = fact_matches.groupby('Team').agg(Avg_Scored=('Scored_FT', 'mean'), Avg_Conceded=('Conceded_FT', 'mean')).reset_index()
-                fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', color_discrete_sequence=['#00f2fe'])
-                fig4.update_traces(textposition='top center', marker=dict(size=12, line=dict(width=2, color='DarkSlateGrey')))
-                fig4.add_hline(y=team_stats['Avg_Scored'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
-                fig4.add_vline(x=team_stats['Avg_Conceded'].mean(), line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
+                # Calculate Points for Bubble Size
+                pts_map = {'Win': 3, 'Draw': 1, 'Loss': 0}
+                fact_matches['Pts'] = fact_matches['FT_Status'].map(pts_map)
                 
-                fig4.update_yaxes(autorange="reversed")
-                fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Top Left = Best Defense & Best Attack", 
+                team_stats = fact_matches.groupby('Team').agg(
+                    Avg_Scored=('Scored_FT', 'mean'), 
+                    Avg_Conceded=('Conceded_FT', 'mean'),
+                    Total_Pts=('Pts', 'sum')
+                ).reset_index()
+                
+                fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', 
+                                  size='Total_Pts', size_max=25,
+                                  color_discrete_sequence=['#00f2fe'])
+                fig4.update_traces(textposition='top center', marker=dict(line=dict(width=1, color='DarkSlateGrey')))
+                
+                x_mean = team_stats['Avg_Conceded'].mean()
+                y_mean = team_stats['Avg_Scored'].mean()
+                x_min = max(0, team_stats['Avg_Conceded'].min() - 0.5)
+                x_max = team_stats['Avg_Conceded'].max() + 0.5
+                y_min = max(0, team_stats['Avg_Scored'].min() - 0.5)
+                y_max = team_stats['Avg_Scored'].max() + 0.5
+                
+                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Scored")
+                fig4.add_vline(x=x_mean, line_dash="dash", line_color="#ff007f", annotation_text="Avg Conceded")
+                
+                # Quadrant Tints
+                fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 242, 254, 0.1)", line_width=0, layer="below")
+                fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(255, 0, 127, 0.1)", line_width=0, layer="below")
+                
+                # Catchy Names
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#00f2fe", size=16))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#8f9bba", size=14))
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#ff007f", size=14))
+                
+                fig4.update_layout(title=f"The Chaos Quadrant ({selected_season}) - Bubble Size = Total Points", 
                                    xaxis_title="Average Goals Conceded (Fewer is Better)",
                                    yaxis_title="Average Goals Scored (More is Better)",
+                                   xaxis=dict(range=[x_min, x_max]),
+                                   yaxis=dict(range=[y_min, y_max]),
                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#e0e6ed')
                 st.plotly_chart(fig4, use_container_width=True)
         else:
@@ -331,7 +382,7 @@ elif app_mode == "📈 Team Betting Edge":
         st.warning("Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 4: MATCH RESULTS & FIXTURES (Standalone Section)
+# MODULE 4: MATCH RESULTS & FIXTURES
 # ==========================================
 elif app_mode == "📅 Match Results & Fixtures":
     st.title("📅 Match Results & Fixtures")

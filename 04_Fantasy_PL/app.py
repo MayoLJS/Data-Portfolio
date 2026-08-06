@@ -90,10 +90,10 @@ def load_match_data():
 
 @st.cache_data(ttl=3600)
 def load_understat_data():
-    # URL UPDATED TO MATCH YOUR 04_Fantasy_PL DIRECTORY STRUCTURE
     raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/04_Fantasy_PL/data/team_shooting.csv"
     try:
         df = pd.read_csv(raw_url)
+        df['date'] = pd.to_datetime(df['date'])
         return df
     except Exception:
         return None
@@ -394,6 +394,7 @@ elif app_mode == "📈 Team Betting Edge":
         szn_match_df = match_df[match_df['Season'] == selected_season]
         
         if not szn_match_df.empty:
+            # Still using match_df to preserve HT analysis
             home_m = szn_match_df[['Match_ID', 'Home_Team', 'Home_Score_HT', 'Away_Score_HT', 'Home_Score_FT', 'Away_Score_FT']].copy()
             home_m.columns = ['Match_ID', 'Team', 'Scored_HT', 'Conceded_HT', 'Scored_FT', 'Conceded_FT']
             home_m['Venue'] = 'Home'
@@ -485,77 +486,71 @@ elif app_mode == "📈 Team Betting Edge":
 # ==========================================
 elif app_mode == "📅 Match Results & Fixtures":
     st.title("📅 Match Results & Fixtures")
-    st.write("Browse actual match scores and results across Premier League seasons, grouped by Gameweek.")
+    st.write("Browse actual match scores alongside Understat Expected Goals (xG).")
     
-    if match_df is not None and not match_df.empty:
-        available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
         selected_season = st.selectbox("Select Season:", available_seasons)
         
-        szn_matches = match_df[match_df['Season'] == selected_season].copy()
+        szn_matches = understat_shooting_df[understat_shooting_df['season'] == selected_season].copy()
         
         if not szn_matches.empty:
-            max_gw = int(szn_matches['Gameweek'].max())
-            gw_list = [f"Gameweek {i}" for i in range(1, max_gw + 1)]
+            szn_matches = szn_matches.sort_values('date', ascending=False)
             
-            selected_gw_str = st.selectbox("Select Matchweek:", gw_list)
-            selected_gw_num = int(selected_gw_str.split(" ")[1])
-            
-            gw_matches = szn_matches[szn_matches['Gameweek'] == selected_gw_num].sort_values('Date')
-            
-            st.markdown(f"### 🗓️ {selected_season} - {selected_gw_str}")
+            st.markdown(f"### 🗓️ {selected_season} Season Results")
             st.markdown("---")
             
-            if not gw_matches.empty:
-                for _, row in gw_matches.iterrows():
-                    match_date = row['Date'].strftime('%d %b %Y')
-                    h_team = row['Home_Team']
-                    a_team = row['Away_Team']
-                    h_score = int(row['Home_Score_FT'])
-                    a_score = int(row['Away_Score_FT'])
-                    
-                    st.markdown(f"""
-                    <div class="fixture-card">
-                        <div style="width: 35%; text-align: right; font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
-                        <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
-                            <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
-                            <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{match_date}</span>
-                        </div>
-                        <div style="width: 35%; text-align: left; font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
+            for _, row in szn_matches.iterrows():
+                match_date = row['date'].strftime('%d %b %Y')
+                h_team = row['home_team']
+                a_team = row['away_team']
+                h_score = int(row['home_goals'])
+                a_score = int(row['away_goals'])
+                h_xg = f"{row['home_xG']:.2f}"
+                a_xg = f"{row['away_xG']:.2f}"
+                
+                st.markdown(f"""
+                <div class="fixture-card">
+                    <div style="width: 35%; text-align: right;">
+                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
+                        <div style="font-size: 0.85rem; color: #0088cc;">xG: {h_xg}</div>
                     </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("No fixtures found for this gameweek.")
+                    <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
+                        <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
+                        <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{match_date}</span>
+                    </div>
+                    <div style="width: 35%; text-align: left;">
+                        <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
+                        <div style="font-size: 0.85rem; color: #cc0066;">xG: {a_xg}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
         else:
             st.warning("No matches found for this season.")
     else:
-        st.warning("Match dataset is currently loading or unavailable.")
+        st.warning("Understat Match dataset is currently loading or unavailable.")
 
 # ==========================================
-# MODULE 5: LIVE LEAGUE TABLE
+# MODULE 5: LIVE LEAGUE TABLE (Upgraded with xG)
 # ==========================================
 elif app_mode == "📊 Live League Table":
-    st.title("📊 League Table & Gameweek Trends")
+    st.title("📊 Expected vs Actual League Table")
     
-    if match_df is not None and not match_df.empty:
-        available_seasons = ["All Seasons"] + sorted(match_df['Season'].unique().tolist(), reverse=True)
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
         selected_season = st.selectbox("Select Season to Analyze:", available_seasons)
         
-        if selected_season == "All Seasons":
-            szn_df = match_df.copy().sort_values('Date')
-            st.info("Aggregating cumulative 3-year points and form data.")
-        else:
-            szn_df = match_df[match_df['Season'] == selected_season].sort_values('Date')
+        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season].sort_values('date')
         
         if not szn_df.empty:
-            teams = pd.concat([szn_df['Home_Team'], szn_df['Away_Team']]).unique()
-            team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'Matches': 0} for team in teams}
-            trend_data = []
+            teams = pd.concat([szn_df['home_team'], szn_df['away_team']]).unique()
+            team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'xG': 0.0, 'xGA': 0.0, 'xPts': 0.0, 'Matches': 0} for team in teams}
 
             for _, row in szn_df.iterrows():
-                home = row['Home_Team']
-                away = row['Away_Team']
-                h_score = row['Home_Score_FT']
-                a_score = row['Away_Score_FT']
+                home = row['home_team']
+                away = row['away_team']
+                h_score = row['home_goals']
+                a_score = row['away_goals']
                 
                 team_records[home]['Matches'] += 1
                 team_records[away]['Matches'] += 1
@@ -563,10 +558,16 @@ elif app_mode == "📊 Live League Table":
                 team_records[home]['GF'] += h_score
                 team_records[home]['GA'] += a_score
                 team_records[home]['GD'] += (h_score - a_score)
+                team_records[home]['xG'] += row['home_xG']
+                team_records[home]['xGA'] += row['away_xG']
+                team_records[home]['xPts'] += row['home_expected_points']
                 
                 team_records[away]['GF'] += a_score
                 team_records[away]['GA'] += h_score
                 team_records[away]['GD'] += (a_score - h_score)
+                team_records[away]['xG'] += row['away_xG']
+                team_records[away]['xGA'] += row['home_xG']
+                team_records[away]['xPts'] += row['away_expected_points']
                 
                 if h_score > a_score:
                     team_records[home]['Pts'] += 3
@@ -581,54 +582,29 @@ elif app_mode == "📊 Live League Table":
                     team_records[away]['Pts'] += 1
                     team_records[home]['D'] += 1
                     team_records[away]['D'] += 1
-                    
-                trend_data.append({'Team': home, 'Match_Num': team_records[home]['Matches'], 'Pts': team_records[home]['Pts'], 'GD': team_records[home]['GD'], 'GF': team_records[home]['GF']})
-                trend_data.append({'Team': away, 'Match_Num': team_records[away]['Matches'], 'Pts': team_records[away]['Pts'], 'GD': team_records[away]['GD'], 'GF': team_records[away]['GF']})
             
-            t1, t2 = st.tabs(["📋 League Table", "📈 Position Trend Line"])
-
-            with t1:
-                final_table = []
-                for team, stats in team_records.items():
-                    final_table.append({'Club': team, 'MP': stats['Matches'], 'W': stats['W'], 'D': stats['D'], 'L': stats['L'], 'GF': stats['GF'], 'GA': stats['GA'], 'GD': stats['GD'], 'Pts': stats['Pts']})
-                
-                table_df = pd.DataFrame(final_table).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
-                table_df.index += 1
-                
-                st.dataframe(
-                    table_df, 
-                    width="stretch",
-                    column_config={
-                        "Pts": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=int(table_df['Pts'].max())),
-                        "GD": st.column_config.NumberColumn("GD")
-                    }
-                )
+            final_table = []
+            for team, stats in team_records.items():
+                final_table.append({'Club': team, 'MP': stats['Matches'], 'Pts': stats['Pts'], 'xPts': stats['xPts'], 'GD': stats['GD'], 'GF': stats['GF'], 'xG': stats['xG'], 'GA': stats['GA'], 'xGA': stats['xGA']})
             
-            with t2:
-                trend_df = pd.DataFrame(trend_data)
-                trend_df = trend_df.sort_values(by=['Match_Num', 'Pts', 'GD', 'GF'], ascending=[True, False, False, False])
-                trend_df['Position'] = trend_df.groupby('Match_Num').cumcount() + 1
-                
-                all_teams = sorted(trend_df['Team'].unique().tolist())
-                selected_teams = st.multiselect("Select Teams to Compare (Click 'X' to clear):", all_teams, default=all_teams)
-                
-                if selected_teams:
-                    filtered_trend_df = trend_df[trend_df['Team'].isin(selected_teams)]
-                    fig_trend = px.line(filtered_trend_df, x="Match_Num", y="Position", color="Team", 
-                                        title=f"Gameweek by Gameweek League Position ({selected_season})",
-                                        height=600)
-                    
-                    fig_trend.update_yaxes(autorange="reversed", title="League Position", tickmode='linear', tick0=1, dtick=1)
-                    fig_trend.update_xaxes(title="Matches Played")
-                    fig_trend.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig_trend, width="stretch")
-                else:
-                    st.info("Please select at least one team to display the trend line.")
-
+            table_df = pd.DataFrame(final_table).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
+            table_df.index += 1
+            
+            st.dataframe(
+                table_df, 
+                width="stretch",
+                column_config={
+                    "Pts": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=int(table_df['Pts'].max())),
+                    "xPts": st.column_config.NumberColumn("xPts", format="%.1f"),
+                    "GD": st.column_config.NumberColumn("GD"),
+                    "xG": st.column_config.NumberColumn("xG", format="%.1f"),
+                    "xGA": st.column_config.NumberColumn("xGA", format="%.1f")
+                }
+            )
         else:
             st.warning("No matches found for this filter.")
     else:
-        st.warning("Match dataset is currently loading or unavailable.")
+        st.warning("Understat dataset is currently loading or unavailable.")
 
 # ==========================================
 # MODULE 6: UNDERSTAT TEAM STATS (soccerdata)

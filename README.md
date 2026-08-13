@@ -57,7 +57,7 @@ Welcome to my data analytics portfolio. This repository showcases end-to-end pro
 * **Business Problem:** Traditional reporting focuses on total debt-to-GDP, but this project engineers a tool to isolate Creditor Concentration Risk and identify over-reliance on single lending blocks.
 * **Tools Used:** Power Query (ETL), Power Pivot, DAX
 * **Key Outcome:** Implemented a Three-Tier Data Architecture that identified critical macro-level shifts (e.g., a 28% rise in defaults to China in 2023) and established automated risk threshold alerts for mandatory regulatory review.
-* **🔗 [View Project Folder](./06_GlobalSovereignDebt_Monitor/)**
+* **🔗 [View Project Folder](./06_GlobalSovereignDebt_&_CreditorConcentrationMonitor/)**
 
 ***
 

@@ -10,7 +10,6 @@ The primary objective of this project was to engineer a high-performance analyti
 
 In the context of emerging markets, understanding the identity of the creditor is as vital as the amount of the debt. "Hidden" debt concentration poses a significant threat to audit transparency and sovereign creditworthiness. Think of a country like a person with several credit cards. While most banks only look at the total amount that person owes, this project looks at who they owe it to. This tool acts as an early warning system that flags when a country is becoming too dependent on one source, helping experts catch financial problems before they turn into a global crisis.
 
-`![Dashboard View](images/dashboard.png)`
 
 ---
 

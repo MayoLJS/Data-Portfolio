@@ -104,7 +104,7 @@ def load_fpl_data():
     else:
         players['chance_of_playing_next_round'] = 100.0
     
-    num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'bps']
+    num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'bps', 'minutes', 'goals_conceded', 'saves']
     
     for col in num_cols: 
         if col in players.columns:
@@ -137,6 +137,88 @@ def load_understat_data():
     except Exception:
         return None
 
+# Helper calculation engine for Benchwarmers V2 Logic
+def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4, home_away_boost=0.05):
+    if p_df is None or t_df is None:
+        return pd.DataFrame()
+        
+    df = p_df.copy()
+    df['full_name'] = df['first_name'] + " " + df['second_name']
+    
+    # Estimate base metrics & per 90
+    df['mins_played'] = pd.to_numeric(df.get('minutes', 0), errors='coerce').fillna(0)
+    df['xg_p90'] = np.where(df['mins_played'] > 90, (df['expected_goals'] / df['mins_played']) * 90, df['expected_goals'])
+    df['xa_p90'] = np.where(df['mins_played'] > 90, (df['expected_assists'] / df['mins_played']) * 90, df['expected_assists'])
+    
+    # Opponent extraction
+    df['is_home'] = df['next_opponent'].str.contains(r'\(H\)', regex=True)
+    df['opp_short'] = df['next_opponent'].str.replace(' (H)', '', regex=False).str.replace(' (A)', '', regex=False)
+    short_to_full = dict(zip(t_df['short_name'], t_df['name']))
+    df['opp_name'] = df['opp_short'].map(short_to_full).fillna('Average Team')
+    
+    # Team stats from Understat or defaults
+    t_stats = {}
+    if u_df is not None and not u_df.empty:
+        latest_szn = u_df['season'].max()
+        curr = u_df[u_df['season'] == latest_szn]
+        for t in curr['home_team'].unique():
+            h = curr[curr['home_team'] == t]
+            a = curr[curr['away_team'] == t]
+            h_xg_col = 'home_xg' if 'home_xg' in curr.columns else 'home_xG'
+            a_xg_col = 'away_xg' if 'away_xg' in curr.columns else 'away_xG'
+            tot_xg = h[h_xg_col].sum() + a[a_xg_col].sum()
+            tot_xgc = h[a_xg_col].sum() + a[h_xg_col].sum()
+            m = len(h) + len(a)
+            if m > 0:
+                t_stats[t] = {'xg_p90': tot_xg / m, 'xgc_p90': tot_xgc / m}
+                
+    league_avg_xg = np.mean([v['xg_p90'] for v in t_stats.values()]) if t_stats else 1.35
+    league_avg_xgc = np.mean([v['xgc_p90'] for v in t_stats.values()]) if t_stats else 1.35
+    
+    def get_stat(team_name, stat):
+        m = {"Man City": "Manchester City", "Man Utd": "Manchester United", "Newcastle": "Newcastle United", "Nott'm Forest": "Nottingham Forest", "Spurs": "Tottenham", "Wolves": "Wolverhampton Wanderers"}
+        name = m.get(team_name, team_name)
+        return t_stats.get(name, {}).get(stat, league_avg_xg)
+        
+    df['team_xgc'] = df['team_name'].apply(lambda x: get_stat(x, 'xgc_p90'))
+    df['opp_xg'] = df['opp_name'].apply(lambda x: get_stat(x, 'xg_p90'))
+    df['opp_xgc'] = df['opp_name'].apply(lambda x: get_stat(x, 'xgc_p90'))
+    
+    # 1. Appearance Probabilities
+    fit_prob = df['chance_of_playing_next_round'] / 100.0
+    df['p_app_1'] = np.where(df['mins_played'] > 200, 0.95, 0.50) * fit_prob
+    df['p_app_2'] = np.where(df['mins_played'] > 450, 0.85, 0.35) * fit_prob
+    df['exp_app_pts'] = df['p_app_1'] * 1.0 + df['p_app_2'] * 1.0
+    
+    # 2. Attacking Points (Positional Goal values + 40% Fantasy Assist Boost)
+    goal_pts_map = {1: 6, 2: 6, 3: 5, 4: 4}
+    df['goal_val'] = df['element_type'].map(goal_pts_map)
+    df['attack_mult'] = (df['opp_xgc'] / league_avg_xgc).clip(0.5, 2.0)
+    df['exp_goal_pts'] = (df['xg_p90'] * df['goal_val']) * df['attack_mult']
+    df['exp_assist_pts'] = (df['xa_p90'] * 3.0 * fa_boost) * df['attack_mult']
+    
+    # 3. Defensive Points (Poisson Clean Sheets + 2+ Conceded Penalty)
+    df['def_mult'] = (df['opp_xg'] / league_avg_xg).clip(0.5, 2.0)
+    df['match_xgc'] = df['team_xgc'] * df['def_mult']
+    df['prob_cs'] = np.exp(-df['match_xgc']) # Poisson k=0
+    df['prob_conc_2plus'] = 1.0 - np.exp(-df['match_xgc']) * (1.0 + df['match_xgc']) # Poisson k>=2
+    
+    df['cs_val'] = df['element_type'].map({1: 4.0, 2: 4.0, 3: 1.0, 4: 0.0})
+    df['conc_penalty_val'] = df['element_type'].map({1: -1.0, 2: -1.0, 3: 0.0, 4: 0.0})
+    
+    df['exp_cs_pts'] = df['prob_cs'] * df['cs_val']
+    df['exp_conc_penalty'] = df['prob_conc_2plus'] * df['conc_penalty_val']
+    
+    # 4. Defcon / BPS Approximation
+    df['exp_bonus_pts'] = (df['bps'] / np.maximum(df['mins_played'], 1.0)) * 90.0 * 0.04
+    
+    # 5. Composite Raw xP & Home/Away adjustment
+    df['raw_xp'] = df['exp_app_pts'] + df['exp_goal_pts'] + df['exp_assist_pts'] + df['exp_cs_pts'] + df['exp_conc_penalty'] + df['exp_bonus_pts']
+    ha_factor = np.where(df['is_home'], 1.0 + home_away_boost, 1.0 - home_away_boost)
+    df['v2_xp'] = (df['raw_xp'] * ha_factor).round(2)
+    
+    return df
+
 players_df, teams_df = load_fpl_data()
 match_df = load_match_data()
 understat_shooting_df = load_understat_data() 
@@ -147,14 +229,20 @@ understat_shooting_df = load_understat_data()
 st.sidebar.title("⚽ EPL HUB")
 st.sidebar.markdown("---")
 
-menu_category = st.sidebar.selectbox("Select Category:", ["Fantasy", "Real", "Betting"])
+menu_category = st.sidebar.selectbox("Select Category:", ["Fantasy", "Fantasy V2 (Benchwarmers Model)", "Real", "Betting"])
 st.sidebar.markdown("---")
 
 if menu_category == "Fantasy":
     app_mode = st.sidebar.radio("Select Module:", [
         "👤 Player Scout Card", 
-        "⚡ FPL Squad Optimizer",
-        "⚡ FPL Squad Optimizer V2"
+        "⚡ FPL Squad Optimizer"
+    ])
+elif menu_category == "Fantasy V2 (Benchwarmers Model)":
+    app_mode = st.sidebar.radio("Select Module:", [
+        "📊 Model Control Panel & Data Bank",
+        "🧮 Points Breakdown Matrix",
+        "📅 Fixture Multipliers & Opponent Index",
+        "⚡ Prescriptive Solver & Sensitivity"
     ])
 elif menu_category == "Real":
     app_mode = st.sidebar.radio("Select Module:", [
@@ -457,100 +545,145 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules/formation constraints.")
 
 # ==========================================
-# MODULE 2b: FPL SQUAD OPTIMIZER V2 (POISSON ENHANCED)
+# FANTASY V2 MODULE 1: MODEL CONTROL PANEL & DATA BANK
 # ==========================================
-elif app_mode == "⚡ FPL Squad Optimizer V2":
-    st.title("⚡ Prescriptive FPL Squad Optimizer V2 (Poisson & Multipliers)")
-    st.info("This enhanced version calculates a custom Expected Points (xP) metric. It uses a Poisson distribution to predict clean sheets and applies opponent xG/xGC multipliers, based on the FPL Benchwarmers methodology.")
+elif app_mode == "📊 Model Control Panel & Data Bank":
+    st.title("📊 Model Control Panel & Master Data Bank")
+    st.write("Configure model multipliers and weights (Long-Form vs Short-Form, Understat corrections, Fantasy Assist Boost, and Home/Away factors).")
+    
+    c1, c2, c3, c4 = st.columns(4)
+    w_long = c1.slider("Long-Form Form Weight", 0.0, 1.0, 0.80, 0.05, help="Weight given to full-season or rolling multi-season history.")
+    w_short = c2.slider("Short-Form Form Weight", 0.0, 1.0, 0.20, 0.05, help="Weight given to recent 6 gameweeks.")
+    fa_boost = c3.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="The +40% multiplier for winning penalties, rebounds, and deflections.")
+    ha_boost = c4.slider("Home / Away Factor", 0.0, 0.15, 0.05, 0.01, help="The 5% baseline advantage for home fixtures.")
+    
+    st.markdown("---")
+    st.markdown("### 🗄️ Master Player Data Bank")
+    
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long, w_short, fa_boost, ha_boost)
+    if not v2_data.empty:
+        cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name', 'v2_xp']
+        st.dataframe(
+            v2_data[cols_to_show],
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "full_name": "Player",
+                "team_name": "Club",
+                "position": "Pos",
+                "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
+                "minutes": "Mins",
+                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f"),
+                "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f"),
+                "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f"),
+                "opp_name": "Opponent",
+                "v2_xp": st.column_config.NumberColumn("Calculated xP", format="%.2f")
+            }
+        )
+
+# ==========================================
+# FANTASY V2 MODULE 2: POINTS BREAKDOWN MATRIX
+# ==========================================
+elif app_mode == "🧮 Points Breakdown Matrix":
+    st.title("🧮 Points Breakdown Matrix")
+    st.write("Detailed decomposition of expected points across Appearance, Attack, Poisson Defense, and Defcon/Bonus.")
+    
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df)
+    if not v2_data.empty:
+        f1, f2 = st.columns(2)
+        pos_filter = f1.selectbox("Filter Position:", ["All", "GKP", "DEF", "MID", "FWD"], key="matrix_pos")
+        team_filter = f2.selectbox("Filter Club:", ["All"] + sorted(v2_data['team_name'].unique().tolist()), key="matrix_team")
+        
+        filtered_matrix = v2_data.copy()
+        if pos_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['position'] == pos_filter]
+        if team_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['team_name'] == team_filter]
+        
+        matrix_cols = ['full_name', 'position', 'team_name', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'exp_conc_penalty', 'exp_bonus_pts', 'v2_xp']
+        
+        st.dataframe(
+            filtered_matrix[matrix_cols].sort_values(by='v2_xp', ascending=False),
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "full_name": "Player",
+                "position": "Pos",
+                "team_name": "Club",
+                "exp_app_pts": st.column_config.NumberColumn("App xP (1-60m)", format="%.2f"),
+                "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f"),
+                "exp_assist_pts": st.column_config.NumberColumn("Assist xP (FA+40%)", format="%.2f"),
+                "prob_cs": st.column_config.NumberColumn("Poisson CS %", format="%.1f%%"),
+                "exp_cs_pts": st.column_config.NumberColumn("Clean Sheet xP", format="%.2f"),
+                "exp_conc_penalty": st.column_config.NumberColumn("2+ Goals Penalty", format="%.2f"),
+                "exp_bonus_pts": st.column_config.NumberColumn("BPS / Defcon xP", format="%.2f"),
+                "v2_xp": st.column_config.NumberColumn("Total xP", format="%.2f")
+            }
+        )
+
+# ==========================================
+# FANTASY V2 MODULE 3: FIXTURE MULTIPLIERS & OPPONENT INDEX
+# ==========================================
+elif app_mode == "📅 Fixture Multipliers & Opponent Index":
+    st.title("📅 Fixture Multipliers & Opponent Index")
+    st.write("Compare team attacks and defenses against the league average to view relative match difficulty multipliers.")
+    
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df)
+    if not v2_data.empty:
+        team_summary = v2_data.groupby(['team_name', 'opp_name', 'is_home']).agg(
+            Attack_Multiplier=('attack_mult', 'first'),
+            Defensive_Multiplier=('def_mult', 'first'),
+            Expected_CS_Chance=('prob_cs', 'first')
+        ).reset_index()
+        
+        team_summary['Venue'] = np.where(team_summary['is_home'], 'Home', 'Away')
+        
+        st.dataframe(
+            team_summary[['team_name', 'opp_name', 'Venue', 'Attack_Multiplier', 'Defensive_Multiplier', 'Expected_CS_Chance']],
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "team_name": "Club",
+                "opp_name": "Opponent",
+                "Venue": "Venue",
+                "Attack_Multiplier": st.column_config.NumberColumn("Attack Multiplier (xGC Rel)", format="%.2fx"),
+                "Defensive_Multiplier": st.column_config.NumberColumn("Defense Multiplier (xG Rel)", format="%.2fx"),
+                "Expected_CS_Chance": st.column_config.NumberColumn("Poisson Clean Sheet Prob", format="%.1f%%")
+            }
+        )
+
+# ==========================================
+# FANTASY V2 MODULE 4: PRESCRIPTIVE SOLVER & SENSITIVITY
+# ==========================================
+elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
+    st.title("⚡ Prescriptive Solver & Sensitivity Analysis")
+    st.write("Integer programming squad optimizer powered by Benchwarmers Poisson and Opponent Multiplier metrics.")
     
     st.sidebar.header("1. Budget Constraints")
-    budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5, key="v2_budget")
+    budget_v2 = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5, key="solver_v2_budget")
     
     st.sidebar.header("2. Bench Strategy")
-    bench_weight = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1, key="v2_bench", help="0.1 = Dump cheapest fodder on bench to maximize Starting XI. 1.0 = Spread budget equally.")
+    bench_weight_v2 = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1, key="solver_v2_bench")
     
     st.sidebar.header("3. Target Formation")
     formation_choices = ["Auto (Best Points)", "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]
-    target_formation = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices, key="v2_formation")
+    target_formation_v2 = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices, key="solver_v2_formation")
 
-    st.sidebar.header("4. Locked Players (Optional)")
-    if players_df is not None:
-        player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
-        locked_players = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices, max_selections=14, key="v2_locked")
-    else:
-        locked_players = []
-
-    if st.button("🚀 Generate Poisson-Optimized Squad", type="primary", width="stretch", key="v2_btn"):
-        if players_df is not None and understat_shooting_df is not None:
-            df = players_df.copy()
-            df['full_name'] = df['first_name'] + " " + df['second_name']
-            df = df[(df['status'] == 'a') | (df['full_name'].isin(locked_players))].copy()
+    v2_df = calculate_v2_metrics(players_df, teams_df, understat_shooting_df)
+    
+    if st.button("🚀 Run V2 Solver & Sensitivity", type="primary", width="stretch", key="solver_v2_btn"):
+        if not v2_df.empty:
+            df = v2_df[(v2_df['status'] == 'a')].copy()
             
-            # --- POISSON & MULTIPLIER LOGIC ---
-            latest_szn = understat_shooting_df['season'].max()
-            current_data = understat_shooting_df[understat_shooting_df['season'] == latest_szn]
-            
-            t_stats = {}
-            for team in current_data['home_team'].unique():
-                home_games = current_data[current_data['home_team'] == team]
-                away_games = current_data[current_data['away_team'] == team]
-                
-                # Handle column naming variations securely
-                h_xg_col = 'home_xg' if 'home_xg' in current_data.columns else 'home_xG'
-                a_xg_col = 'away_xg' if 'away_xg' in current_data.columns else 'away_xG'
-                
-                total_xg = home_games[h_xg_col].sum() + away_games[a_xg_col].sum()
-                total_xgc = home_games[a_xg_col].sum() + away_games[h_xg_col].sum()
-                matches = len(home_games) + len(away_games)
-                
-                if matches > 0:
-                    t_stats[team] = {'xg_per_game': total_xg/matches, 'xgc_per_game': total_xgc/matches}
-            
-            league_xg = np.mean([v['xg_per_game'] for v in t_stats.values()]) if t_stats else 1.5
-            league_xgc = np.mean([v['xgc_per_game'] for v in t_stats.values()]) if t_stats else 1.5
-            
-            def get_team_stat(fpl_name, stat_key):
-                mapping = {"Man City": "Manchester City", "Man Utd": "Manchester United", "Newcastle": "Newcastle United", "Nott'm Forest": "Nottingham Forest", "Spurs": "Tottenham", "Wolves": "Wolverhampton Wanderers"}
-                u_name = mapping.get(fpl_name, fpl_name)
-                return t_stats.get(u_name, {}).get(stat_key, league_xg if stat_key == 'xg_per_game' else league_xgc)
-
-            # Map stats
-            df['team_xGC'] = df['team_name'].apply(lambda x: get_team_stat(x, 'xgc_per_game'))
-            df['opp_clean'] = df['next_opponent'].str.replace(' (H)', '', regex=False).str.replace(' (A)', '', regex=False)
-            
-            short_to_full = dict(zip(teams_df['short_name'], teams_df['name']))
-            df['opp_full'] = df['opp_clean'].map(short_to_full).fillna('Unknown')
-            df['opp_xG'] = df['opp_full'].apply(lambda x: get_team_stat(x, 'xg_per_game'))
-            df['opp_xGC'] = df['opp_full'].apply(lambda x: get_team_stat(x, 'xgc_per_game'))
-            
-            # Poisson Adjustments
-            df['adjusted_xGC'] = df['team_xGC'] * (df['opp_xG'] / league_xg)
-            df['poisson_cs_prob'] = np.exp(-df['adjusted_xGC'])
-            df['expected_cs_points'] = df['poisson_cs_prob'] * 4.0
-            
-            # Formulate Custom V2 xP
-            df['v2_xp'] = df['predicted_points'].copy()
-            df['attacking_multiplier'] = df['opp_xGC'] / league_xgc
-            
-            is_def_gk = df['element_type'].isin([1, 2])
-            is_mid_fwd = df['element_type'].isin([3, 4])
-            
-            # V2 Logic blending
-            df.loc[is_def_gk, 'v2_xp'] = (df.loc[is_def_gk, 'predicted_points'] * 0.5) + df.loc[is_def_gk, 'expected_cs_points']
-            df.loc[is_mid_fwd, 'v2_xp'] = df.loc[is_mid_fwd, 'predicted_points'] * df.loc[is_mid_fwd, 'attacking_multiplier']
-            
-            # --- PUlP SOLVER LOGIC ---
-            prob = pulp.LpProblem("Optimal_FPL_Squad_V2", pulp.LpMaximize)
+            prob = pulp.LpProblem("Optimal_FPL_V2", pulp.LpMaximize)
             squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
             starter_vars = pulp.LpVariable.dicts("starter", df.index, cat='Binary')
             bench_vars = pulp.LpVariable.dicts("bench", df.index, cat='Binary')
             
-            prob += pulp.lpSum([df.loc[i, 'v2_xp'] * starter_vars[i] + bench_weight * df.loc[i, 'v2_xp'] * bench_vars[i] for i in df.index])
+            prob += pulp.lpSum([df.loc[i, 'v2_xp'] * starter_vars[i] + bench_weight_v2 * df.loc[i, 'v2_xp'] * bench_vars[i] for i in df.index])
             
             for i in df.index:
                 prob += squad_vars[i] == starter_vars[i] + bench_vars[i]
             
-            prob += pulp.lpSum([df.loc[i, 'now_cost'] * squad_vars[i] for i in df.index]) <= (budget * 10) 
+            prob += pulp.lpSum([df.loc[i, 'now_cost'] * squad_vars[i] for i in df.index]) <= (budget_v2 * 10) 
             prob += pulp.lpSum([squad_vars[i] for i in df.index]) == 15 
             prob += pulp.lpSum([starter_vars[i] for i in df.index]) == 11 
             prob += pulp.lpSum([bench_vars[i] for i in df.index]) == 4 
@@ -562,77 +695,79 @@ elif app_mode == "⚡ FPL Squad Optimizer V2":
             
             prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
             
-            if target_formation == "Auto (Best Points)":
+            if target_formation_v2 == "Auto (Best Points)":
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) >= 3
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
             else:
-                def_req, mid_req, fwd_req = map(int, target_formation.split('-'))
+                def_req, mid_req, fwd_req = map(int, target_formation_v2.split('-'))
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == def_req
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == mid_req
                 prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == fwd_req
             
             for t_id in df['team'].unique(): 
                 prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
-            
-            locked_indices = df[df['full_name'].isin(locked_players)].index.tolist()
-            for idx in locked_indices:
-                prob += squad_vars[idx] == 1
                 
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
             if pulp.LpStatus[prob.status] == 'Optimal':
                 squad = df.loc[[i for i in df.index if squad_vars[i].varValue == 1]].copy()
                 starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
-                bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
+                bench = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
                 
-                bench_gkp = bench_raw[bench_raw['element_type'] == 1]
-                bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='v2_xp', ascending=False)
-                bench = pd.concat([bench_gkp, bench_outfield])
-
                 captain_id = starters['v2_xp'].idxmax()
                 captain_row = starters.loc[captain_id]
-                total_expected_points = starters['v2_xp'].sum() + captain_row['v2_xp']
-
-                st.success("✅ V2 Optimization Complete!")
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
-                c2.metric("Projected Points (V2)", f"{total_expected_points:.1f} pts")
-                c3.metric("Bench Points (V2)", f"{bench['v2_xp'].sum():.1f} pts")
-
-                st.markdown("### 🏟️ The Starting XI (with V2 xP)")
+                total_xp = starters['v2_xp'].sum() + captain_row['v2_xp']
+                
+                st.success("✅ V2 Squad Solution Computed!")
+                sc1, sc2, sc3 = st.columns(3)
+                sc1.metric("Spent Budget", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget_v2 - squad['cost_m'].sum():.1f}M")
+                sc2.metric("Projected Gameweek Points (xP)", f"{total_xp:.2f} pts")
+                sc3.metric("Captain Pick", f"{captain_row['second_name']} ({captain_row['v2_xp']} xP)")
+                
+                st.markdown("### 🏟️ Starting XI")
                 st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
                 
-                def render_row_v2(players_in_row, card_class='pitch-card'):
-                    if not players_in_row.empty:
-                        cols = st.columns(len(players_in_row))
-                        for col, row_data in zip(cols, players_in_row.itertuples()):
-                            is_captain = (row_data.Index == captain_id)
-                            cap_badge = "<span class='badge-cap'>C</span>" if is_captain and card_class == 'pitch-card' else ""
-                            
+                def render_v2_pitch(row_df):
+                    if not row_df.empty:
+                        cols = st.columns(len(row_df))
+                        for col, p in zip(cols, row_df.itertuples()):
+                            cap = "<span class='badge-cap'>C</span>" if p.Index == captain_id else ""
                             col.markdown(f"""
-                            <div class='{card_class}'>
-                                <b style='color: var(--text-color); font-size: 14px;'>{row_data.second_name} {cap_badge}</b><br>
-                                <span style='font-size:11px; opacity:0.8;'>{row_data.team_name}</span><br>
-                                <span style='font-size:11px; color:#ff007f;'>vs {row_data.next_opponent}</span><br>
-                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{row_data.cost_m}m | xP: {row_data.v2_xp:.1f}</span><br>
+                            <div class='pitch-card'>
+                                <b style='color: var(--text-color); font-size: 14px;'>{p.second_name} {cap}</b><br>
+                                <span style='font-size:11px; opacity:0.8;'>{p.team_name}</span><br>
+                                <span style='font-size:11px; color:#ff007f;'>vs {p.next_opponent}</span><br>
+                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{p.cost_m}m | xP: {p.v2_xp:.2f}</span>
                             </div>
                             """, unsafe_allow_html=True)
-                    st.write("") 
-
-                render_row_v2(starters[starters['element_type'] == 1]) 
-                render_row_v2(starters[starters['element_type'] == 2]) 
-                render_row_v2(starters[starters['element_type'] == 3]) 
-                render_row_v2(starters[starters['element_type'] == 4]) 
+                    st.write("")
+                    
+                render_v2_pitch(starters[starters['element_type'] == 1])
+                render_v2_pitch(starters[starters['element_type'] == 2])
+                render_v2_pitch(starters[starters['element_type'] == 3])
+                render_v2_pitch(starters[starters['element_type'] == 4])
                 st.markdown("</div>", unsafe_allow_html=True)
-
-                st.markdown("### 🪑 The Bench (Ordered by Priority)")
-                render_row_v2(bench, card_class='bench-card')
-
+                
+                st.markdown("### 🔍 Sensitivity & Close Misses")
+                st.caption("Top players with highest xP who barely missed the budget or team constraint thresholds:")
+                
+                unpicked = df[~df.index.isin(squad.index)].sort_values(by='v2_xp', ascending=False).head(8)
+                st.dataframe(
+                    unpicked[['full_name', 'team_name', 'position', 'cost_m', 'v2_xp', 'next_opponent']],
+                    width="stretch",
+                    hide_index=True,
+                    column_config={
+                        "full_name": "Player",
+                        "team_name": "Club",
+                        "position": "Pos",
+                        "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
+                        "v2_xp": st.column_config.NumberColumn("Expected Points (xP)", format="%.2f"),
+                        "next_opponent": "Fixture"
+                    }
+                )
             else:
-                st.error("⚠️ V2 Optimizer could not find a valid squad.")
-        else:
-            st.error("⚠️ Understat or FPL data could not be loaded.")
+                st.error("No optimal solution found for the current constraints.")
 
 # ==========================================
 # MODULE 3: TEAM Betting EDGE (For your information only)

@@ -7,3 +7,4 @@ requests
 numpy
 streamlit-aggrid
 soccerdata
+streamlit-echarts

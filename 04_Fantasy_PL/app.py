@@ -646,6 +646,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                         "type": "treemap",
                         "roam": False,
                         "nodeClick": False,
+                        "breadcrumb": {"show": False},
                         "data": treemap_data,
                         "label": {"show": True, "formatter": "{b}\n£{c}M"}
                     }]
@@ -955,6 +956,7 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                         "type": "treemap",
                         "roam": False,
                         "nodeClick": False,
+                        "breadcrumb": {"show": False},
                         "data": treemap_data,
                         "label": {"show": True, "formatter": "{b}\n£{c}M"}
                     }]

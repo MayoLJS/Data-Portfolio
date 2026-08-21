@@ -6,6 +6,7 @@ import pulp
 import plotly.express as px
 import plotly.graph_objects as go
 import re
+from streamlit_echarts import st_echarts
 
 # ==========================================
 # 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
@@ -328,17 +329,53 @@ if app_mode == "👤 Player Scout Card":
             </div>
             """, unsafe_allow_html=True)
             
-            metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
-            st.markdown("### 📊 Performance Percentiles")
-            col1, col2 = st.columns(2)
-            for i, (label, col_name) in enumerate(metrics.items()):
-                if col_name in players_df.columns:
-                    val = p_data[col_name]
-                    percentile = int((players_df[col_name] < val).mean() * 100)
-                    target_col = col1 if i < 3 else col2
-                    with target_col:
+            # --- ADDING ECHARTS RADAR PLOT ---
+            st.markdown("### 📊 Performance Percentiles & Market Profile")
+            rc1, rc2 = st.columns([1, 1])
+            
+            with rc1:
+                metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat (Goal Danger)': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
+                for i, (label, col_name) in enumerate(metrics.items()):
+                    if col_name in players_df.columns:
+                        val = p_data[col_name]
+                        percentile = int((players_df[col_name] < val).mean() * 100)
                         st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
                         st.progress(percentile / 100.0)
+            
+            with rc2:
+                pct_thr = int((players_df['threat'] < p_data['threat']).mean() * 100)
+                pct_cre = int((players_df['creativity'] < p_data['creativity']).mean() * 100)
+                pct_inf = int((players_df['influence'] < p_data['influence']).mean() * 100)
+                pct_xg = int((players_df['expected_goals'] < p_data['expected_goals']).mean() * 100)
+                pct_xa = int((players_df['expected_assists'] < p_data['expected_assists']).mean() * 100)
+                
+                radar_options = {
+                    "tooltip": {"trigger": "item"},
+                    "radar": {
+                        "indicator": [
+                            {"name": "Threat", "max": 100},
+                            {"name": "Creativity", "max": 100},
+                            {"name": "Influence", "max": 100},
+                            {"name": "xG", "max": 100},
+                            {"name": "xA", "max": 100}
+                        ],
+                        "splitArea": {"show": False},
+                        "axisName": {"color": "#8f9bba"}
+                    },
+                    "series": [{
+                        "name": "Player Profile vs League",
+                        "type": "radar",
+                        "data": [
+                            {
+                                "value": [pct_thr, pct_cre, pct_inf, pct_xg, pct_xa],
+                                "name": "Percentiles",
+                                "itemStyle": {"color": "#0088cc"},
+                                "areaStyle": {"color": "rgba(0, 136, 204, 0.4)"}
+                            }
+                        ]
+                    }]
+                }
+                st_echarts(radar_options, height="300px")
             
             st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
             st.markdown("### 🏆 Top Performers by Metric")
@@ -495,11 +532,8 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='custom_score', ascending=False)
                 bench = pd.concat([bench_gkp, bench_outfield])
 
-                # === CAPTAINCY & EXPECTED POINTS LOGIC ===
                 captain_id = starters['predicted_points'].idxmax()
                 captain_row = starters.loc[captain_id]
-                
-                # Sum of starting XI predicted points + Captain bonus (Captain points are doubled)
                 total_expected_points = starters['predicted_points'].sum() + captain_row['predicted_points']
 
                 st.success("✅ Optimization Complete!")
@@ -508,6 +542,32 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 c2.metric("Projected Points", f"{total_expected_points:.1f} pts", help="Starting XI xP + Captain Bonus")
                 c3.metric("Starting XI Rating (/11.0)", f"{starters['custom_score'].sum():.2f}")
                 c4.metric("Bench Rating (/4.0)", f"{bench['custom_score'].sum():.2f}")
+                
+                # --- ADDING ECHARTS TREEMAP ---
+                st.markdown("### 💰 Budget Allocation Treemap")
+                treemap_data = [
+                    {
+                        "name": "Starting XI",
+                        "itemStyle": {"color": "#0088cc"},
+                        "children": [{"name": row.second_name, "value": row.cost_m} for row in starters.itertuples()]
+                    },
+                    {
+                        "name": "Bench",
+                        "itemStyle": {"color": "#cc0066"},
+                        "children": [{"name": row.second_name, "value": row.cost_m} for row in bench.itertuples()]
+                    }
+                ]
+                treemap_opts = {
+                    "tooltip": {"trigger": "item", "formatter": "{b}: £{c}M"},
+                    "series": [{
+                        "type": "treemap",
+                        "roam": False,
+                        "nodeClick": False,
+                        "data": treemap_data,
+                        "label": {"show": True, "formatter": "{b}\n£{c}M"}
+                    }]
+                }
+                st_echarts(treemap_opts, height="250px")
 
                 st.markdown("### 👑 Captaincy & Strategy")
                 if captain_row['predicted_points'] >= 7.5:
@@ -614,6 +674,40 @@ elif app_mode == "🧮 Points Breakdown Matrix":
         if pos_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['position'] == pos_filter]
         if team_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['team_name'] == team_filter]
         
+        # --- ADDING ECHARTS STACKED BAR CHART ---
+        top_df = filtered_matrix.sort_values(by='v2_xp', ascending=False).head(15).iloc[::-1] # Reverse to display top at top of ECharts
+        
+        if not top_df.empty:
+            st.markdown("### 📊 Top 15 Players xP Decomposition")
+            stacked_options = {
+                "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+                "legend": {"data": ["Appearance", "Attack", "Defense", "Bonus"], "textStyle": {"color": "#8f9bba"}},
+                "grid": {"left": "3%", "right": "4%", "bottom": "3%", "containLabel": True},
+                "xAxis": {"type": "value", "splitLine": {"show": False}},
+                "yAxis": {"type": "category", "data": top_df['full_name'].tolist()},
+                "color": ["#8f9bba", "#0088cc", "#01fc7a", "#ffcc00"],
+                "series": [
+                    {
+                        "name": "Appearance", "type": "bar", "stack": "total",
+                        "data": top_df['exp_app_pts'].round(2).tolist()
+                    },
+                    {
+                        "name": "Attack", "type": "bar", "stack": "total",
+                        "data": (top_df['exp_goal_pts'] + top_df['exp_assist_pts']).round(2).tolist()
+                    },
+                    {
+                        "name": "Defense", "type": "bar", "stack": "total",
+                        "data": (top_df['exp_cs_pts'] + top_df['exp_conc_penalty']).clip(lower=0).round(2).tolist()
+                    },
+                    {
+                        "name": "Bonus", "type": "bar", "stack": "total",
+                        "data": top_df['exp_bonus_pts'].round(2).tolist()
+                    }
+                ]
+            }
+            st_echarts(stacked_options, height="450px")
+        
+        st.markdown("### 🧮 Data Matrix")
         matrix_cols = ['full_name', 'position', 'team_name', 'mins_per_game', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'exp_conc_penalty', 'exp_bonus_pts', 'v2_xp']
         
         st.dataframe(
@@ -758,6 +852,32 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                 sc2.metric("Projected Gameweek Points (xP)", f"{total_xp:.2f} pts")
                 sc3.metric("Captain Pick", f"{captain_row['second_name']} ({captain_row['v2_xp']} xP)")
                 
+                # --- ADDING ECHARTS TREEMAP ---
+                st.markdown("### 💰 Budget Allocation Treemap")
+                treemap_data = [
+                    {
+                        "name": "Starting XI",
+                        "itemStyle": {"color": "#0088cc"},
+                        "children": [{"name": row.second_name, "value": row.cost_m} for row in starters.itertuples()]
+                    },
+                    {
+                        "name": "Bench",
+                        "itemStyle": {"color": "#cc0066"},
+                        "children": [{"name": row.second_name, "value": row.cost_m} for row in bench.itertuples()]
+                    }
+                ]
+                treemap_opts = {
+                    "tooltip": {"trigger": "item", "formatter": "{b}: £{c}M"},
+                    "series": [{
+                        "type": "treemap",
+                        "roam": False,
+                        "nodeClick": False,
+                        "data": treemap_data,
+                        "label": {"show": True, "formatter": "{b}\n£{c}M"}
+                    }]
+                }
+                st_echarts(treemap_opts, height="250px")
+
                 st.markdown("### 🏟️ Starting XI")
                 st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
                 

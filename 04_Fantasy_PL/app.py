@@ -226,7 +226,7 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['exp_bonus_pts'] = np.where(is_eligible & (df['mins_played'] > 0), (df['bps'] / df['mins_played']) * 90.0 * 0.04 * dampener, 0.0)
     
     df['raw_xp'] = df['exp_app_pts'] + df['exp_goal_pts'] + df['exp_assist_pts'] + df['exp_cs_pts'] + df['exp_conc_penalty'] + df['exp_bonus_pts']
-    ha_factor = np.where(df['is_home'], 1.0 + home_away_boost, 1.0 - home_away_boost)
+    ha_factor = np.where(df['is_home'], 1.0 + ha_boost, 1.0 - ha_boost)
     df['v2_xp'] = np.where(is_eligible, (df['raw_xp'] * ha_factor).round(2), 0.0)
 
     # 5. Hybrid Form/ICT Blending (The V1 Merge)

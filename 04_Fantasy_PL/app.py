@@ -43,7 +43,7 @@ st.markdown("""
 # Note: For production, you can move this dictionary to Streamlit's secrets.toml
 VALID_USERS = {
     "olu": "admin123",
-    "friend1": "passcode1"
+    "guest": "guest2026"
 }
 
 if "authenticated" not in st.session_state:

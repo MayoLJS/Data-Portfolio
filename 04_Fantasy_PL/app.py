@@ -145,9 +145,12 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     df = p_df.copy()
     df['full_name'] = df['first_name'] + " " + df['second_name']
     
-    # 1. Base minutes and Minutes per Game (calculated across 38 gameweeks)
+    # 1. Base minutes and dynamic Minutes per Game
     df['mins_played'] = pd.to_numeric(df.get('minutes', 0), errors='coerce').fillna(0)
-    df['mins_per_game'] = (df['mins_played'] / 38.0).round(1)
+    
+    # Dynamically find elapsed gameweeks by dividing the maximum minutes played by 90
+    max_possible_games = max(1.0, round(df['mins_played'].max() / 90.0))
+    df['mins_per_game'] = (df['mins_played'] / max_possible_games).round(1)
     
     # Threshold filter: players must average at least 45 minutes per game
     is_eligible = df['mins_per_game'] >= 45.0

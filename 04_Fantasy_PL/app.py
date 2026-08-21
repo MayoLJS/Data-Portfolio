@@ -240,6 +240,9 @@ st.sidebar.markdown("---")
 menu_category = st.sidebar.selectbox("Select Category:", ["Fantasy", "Fantasy V2 (Benchwarmers Model)", "Real", "Betting"])
 st.sidebar.markdown("---")
 
+# Setup default V2 vars so they exist even if we aren't in V2 mode
+w_long_g, w_short_g, fa_boost_g, ha_boost_g = 0.8, 0.2, 1.4, 0.05
+
 if menu_category == "Fantasy":
     app_mode = st.sidebar.radio("Select Module:", [
         "👤 Player Scout Card", 
@@ -252,6 +255,15 @@ elif menu_category == "Fantasy V2 (Benchwarmers Model)":
         "📅 Fixture Multipliers & Opponent Index",
         "⚡ Prescriptive Solver & Sensitivity"
     ])
+    
+    # Render global V2 model sliders on the sidebar for all V2 modules
+    st.sidebar.markdown("---")
+    st.sidebar.header("⚙️ V2 Model Tuning")
+    w_long_g = st.sidebar.slider("Long-Form Form Weight", 0.0, 1.0, 0.80, 0.05, help="Weight given to full-season or rolling history.")
+    w_short_g = st.sidebar.slider("Short-Form Form Weight", 0.0, 1.0, 0.20, 0.05, help="Weight given to recent 6 gameweeks.")
+    fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="The +40% multiplier for winning penalties/rebounds.")
+    ha_boost_g = st.sidebar.slider("Home / Away Factor", 0.0, 0.15, 0.05, 0.01, help="The baseline advantage for home fixtures.")
+
 elif menu_category == "Real":
     app_mode = st.sidebar.radio("Select Module:", [
         "📅 Match Results & Fixtures",
@@ -377,7 +389,7 @@ if app_mode == "👤 Player Scout Card":
             st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER
+# MODULE 2: FPL SQUAD OPTIMIZER (V1 - With Subjective Sliders)
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
     st.title("⚡ Prescriptive FPL Squad Optimizer")
@@ -557,19 +569,13 @@ elif app_mode == "⚡ FPL Squad Optimizer":
 # ==========================================
 elif app_mode == "📊 Model Control Panel & Data Bank":
     st.title("📊 Model Control Panel & Master Data Bank")
-    st.write("Configure model multipliers and weights (Long-Form vs Short-Form, Understat corrections, Fantasy Assist Boost, and Home/Away factors).")
-    
-    c1, c2, c3, c4 = st.columns(4)
-    w_long = c1.slider("Long-Form Form Weight", 0.0, 1.0, 0.80, 0.05, help="Weight given to full-season or rolling multi-season history.")
-    w_short = c2.slider("Short-Form Form Weight", 0.0, 1.0, 0.20, 0.05, help="Weight given to recent 6 gameweeks.")
-    fa_boost = c3.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="The +40% multiplier for winning penalties, rebounds, and deflections.")
-    ha_boost = c4.slider("Home / Away Factor", 0.0, 0.15, 0.05, 0.01, help="The 5% baseline advantage for home fixtures.")
+    st.write("Tune model multipliers via the sidebar to update Expected Points (xP) globally.")
     
     st.markdown("---")
     st.markdown("### 🗄️ Master Player Data Bank")
     st.caption("Note: Players averaging under 45.0 mins/game are assigned 0.0 xP by default.")
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long, w_short, fa_boost, ha_boost)
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
     if not v2_data.empty:
         cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name', 'v2_xp']
         st.dataframe(
@@ -598,7 +604,7 @@ elif app_mode == "🧮 Points Breakdown Matrix":
     st.title("🧮 Points Breakdown Matrix")
     st.write("Detailed decomposition of expected points across Appearance, Attack, Poisson Defense, and Defcon/Bonus.")
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df)
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
     if not v2_data.empty:
         f1, f2 = st.columns(2)
         pos_filter = f1.selectbox("Filter Position:", ["All", "GKP", "DEF", "MID", "FWD"], key="matrix_pos")
@@ -637,7 +643,7 @@ elif app_mode == "📅 Fixture Multipliers & Opponent Index":
     st.title("📅 Fixture Multipliers & Opponent Index")
     st.write("Compare team attacks and defenses against the league average to view relative match difficulty multipliers.")
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df)
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
     if not v2_data.empty:
         team_summary = v2_data.groupby(['team_name', 'opp_name', 'is_home']).agg(
             Attack_Multiplier=('attack_mult', 'first'),
@@ -668,6 +674,7 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
     st.title("⚡ Prescriptive Solver & Sensitivity Analysis")
     st.write("Integer programming squad optimizer powered by Benchwarmers Poisson and Opponent Multiplier metrics.")
     
+    st.sidebar.markdown("---")
     st.sidebar.header("1. Budget Constraints")
     budget_v2 = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5, key="solver_v2_budget")
     
@@ -678,11 +685,18 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
     formation_choices = ["Auto (Best Points)", "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]
     target_formation_v2 = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices, key="solver_v2_formation")
 
-    v2_df = calculate_v2_metrics(players_df, teams_df, understat_shooting_df)
+    st.sidebar.header("4. Locked Players (Optional)")
+    if players_df is not None:
+        player_choices_v2 = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
+        locked_players_v2 = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices_v2, max_selections=14, key="solver_v2_locked")
+    else:
+        locked_players_v2 = []
+
+    v2_df = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
     
     if st.button("🚀 Run V2 Solver & Sensitivity", type="primary", width="stretch", key="solver_v2_btn"):
         if not v2_df.empty:
-            df = v2_df[(v2_df['status'] == 'a') & (v2_df['mins_per_game'] >= 45.0)].copy()
+            df = v2_df[(v2_df['status'] == 'a') & ((v2_df['mins_per_game'] >= 45.0) | (v2_df['full_name'].isin(locked_players_v2)))].copy()
             
             prob = pulp.LpProblem("Optimal_FPL_V2", pulp.LpMaximize)
             squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
@@ -719,12 +733,20 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
             for t_id in df['team'].unique(): 
                 prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
                 
+            locked_indices_v2 = df[df['full_name'].isin(locked_players_v2)].index.tolist()
+            for idx in locked_indices_v2:
+                prob += squad_vars[idx] == 1
+                
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
             
             if pulp.LpStatus[prob.status] == 'Optimal':
                 squad = df.loc[[i for i in df.index if squad_vars[i].varValue == 1]].copy()
                 starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
-                bench = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
+                bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
+                
+                bench_gkp = bench_raw[bench_raw['element_type'] == 1]
+                bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='v2_xp', ascending=False)
+                bench = pd.concat([bench_gkp, bench_outfield])
                 
                 captain_id = starters['v2_xp'].idxmax()
                 captain_row = starters.loc[captain_id]
@@ -739,13 +761,13 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                 st.markdown("### 🏟️ Starting XI")
                 st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
                 
-                def render_v2_pitch(row_df):
+                def render_v2_pitch(row_df, card_class='pitch-card'):
                     if not row_df.empty:
                         cols = st.columns(len(row_df))
                         for col, p in zip(cols, row_df.itertuples()):
-                            cap = "<span class='badge-cap'>C</span>" if p.Index == captain_id else ""
+                            cap = "<span class='badge-cap'>C</span>" if p.Index == captain_id and card_class == 'pitch-card' else ""
                             col.markdown(f"""
-                            <div class='pitch-card'>
+                            <div class='{card_class}'>
                                 <b style='color: var(--text-color); font-size: 14px;'>{p.second_name} {cap}</b><br>
                                 <span style='font-size:11px; opacity:0.8;'>{p.team_name}</span><br>
                                 <span style='font-size:11px; color:#ff007f;'>vs {p.next_opponent}</span><br>
@@ -759,6 +781,9 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                 render_v2_pitch(starters[starters['element_type'] == 3])
                 render_v2_pitch(starters[starters['element_type'] == 4])
                 st.markdown("</div>", unsafe_allow_html=True)
+                
+                st.markdown("### 🪑 The Bench (Ordered by Priority)")
+                render_v2_pitch(bench, card_class='bench-card')
                 
                 st.markdown("### 🔍 Sensitivity & Close Misses")
                 st.caption("Top players with highest xP who barely missed the budget or team constraint thresholds:")

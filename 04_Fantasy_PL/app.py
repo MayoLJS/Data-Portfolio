@@ -145,18 +145,23 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     df = p_df.copy()
     df['full_name'] = df['first_name'] + " " + df['second_name']
     
-    # Estimate base metrics & per 90
+    # 1. Base minutes and Minutes per Game (calculated across 38 gameweeks)
     df['mins_played'] = pd.to_numeric(df.get('minutes', 0), errors='coerce').fillna(0)
-    df['xg_p90'] = np.where(df['mins_played'] > 90, (df['expected_goals'] / df['mins_played']) * 90, df['expected_goals'])
-    df['xa_p90'] = np.where(df['mins_played'] > 90, (df['expected_assists'] / df['mins_played']) * 90, df['expected_assists'])
+    df['mins_per_game'] = (df['mins_played'] / 38.0).round(1)
     
-    # Opponent extraction
+    # Threshold filter: players must average at least 45 minutes per game
+    is_eligible = df['mins_per_game'] >= 45.0
+    
+    df['xg_p90'] = np.where(is_eligible, (df['expected_goals'] / df['mins_played']) * 90.0, 0.0)
+    df['xa_p90'] = np.where(is_eligible, (df['expected_assists'] / df['mins_played']) * 90.0, 0.0)
+    
+    # 2. Opponent extraction
     df['is_home'] = df['next_opponent'].str.contains(r'\(H\)', regex=True)
     df['opp_short'] = df['next_opponent'].str.replace(' (H)', '', regex=False).str.replace(' (A)', '', regex=False)
     short_to_full = dict(zip(t_df['short_name'], t_df['name']))
     df['opp_name'] = df['opp_short'].map(short_to_full).fillna('Average Team')
     
-    # Team stats from Understat or defaults
+    # 3. Team stats from Understat or defaults
     t_stats = {}
     if u_df is not None and not u_df.empty:
         latest_szn = u_df['season'].max()
@@ -184,38 +189,38 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     df['opp_xg'] = df['opp_name'].apply(lambda x: get_stat(x, 'xg_p90'))
     df['opp_xgc'] = df['opp_name'].apply(lambda x: get_stat(x, 'xgc_p90'))
     
-    # 1. Appearance Probabilities
+    # 4. Appearance Probabilities
     fit_prob = df['chance_of_playing_next_round'] / 100.0
-    df['p_app_1'] = np.where(df['mins_played'] > 200, 0.95, 0.50) * fit_prob
-    df['p_app_2'] = np.where(df['mins_played'] > 450, 0.85, 0.35) * fit_prob
+    df['p_app_1'] = np.where(is_eligible, 0.95 * fit_prob, 0.0)
+    df['p_app_2'] = np.where(is_eligible, 0.85 * fit_prob, 0.0)
     df['exp_app_pts'] = df['p_app_1'] * 1.0 + df['p_app_2'] * 1.0
     
-    # 2. Attacking Points (Positional Goal values + 40% Fantasy Assist Boost)
+    # 5. Attacking Points (Positional Goal values + Fantasy Assist Boost)
     goal_pts_map = {1: 6, 2: 6, 3: 5, 4: 4}
     df['goal_val'] = df['element_type'].map(goal_pts_map)
     df['attack_mult'] = (df['opp_xgc'] / league_avg_xgc).clip(0.5, 2.0)
-    df['exp_goal_pts'] = (df['xg_p90'] * df['goal_val']) * df['attack_mult']
-    df['exp_assist_pts'] = (df['xa_p90'] * 3.0 * fa_boost) * df['attack_mult']
+    df['exp_goal_pts'] = np.where(is_eligible, (df['xg_p90'] * df['goal_val']) * df['attack_mult'], 0.0)
+    df['exp_assist_pts'] = np.where(is_eligible, (df['xa_p90'] * 3.0 * fa_boost) * df['attack_mult'], 0.0)
     
-    # 3. Defensive Points (Poisson Clean Sheets + 2+ Conceded Penalty)
+    # 6. Defensive Points (Poisson Clean Sheets + 2+ Conceded Penalty)
     df['def_mult'] = (df['opp_xg'] / league_avg_xg).clip(0.5, 2.0)
     df['match_xgc'] = df['team_xgc'] * df['def_mult']
-    df['prob_cs'] = np.exp(-df['match_xgc']) # Poisson k=0
-    df['prob_conc_2plus'] = 1.0 - np.exp(-df['match_xgc']) * (1.0 + df['match_xgc']) # Poisson k>=2
+    df['prob_cs'] = np.where(is_eligible, np.exp(-df['match_xgc']), 0.0)
+    df['prob_conc_2plus'] = np.where(is_eligible, 1.0 - np.exp(-df['match_xgc']) * (1.0 + df['match_xgc']), 0.0)
     
     df['cs_val'] = df['element_type'].map({1: 4.0, 2: 4.0, 3: 1.0, 4: 0.0})
     df['conc_penalty_val'] = df['element_type'].map({1: -1.0, 2: -1.0, 3: 0.0, 4: 0.0})
     
-    df['exp_cs_pts'] = df['prob_cs'] * df['cs_val']
-    df['exp_conc_penalty'] = df['prob_conc_2plus'] * df['conc_penalty_val']
+    df['exp_cs_pts'] = np.where(is_eligible, df['prob_cs'] * df['cs_val'] * df['p_app_2'], 0.0)
+    df['exp_conc_penalty'] = np.where(is_eligible, df['prob_conc_2plus'] * df['conc_penalty_val'] * df['p_app_1'], 0.0)
     
-    # 4. Defcon / BPS Approximation
-    df['exp_bonus_pts'] = (df['bps'] / np.maximum(df['mins_played'], 1.0)) * 90.0 * 0.04
+    # 7. Safe Defcon / BPS Approximation
+    df['exp_bonus_pts'] = np.where(is_eligible, (df['bps'] / df['mins_played']) * 90.0 * 0.04, 0.0)
     
-    # 5. Composite Raw xP & Home/Away adjustment
+    # 8. Composite Raw xP & Home/Away adjustment
     df['raw_xp'] = df['exp_app_pts'] + df['exp_goal_pts'] + df['exp_assist_pts'] + df['exp_cs_pts'] + df['exp_conc_penalty'] + df['exp_bonus_pts']
     ha_factor = np.where(df['is_home'], 1.0 + home_away_boost, 1.0 - home_away_boost)
-    df['v2_xp'] = (df['raw_xp'] * ha_factor).round(2)
+    df['v2_xp'] = np.where(is_eligible, (df['raw_xp'] * ha_factor).round(2), 0.0)
     
     return df
 
@@ -559,10 +564,11 @@ elif app_mode == "📊 Model Control Panel & Data Bank":
     
     st.markdown("---")
     st.markdown("### 🗄️ Master Player Data Bank")
+    st.caption("Note: Players averaging under 45.0 mins/game are assigned 0.0 xP by default.")
     
     v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long, w_short, fa_boost, ha_boost)
     if not v2_data.empty:
-        cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name', 'v2_xp']
+        cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name', 'v2_xp']
         st.dataframe(
             v2_data[cols_to_show],
             width="stretch",
@@ -573,6 +579,7 @@ elif app_mode == "📊 Model Control Panel & Data Bank":
                 "position": "Pos",
                 "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
                 "minutes": "Mins",
+                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
                 "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f"),
                 "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f"),
                 "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f"),
@@ -598,7 +605,7 @@ elif app_mode == "🧮 Points Breakdown Matrix":
         if pos_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['position'] == pos_filter]
         if team_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['team_name'] == team_filter]
         
-        matrix_cols = ['full_name', 'position', 'team_name', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'exp_conc_penalty', 'exp_bonus_pts', 'v2_xp']
+        matrix_cols = ['full_name', 'position', 'team_name', 'mins_per_game', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'exp_conc_penalty', 'exp_bonus_pts', 'v2_xp']
         
         st.dataframe(
             filtered_matrix[matrix_cols].sort_values(by='v2_xp', ascending=False),
@@ -608,6 +615,7 @@ elif app_mode == "🧮 Points Breakdown Matrix":
                 "full_name": "Player",
                 "position": "Pos",
                 "team_name": "Club",
+                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
                 "exp_app_pts": st.column_config.NumberColumn("App xP (1-60m)", format="%.2f"),
                 "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f"),
                 "exp_assist_pts": st.column_config.NumberColumn("Assist xP (FA+40%)", format="%.2f"),
@@ -671,7 +679,7 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
     
     if st.button("🚀 Run V2 Solver & Sensitivity", type="primary", width="stretch", key="solver_v2_btn"):
         if not v2_df.empty:
-            df = v2_df[(v2_df['status'] == 'a')].copy()
+            df = v2_df[(v2_df['status'] == 'a') & (v2_df['mins_per_game'] >= 45.0)].copy()
             
             prob = pulp.LpProblem("Optimal_FPL_V2", pulp.LpMaximize)
             squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')

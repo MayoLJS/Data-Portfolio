@@ -137,7 +137,7 @@ def load_understat_data():
     except Exception:
         return None
 
-# Helper calculation engine for Benchwarmers V2 Logic
+# Helper calculation engine for Benchwarmers FPL v1.1 Logic
 def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4, home_away_boost=0.05):
     if p_df is None or t_df is None:
         return pd.DataFrame()
@@ -237,18 +237,18 @@ understat_shooting_df = load_understat_data()
 st.sidebar.title("⚽ EPL HUB")
 st.sidebar.markdown("---")
 
-menu_category = st.sidebar.selectbox("Select Category:", ["Fantasy", "Fantasy V2 (Benchwarmers Model)", "Real", "Betting"])
+menu_category = st.sidebar.selectbox("Select Category:", ["FPL v1.0", "FPL v1.1", "EPL", "Bet Advisor"])
 st.sidebar.markdown("---")
 
-# Setup default V2 vars so they exist even if we aren't in V2 mode
+# Setup default v1.1 vars so they exist even if we aren't in that mode
 w_long_g, w_short_g, fa_boost_g, ha_boost_g = 0.8, 0.2, 1.4, 0.05
 
-if menu_category == "Fantasy":
+if menu_category == "FPL v1.0":
     app_mode = st.sidebar.radio("Select Module:", [
         "👤 Player Scout Card", 
         "⚡ FPL Squad Optimizer"
     ])
-elif menu_category == "Fantasy V2 (Benchwarmers Model)":
+elif menu_category == "FPL v1.1":
     app_mode = st.sidebar.radio("Select Module:", [
         "📊 Model Control Panel & Data Bank",
         "🧮 Points Breakdown Matrix",
@@ -256,22 +256,22 @@ elif menu_category == "Fantasy V2 (Benchwarmers Model)":
         "⚡ Prescriptive Solver & Sensitivity"
     ])
     
-    # Render global V2 model sliders on the sidebar for all V2 modules
+    # Render global model sliders on the sidebar for all v1.1 modules
     st.sidebar.markdown("---")
-    st.sidebar.header("⚙️ V2 Model Tuning")
+    st.sidebar.header("⚙️ Model Tuning")
     w_long_g = st.sidebar.slider("Long-Form Form Weight", 0.0, 1.0, 0.80, 0.05, help="Weight given to full-season or rolling history.")
     w_short_g = st.sidebar.slider("Short-Form Form Weight", 0.0, 1.0, 0.20, 0.05, help="Weight given to recent 6 gameweeks.")
     fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="The +40% multiplier for winning penalties/rebounds.")
     ha_boost_g = st.sidebar.slider("Home / Away Factor", 0.0, 0.15, 0.05, 0.01, help="The baseline advantage for home fixtures.")
 
-elif menu_category == "Real":
+elif menu_category == "EPL":
     app_mode = st.sidebar.radio("Select Module:", [
         "📅 Match Results & Fixtures",
         "📊 Live League Table",
         "📈 Team Trends (xG vs Actual)",
         "🌐 Understat Team Stats" 
     ])
-elif menu_category == "Betting":
+elif menu_category == "Bet Advisor":
     app_mode = st.sidebar.radio("Select Module:", [
         "📈 For your information only"
     ])
@@ -389,10 +389,10 @@ if app_mode == "👤 Player Scout Card":
             st.warning("No players found with these filters.")
 
 # ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER (V1 - With Subjective Sliders)
+# MODULE 2: FPL SQUAD OPTIMIZER (v1.0)
 # ==========================================
 elif app_mode == "⚡ FPL Squad Optimizer":
-    st.title("⚡ Prescriptive FPL Squad Optimizer")
+    st.title("⚡ Prescriptive FPL Squad Optimizer (v1.0)")
     
     st.sidebar.header("1. Budget Constraints")
     budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
@@ -565,7 +565,7 @@ elif app_mode == "⚡ FPL Squad Optimizer":
                 st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules/formation constraints.")
 
 # ==========================================
-# FANTASY V2 MODULE 1: MODEL CONTROL PANEL & DATA BANK
+# FANTASY V1.1 MODULE 1: MODEL CONTROL PANEL & DATA BANK
 # ==========================================
 elif app_mode == "📊 Model Control Panel & Data Bank":
     st.title("📊 Model Control Panel & Master Data Bank")
@@ -583,22 +583,22 @@ elif app_mode == "📊 Model Control Panel & Data Bank":
             width="stretch",
             hide_index=True,
             column_config={
-                "full_name": "Player",
-                "team_name": "Club",
-                "position": "Pos",
-                "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
-                "minutes": "Mins",
-                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
-                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f"),
-                "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f"),
-                "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f"),
-                "opp_name": "Opponent",
-                "v2_xp": st.column_config.NumberColumn("Calculated xP", format="%.2f")
+                "full_name": st.column_config.TextColumn("Player", help="Player's full name."),
+                "team_name": st.column_config.TextColumn("Club", help="Player's team."),
+                "position": st.column_config.TextColumn("Pos", help="FPL Position."),
+                "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f", help="Current FPL price."),
+                "minutes": st.column_config.NumberColumn("Mins", help="Total minutes played this season."),
+                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f", help="Average minutes per elapsed team game. Players under 45 get 0 xP."),
+                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f", help="Expected Goals per 90 minutes."),
+                "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f", help="Expected Assists per 90 minutes."),
+                "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f", help="Team's expected goals conceded per 90 minutes."),
+                "opp_name": st.column_config.TextColumn("Opponent", help="Next FPL opponent."),
+                "v2_xp": st.column_config.NumberColumn("Calculated xP", format="%.2f", help="Total Expected Points from the Poisson and multiplier logic.")
             }
         )
 
 # ==========================================
-# FANTASY V2 MODULE 2: POINTS BREAKDOWN MATRIX
+# FANTASY V1.1 MODULE 2: POINTS BREAKDOWN MATRIX
 # ==========================================
 elif app_mode == "🧮 Points Breakdown Matrix":
     st.title("🧮 Points Breakdown Matrix")
@@ -621,23 +621,23 @@ elif app_mode == "🧮 Points Breakdown Matrix":
             width="stretch",
             hide_index=True,
             column_config={
-                "full_name": "Player",
-                "position": "Pos",
-                "team_name": "Club",
-                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
-                "exp_app_pts": st.column_config.NumberColumn("App xP (1-60m)", format="%.2f"),
-                "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f"),
-                "exp_assist_pts": st.column_config.NumberColumn("Assist xP (FA+40%)", format="%.2f"),
-                "prob_cs": st.column_config.NumberColumn("Poisson CS %", format="%.1f%%"),
-                "exp_cs_pts": st.column_config.NumberColumn("Clean Sheet xP", format="%.2f"),
-                "exp_conc_penalty": st.column_config.NumberColumn("2+ Goals Penalty", format="%.2f"),
-                "exp_bonus_pts": st.column_config.NumberColumn("BPS / Defcon xP", format="%.2f"),
-                "v2_xp": st.column_config.NumberColumn("Total xP", format="%.2f")
+                "full_name": st.column_config.TextColumn("Player", help="Player's full name."),
+                "position": st.column_config.TextColumn("Pos", help="FPL Position."),
+                "team_name": st.column_config.TextColumn("Club", help="Player's team."),
+                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f", help="Average minutes played per game."),
+                "exp_app_pts": st.column_config.NumberColumn("App xP", format="%.2f", help="Expected points from playing 1 and 60 minutes."),
+                "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f", help="Expected points from goals, scaled by position and opponent defense."),
+                "exp_assist_pts": st.column_config.NumberColumn("Assist xP", format="%.2f", help="Expected points from assists, including the 40% Fantasy Assist Boost."),
+                "prob_cs": st.column_config.NumberColumn("Poisson CS Prob", format="%.2f", help="Poisson probability (0.0 to 1.0) of a clean sheet."),
+                "exp_cs_pts": st.column_config.NumberColumn("Clean Sheet xP", format="%.2f", help="Expected clean sheet points, scaled by position."),
+                "exp_conc_penalty": st.column_config.NumberColumn("2+ Goals Penalty", format="%.2f", help="Expected minus points from conceding 2 or more goals."),
+                "exp_bonus_pts": st.column_config.NumberColumn("BPS / Defcon xP", format="%.2f", help="Expected bonus and defensive contribution points."),
+                "v2_xp": st.column_config.NumberColumn("Total xP", format="%.2f", help="Final calculated Expected Points.")
             }
         )
 
 # ==========================================
-# FANTASY V2 MODULE 3: FIXTURE MULTIPLIERS & OPPONENT INDEX
+# FANTASY V1.1 MODULE 3: FIXTURE MULTIPLIERS & OPPONENT INDEX
 # ==========================================
 elif app_mode == "📅 Fixture Multipliers & Opponent Index":
     st.title("📅 Fixture Multipliers & Opponent Index")
@@ -654,21 +654,21 @@ elif app_mode == "📅 Fixture Multipliers & Opponent Index":
         team_summary['Venue'] = np.where(team_summary['is_home'], 'Home', 'Away')
         
         st.dataframe(
-            team_summary[['team_name', 'opp_name', 'Venue', 'Attack_Multiplier', 'Defensive_Multiplier', 'Expected_CS_Chance']],
+            team_summary[['team_name', 'Venue', 'Attack_Multiplier', 'Defensive_Multiplier', 'Expected_CS_Chance', 'opp_name']],
             width="stretch",
             hide_index=True,
             column_config={
-                "team_name": "Club",
-                "opp_name": "Opponent",
-                "Venue": "Venue",
-                "Attack_Multiplier": st.column_config.NumberColumn("Attack Multiplier (xGC Rel)", format="%.2fx"),
-                "Defensive_Multiplier": st.column_config.NumberColumn("Defense Multiplier (xG Rel)", format="%.2fx"),
-                "Expected_CS_Chance": st.column_config.NumberColumn("Poisson Clean Sheet Prob", format="%.1f%%")
+                "team_name": st.column_config.TextColumn("Club", help="The team being analyzed."),
+                "Venue": st.column_config.TextColumn("Venue", help="Home or Away fixture."),
+                "Attack_Multiplier": st.column_config.NumberColumn("Attack Multiplier (xGC Rel)", format="%.2fx", help="Boost applied to attacking players. Based on opponent defense compared to average."),
+                "Defensive_Multiplier": st.column_config.NumberColumn("Defense Multiplier (xG Rel)", format="%.2fx", help="Modifier applied to team xGC. Based on opponent attack compared to average."),
+                "Expected_CS_Chance": st.column_config.NumberColumn("Poisson Clean Sheet Prob", format="%.2f", help="Exact probability of 0 goals conceded derived from adjusted xGC."),
+                "opp_name": st.column_config.TextColumn("Opponent", help="The team they are playing against.")
             }
         )
 
 # ==========================================
-# FANTASY V2 MODULE 4: PRESCRIPTIVE SOLVER & SENSITIVITY
+# FANTASY V1.1 MODULE 4: PRESCRIPTIVE SOLVER & SENSITIVITY
 # ==========================================
 elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
     st.title("⚡ Prescriptive Solver & Sensitivity Analysis")
@@ -694,7 +694,7 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
 
     v2_df = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
     
-    if st.button("🚀 Run V2 Solver & Sensitivity", type="primary", width="stretch", key="solver_v2_btn"):
+    if st.button("🚀 Run v1.1 Solver & Sensitivity", type="primary", width="stretch", key="solver_v2_btn"):
         if not v2_df.empty:
             df = v2_df[(v2_df['status'] == 'a') & ((v2_df['mins_per_game'] >= 45.0) | (v2_df['full_name'].isin(locked_players_v2)))].copy()
             
@@ -752,7 +752,7 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                 captain_row = starters.loc[captain_id]
                 total_xp = starters['v2_xp'].sum() + captain_row['v2_xp']
                 
-                st.success("✅ V2 Squad Solution Computed!")
+                st.success("✅ v1.1 Squad Solution Computed!")
                 sc1, sc2, sc3 = st.columns(3)
                 sc1.metric("Spent Budget", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget_v2 - squad['cost_m'].sum():.1f}M")
                 sc2.metric("Projected Gameweek Points (xP)", f"{total_xp:.2f} pts")
@@ -794,12 +794,12 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                     width="stretch",
                     hide_index=True,
                     column_config={
-                        "full_name": "Player",
-                        "team_name": "Club",
-                        "position": "Pos",
-                        "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
-                        "v2_xp": st.column_config.NumberColumn("Expected Points (xP)", format="%.2f"),
-                        "next_opponent": "Fixture"
+                        "full_name": st.column_config.TextColumn("Player", help="Player name."),
+                        "team_name": st.column_config.TextColumn("Club", help="Player's team."),
+                        "position": st.column_config.TextColumn("Pos", help="FPL Position."),
+                        "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f", help="Current FPL price."),
+                        "v2_xp": st.column_config.NumberColumn("Expected Points (xP)", format="%.2f", help="Total calculated xP for the next gameweek."),
+                        "next_opponent": st.column_config.TextColumn("Fixture", help="Next opponent and venue.")
                     }
                 )
             else:

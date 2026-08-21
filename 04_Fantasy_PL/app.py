@@ -43,7 +43,7 @@ st.markdown("""
 # Note: For production, you can move this dictionary to Streamlit's secrets.toml
 VALID_USERS = {
     "olu": "admin123",
-    "guest": "guest2026"
+    "friend1": "passcode1"
 }
 
 if "authenticated" not in st.session_state:
@@ -167,7 +167,7 @@ def load_understat_data():
         return None
 
 # Helper calculation engine for Benchwarmers FPL v1.1 Logic
-def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4, home_away_boost=0.05):
+def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4, home_away_boost=0.05, min_mins_filter=25.0):
     if p_df is None or t_df is None:
         return pd.DataFrame()
         
@@ -178,10 +178,13 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     max_possible_games = max(1.0, round(df['mins_played'].max() / 90.0))
     df['mins_per_game'] = (df['mins_played'] / max_possible_games).round(1)
     
-    is_eligible = df['mins_per_game'] >= 45.0
+    is_eligible = df['mins_per_game'] >= min_mins_filter
     
-    df['xg_p90'] = np.where(is_eligible, (df['expected_goals'] / df['mins_played']) * 90.0, 0.0)
-    df['xa_p90'] = np.where(is_eligible, (df['expected_assists'] / df['mins_played']) * 90.0, 0.0)
+    # Dampener to tame small sample size explosions. Caps stats for impact subs so they don't break the model.
+    dampener = np.clip(df['mins_per_game'] / 60.0, 0.4, 1.0)
+    
+    df['xg_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_goals'] / df['mins_played']) * 90.0 * dampener, 0.0)
+    df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
     df['is_home'] = df['next_opponent'].str.contains(r'\(H\)', regex=True)
     df['opp_short'] = df['next_opponent'].str.replace(' (H)', '', regex=False).str.replace(' (A)', '', regex=False)
@@ -215,9 +218,10 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     df['opp_xg'] = df['opp_name'].apply(lambda x: get_stat(x, 'xg_p90'))
     df['opp_xgc'] = df['opp_name'].apply(lambda x: get_stat(x, 'xgc_p90'))
     
+    # Smarter dynamic appearance probabilities based on Mins/Game
     fit_prob = df['chance_of_playing_next_round'] / 100.0
-    df['p_app_1'] = np.where(is_eligible, 0.95 * fit_prob, 0.0)
-    df['p_app_2'] = np.where(is_eligible, 0.85 * fit_prob, 0.0)
+    df['p_app_1'] = np.where(is_eligible, np.clip(df['mins_per_game'] / 25.0, 0.0, 1.0) * 0.95 * fit_prob, 0.0)
+    df['p_app_2'] = np.where(is_eligible, np.clip((df['mins_per_game'] - 40.0) / 40.0, 0.0, 1.0) * 0.85 * fit_prob, 0.0)
     df['exp_app_pts'] = df['p_app_1'] * 1.0 + df['p_app_2'] * 1.0
     
     goal_pts_map = {1: 6, 2: 6, 3: 5, 4: 4}
@@ -237,7 +241,7 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     df['exp_cs_pts'] = np.where(is_eligible, df['prob_cs'] * df['cs_val'] * df['p_app_2'], 0.0)
     df['exp_conc_penalty'] = np.where(is_eligible, df['prob_conc_2plus'] * df['conc_penalty_val'] * df['p_app_1'], 0.0)
     
-    df['exp_bonus_pts'] = np.where(is_eligible, (df['bps'] / df['mins_played']) * 90.0 * 0.04, 0.0)
+    df['exp_bonus_pts'] = np.where(is_eligible & (df['mins_played'] > 0), (df['bps'] / df['mins_played']) * 90.0 * 0.04 * dampener, 0.0)
     
     df['raw_xp'] = df['exp_app_pts'] + df['exp_goal_pts'] + df['exp_assist_pts'] + df['exp_cs_pts'] + df['exp_conc_penalty'] + df['exp_bonus_pts']
     ha_factor = np.where(df['is_home'], 1.0 + home_away_boost, 1.0 - home_away_boost)
@@ -259,7 +263,7 @@ menu_category = st.sidebar.selectbox("Select Category:", ["FPL v1.0", "FPL v1.1"
 st.sidebar.markdown("---")
 
 # Setup default v1.1 vars
-w_long_g, w_short_g, fa_boost_g, ha_boost_g = 0.8, 0.2, 1.4, 0.05
+w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g = 0.8, 0.2, 1.4, 0.05, 25.0
 
 if menu_category == "FPL v1.0":
     app_mode = st.sidebar.radio("Select Module:", [
@@ -276,6 +280,7 @@ elif menu_category == "FPL v1.1":
     
     st.sidebar.markdown("---")
     st.sidebar.header("⚙️ Model Tuning")
+    min_mins_g = st.sidebar.slider("Minimum Mins/Game Filter", 10.0, 90.0, 25.0, 5.0, help="Filter out players averaging fewer minutes than this. Also smoothly scales down expected points for bench players.")
     w_long_g = st.sidebar.slider("Long-Form Form Weight", 0.0, 1.0, 0.80, 0.05, help="Weight given to full-season or rolling history.")
     w_short_g = st.sidebar.slider("Short-Form Form Weight", 0.0, 1.0, 0.20, 0.05, help="Weight given to recent 6 gameweeks.")
     fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="The +40% multiplier for winning penalties/rebounds.")
@@ -617,6 +622,8 @@ elif app_mode == "⚡ FPL Squad Optimizer":
 
                 captain_id = starters['predicted_points'].idxmax()
                 captain_row = starters.loc[captain_id]
+                
+                # Sum of starting XI predicted points + Captain bonus (Captain points are doubled)
                 total_expected_points = starters['predicted_points'].sum() + captain_row['predicted_points']
 
                 st.success("✅ Optimization Complete!")
@@ -717,9 +724,9 @@ elif app_mode == "📊 Model Control Panel & Data Bank":
     
     st.markdown("---")
     st.markdown("### 🗄️ Master Player Data Bank")
-    st.caption("Note: Players averaging under 45.0 mins/game are assigned 0.0 xP by default.")
+    st.caption("Note: Players filtered out by the Minimum Mins/Game slider are securely assigned 0.0 xP.")
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
     if not v2_data.empty:
         cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name', 'v2_xp']
         st.dataframe(
@@ -732,9 +739,9 @@ elif app_mode == "📊 Model Control Panel & Data Bank":
                 "position": st.column_config.TextColumn("Pos", help="FPL Position."),
                 "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f", help="Current FPL price."),
                 "minutes": st.column_config.NumberColumn("Mins", help="Total minutes played this season."),
-                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f", help="Average minutes per elapsed team game. Players under 45 get 0 xP."),
-                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f", help="Expected Goals per 90 minutes."),
-                "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f", help="Expected Assists per 90 minutes."),
+                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f", help="Average minutes per elapsed team game."),
+                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f", help="Expected Goals per 90 minutes. Scaled down for bench players."),
+                "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f", help="Expected Assists per 90 minutes. Scaled down for bench players."),
                 "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f", help="Team's expected goals conceded per 90 minutes."),
                 "opp_name": st.column_config.TextColumn("Opponent", help="Next FPL opponent."),
                 "v2_xp": st.column_config.NumberColumn("Calculated xP", format="%.2f", help="Total Expected Points from the Poisson and multiplier logic.")
@@ -748,7 +755,7 @@ elif app_mode == "🧮 Points Breakdown Matrix":
     st.title("🧮 Points Breakdown Matrix")
     st.write("Detailed decomposition of expected points across Appearance, Attack, Poisson Defense, and Defcon/Bonus.")
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
     if not v2_data.empty:
         f1, f2 = st.columns(2)
         pos_filter = f1.selectbox("Filter Position:", ["All", "GKP", "DEF", "MID", "FWD"], key="matrix_pos")
@@ -803,11 +810,11 @@ elif app_mode == "🧮 Points Breakdown Matrix":
                 "position": st.column_config.TextColumn("Pos", help="FPL Position."),
                 "team_name": st.column_config.TextColumn("Club", help="Player's team."),
                 "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f", help="Average minutes played per game."),
-                "exp_app_pts": st.column_config.NumberColumn("App xP", format="%.2f", help="Expected points from playing 1 and 60 minutes."),
+                "exp_app_pts": st.column_config.NumberColumn("App xP", format="%.2f", help="Expected points from appearances, dynamically scaled based on mins/game."),
                 "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f", help="Expected points from goals, scaled by position and opponent defense."),
-                "exp_assist_pts": st.column_config.NumberColumn("Assist xP", format="%.2f", help="Expected points from assists, including the 40% Fantasy Assist Boost."),
+                "exp_assist_pts": st.column_config.NumberColumn("Assist xP", format="%.2f", help="Expected points from assists, including the Fantasy Assist Boost."),
                 "prob_cs": st.column_config.NumberColumn("Poisson CS Prob", format="%.2f", help="Poisson probability (0.0 to 1.0) of a clean sheet."),
-                "exp_cs_pts": st.column_config.NumberColumn("Clean Sheet xP", format="%.2f", help="Expected clean sheet points, scaled by position."),
+                "exp_cs_pts": st.column_config.NumberColumn("Clean Sheet xP", format="%.2f", help="Expected clean sheet points, scaled by position and appearance likelihood."),
                 "exp_conc_penalty": st.column_config.NumberColumn("2+ Goals Penalty", format="%.2f", help="Expected minus points from conceding 2 or more goals."),
                 "exp_bonus_pts": st.column_config.NumberColumn("BPS / Defcon xP", format="%.2f", help="Expected bonus and defensive contribution points."),
                 "v2_xp": st.column_config.NumberColumn("Total xP", format="%.2f", help="Final calculated Expected Points.")
@@ -821,7 +828,7 @@ elif app_mode == "📅 Fixture Multipliers & Opponent Index":
     st.title("📅 Fixture Multipliers & Opponent Index")
     st.write("Compare team attacks and defenses against the league average to view relative match difficulty multipliers.")
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
+    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
     if not v2_data.empty:
         team_summary = v2_data.groupby(['team_name', 'opp_name', 'is_home']).agg(
             Attack_Multiplier=('attack_mult', 'first'),
@@ -870,11 +877,11 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
     else:
         locked_players_v2 = []
 
-    v2_df = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g)
+    v2_df = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
     
     if st.button("🚀 Run v1.1 Solver & Sensitivity", type="primary", width="stretch", key="solver_v2_btn"):
         if not v2_df.empty:
-            df = v2_df[(v2_df['status'] == 'a') & ((v2_df['mins_per_game'] >= 45.0) | (v2_df['full_name'].isin(locked_players_v2)))].copy()
+            df = v2_df[(v2_df['status'] == 'a') & ((v2_df['mins_per_game'] >= min_mins_g) | (v2_df['full_name'].isin(locked_players_v2)))].copy()
             
             prob = pulp.LpProblem("Optimal_FPL_V2", pulp.LpMaximize)
             squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')

@@ -186,6 +186,9 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df = p_df.copy()
     df['full_name'] = df['first_name'] + " " + df['second_name']
     
+    # Dictionary for translating short opponent names into full team names
+    short_to_full = dict(zip(t_df['short_name'], t_df['name']))
+    
     df['mins_played'] = pd.to_numeric(df.get('minutes', 0), errors='coerce').fillna(0)
     max_possible_games = max(1.0, round(df['mins_played'].max() / 90.0))
     df['mins_per_game'] = (df['mins_played'] / max_possible_games).round(1)
@@ -199,7 +202,7 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['xg_p90'] = np.where(df['is_pen_taker'], df['xg_p90_base'] + 0.15, df['xg_p90_base'])
     df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
-    # 3. Understat / League Averages
+    # Understat / League Averages
     t_stats = {}
     if u_df is not None and not u_df.empty:
         latest_szn = u_df['season'].max()
@@ -870,7 +873,7 @@ elif app_mode == "🔄 AI Transfer Suggester":
     st.title("🔄 AI Transfer Suggester")
     st.write("Extract your actual FPL team and let the AI optimizer calculate the best mathematically sound transfers based on your live Hybrid settings.")
     
-    num_transfers = st.selectbox("Number of Transfers to make:", list(range(1, 16)))
+    num_transfers = st.selectbox("Number of Transfers to make (Max 15 for Wildcard):", list(range(1, 16)))
     
     st.sidebar.markdown("---")
     st.sidebar.header("Bench Strategy")

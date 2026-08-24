@@ -40,7 +40,6 @@ st.markdown("""
 # ==========================================
 # 2. AUTHENTICATION GATEKEEPER
 # ==========================================
-# Note: For production, you can move this dictionary to Streamlit's secrets.toml
 VALID_USERS = {
     "olu": "admin123",
     "friend1": "passcode1"
@@ -65,24 +64,21 @@ if not st.session_state["authenticated"]:
             else:
                 st.error("⚠️ Invalid Username or Password")
         st.markdown("</div>", unsafe_allow_html=True)
-    st.stop() # Stops execution of the rest of the app until authenticated
+    st.stop()
 
 chart_theme = "streamlit"
 
 def format_season(season_str):
-    """Dynamically handles both '2025' and '2526' string formats"""
     season_str = str(season_str)
     if re.match(r'^20\d{2}$', season_str):
-        # Format 2025 -> 2025/2026 Season
         next_year = int(season_str) + 1
         return f"{season_str}/{next_year} Season"
     elif re.match(r'^\d{4}$', season_str):
-        # Format 2526 -> 2025/2026 Season
         return f"20{season_str[:2]}/20{season_str[2:]} Season"
     return season_str
 
 # ==========================================
-# 3. DATA LOADERS (Cached)
+# 3. DATA LOADERS & HYBRID MATH ENGINE
 # ==========================================
 @st.cache_data(ttl=3600)
 def load_fpl_data():
@@ -99,7 +95,6 @@ def load_fpl_data():
     
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
     players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
-    
     players['predicted_points'] = pd.to_numeric(players.get('ep_next', 0), errors='coerce').fillna(0.0)
     players['next_opponent'] = "N/A"
     
@@ -123,18 +118,10 @@ def load_fpl_data():
     except Exception:
         pass
     
-    if 'status' in players.columns:
-        players['status'] = players['status'].fillna('a')
-    else:
-        players['status'] = 'a'
-        
-    if 'chance_of_playing_next_round' in players.columns:
-        players['chance_of_playing_next_round'] = pd.to_numeric(players['chance_of_playing_next_round'], errors='coerce').fillna(100.0)
-    else:
-        players['chance_of_playing_next_round'] = 100.0
+    players['status'] = players.get('status', 'a').fillna('a')
+    players['chance_of_playing_next_round'] = pd.to_numeric(players.get('chance_of_playing_next_round', 100), errors='coerce').fillna(100.0)
     
     num_cols = ['now_cost', 'selected_by_percent', 'form', 'total_points', 'influence', 'creativity', 'threat', 'ict_index', 'expected_goals', 'expected_assists', 'bps', 'minutes', 'goals_conceded', 'saves']
-    
     for col in num_cols: 
         if col in players.columns:
             players[col] = pd.to_numeric(players[col], errors='coerce').fillna(0.0)
@@ -166,31 +153,29 @@ def load_understat_data():
     except Exception:
         return None
 
-# Helper calculation engine for Benchwarmers FPL v1.1 Logic
-def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4, home_away_boost=0.05, min_mins_filter=25.0):
-    if p_df is None or t_df is None:
-        return pd.DataFrame()
+def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boost, min_mins, weights_dict, blend_factor):
+    if p_df is None or t_df is None: return pd.DataFrame()
         
     df = p_df.copy()
     df['full_name'] = df['first_name'] + " " + df['second_name']
     
+    # 1. Base minutes and Mins/Game
     df['mins_played'] = pd.to_numeric(df.get('minutes', 0), errors='coerce').fillna(0)
     max_possible_games = max(1.0, round(df['mins_played'].max() / 90.0))
     df['mins_per_game'] = (df['mins_played'] / max_possible_games).round(1)
+    is_eligible = df['mins_per_game'] >= min_mins
     
-    is_eligible = df['mins_per_game'] >= min_mins_filter
-    
-    # Dampener to tame small sample size explosions. Caps stats for impact subs so they don't break the model.
     dampener = np.clip(df['mins_per_game'] / 60.0, 0.4, 1.0)
-    
     df['xg_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_goals'] / df['mins_played']) * 90.0 * dampener, 0.0)
     df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
+    # 2. Opponent parsing
     df['is_home'] = df['next_opponent'].str.contains(r'\(H\)', regex=True)
     df['opp_short'] = df['next_opponent'].str.replace(' (H)', '', regex=False).str.replace(' (A)', '', regex=False)
     short_to_full = dict(zip(t_df['short_name'], t_df['name']))
     df['opp_name'] = df['opp_short'].map(short_to_full).fillna('Average Team')
     
+    # 3. Understat / League Averages
     t_stats = {}
     if u_df is not None and not u_df.empty:
         latest_szn = u_df['season'].max()
@@ -203,8 +188,7 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
             tot_xg = h[h_xg_col].sum() + a[a_xg_col].sum()
             tot_xgc = h[a_xg_col].sum() + a[h_xg_col].sum()
             m = len(h) + len(a)
-            if m > 0:
-                t_stats[t] = {'xg_p90': tot_xg / m, 'xgc_p90': tot_xgc / m}
+            if m > 0: t_stats[t] = {'xg_p90': tot_xg / m, 'xgc_p90': tot_xgc / m}
                 
     league_avg_xg = np.mean([v['xg_p90'] for v in t_stats.values()]) if t_stats else 1.35
     league_avg_xgc = np.mean([v['xgc_p90'] for v in t_stats.values()]) if t_stats else 1.35
@@ -218,7 +202,7 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     df['opp_xg'] = df['opp_name'].apply(lambda x: get_stat(x, 'xg_p90'))
     df['opp_xgc'] = df['opp_name'].apply(lambda x: get_stat(x, 'xgc_p90'))
     
-    # Smarter dynamic appearance probabilities based on Mins/Game
+    # 4. Pure Poisson & xP Math
     fit_prob = df['chance_of_playing_next_round'] / 100.0
     df['p_app_1'] = np.where(is_eligible, np.clip(df['mins_per_game'] / 25.0, 0.0, 1.0) * 0.95 * fit_prob, 0.0)
     df['p_app_2'] = np.where(is_eligible, np.clip((df['mins_per_game'] - 40.0) / 40.0, 0.0, 1.0) * 0.85 * fit_prob, 0.0)
@@ -237,15 +221,27 @@ def calculate_v2_metrics(p_df, t_df, u_df, w_long=0.8, w_short=0.2, fa_boost=1.4
     
     df['cs_val'] = df['element_type'].map({1: 4.0, 2: 4.0, 3: 1.0, 4: 0.0})
     df['conc_penalty_val'] = df['element_type'].map({1: -1.0, 2: -1.0, 3: 0.0, 4: 0.0})
-    
     df['exp_cs_pts'] = np.where(is_eligible, df['prob_cs'] * df['cs_val'] * df['p_app_2'], 0.0)
     df['exp_conc_penalty'] = np.where(is_eligible, df['prob_conc_2plus'] * df['conc_penalty_val'] * df['p_app_1'], 0.0)
-    
     df['exp_bonus_pts'] = np.where(is_eligible & (df['mins_played'] > 0), (df['bps'] / df['mins_played']) * 90.0 * 0.04 * dampener, 0.0)
     
     df['raw_xp'] = df['exp_app_pts'] + df['exp_goal_pts'] + df['exp_assist_pts'] + df['exp_cs_pts'] + df['exp_conc_penalty'] + df['exp_bonus_pts']
-    ha_factor = np.where(df['is_home'], 1.0 + home_away_boost, 1.0 - home_away_boost)
+    ha_factor = np.where(df['is_home'], 1.0 + ha_boost, 1.0 - ha_boost)
     df['v2_xp'] = np.where(is_eligible, (df['raw_xp'] * ha_factor).round(2), 0.0)
+
+    # 5. Hybrid Form/ICT Blending (The V1 Merge)
+    total_w = sum(weights_dict.values())
+    if total_w > 0:
+        for metric, w in weights_dict.items():
+            min_v, max_v = df[metric].min(), df[metric].max()
+            df[f'{metric}_norm'] = (df[metric] - min_v) / (max_v - min_v) if max_v > min_v else 0.0
+        
+        df['custom_v1_score'] = sum(df[f'{metric}_norm'] * (w / total_w) for metric, w in weights_dict.items())
+        df['hybrid_multiplier'] = 1.0 + ((df['custom_v1_score'] - 0.5) * 2.0 * (blend_factor / 100.0))
+    else:
+        df['hybrid_multiplier'] = 1.0
+        
+    df['final_xp'] = np.where(is_eligible, (df['v2_xp'] * df['hybrid_multiplier']).round(2), 0.0)
     
     return df
 
@@ -254,82 +250,97 @@ match_df = load_match_data()
 understat_shooting_df = load_understat_data() 
 
 # ==========================================
-# 4. SIDEBAR NAVIGATION (Subfolder Layout)
+# 4. SIDEBAR NAVIGATION 
 # ==========================================
 st.sidebar.title("⚽ EPL HUB")
 st.sidebar.markdown("---")
 
-menu_category = st.sidebar.selectbox("Select Category:", ["FPL v1.0", "FPL v1.1", "EPL", "Bet Advisor"])
+menu_category = st.sidebar.selectbox("Select Category:", ["🏆 Fantasy Premier League", "⚽ EPL Matches & Stats", "📈 Betting Advisor"])
 st.sidebar.markdown("---")
 
-# Setup default v1.1 vars
-w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g = 0.8, 0.2, 1.4, 0.05, 25.0
-
-if menu_category == "FPL v1.0":
+if menu_category == "🏆 Fantasy Premier League":
     app_mode = st.sidebar.radio("Select Module:", [
-        "👤 Player Scout Card", 
-        "⚡ FPL Squad Optimizer"
-    ])
-elif menu_category == "FPL v1.1":
-    app_mode = st.sidebar.radio("Select Module:", [
-        "📊 Model Control Panel & Data Bank",
-        "🧮 Points Breakdown Matrix",
-        "📅 Fixture Multipliers & Opponent Index",
-        "⚡ Prescriptive Solver & Sensitivity"
+        "👤 Advanced Player Scout",
+        "🗄️ Model Data & Points Matrix",
+        "📅 Fixture Multipliers",
+        "⚡ Unified Squad Optimizer"
     ])
     
     st.sidebar.markdown("---")
-    st.sidebar.header("⚙️ Model Tuning")
-    min_mins_g = st.sidebar.slider("Minimum Mins/Game Filter", 10.0, 90.0, 25.0, 5.0, help="Filter out players averaging fewer minutes than this. Also smoothly scales down expected points for bench players.")
-    w_long_g = st.sidebar.slider("Long-Form Form Weight", 0.0, 1.0, 0.80, 0.05, help="Weight given to full-season or rolling history.")
-    w_short_g = st.sidebar.slider("Short-Form Form Weight", 0.0, 1.0, 0.20, 0.05, help="Weight given to recent 6 gameweeks.")
-    fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="The +40% multiplier for winning penalties/rebounds.")
-    ha_boost_g = st.sidebar.slider("Home / Away Factor", 0.0, 0.15, 0.05, 0.01, help="The baseline advantage for home fixtures.")
+    st.sidebar.header("⚙️ Unified Model Tuning")
+    min_mins_g = st.sidebar.slider("Min Mins/Game Filter", 10.0, 90.0, 25.0, 5.0, help="Filters out benchwarmers and aggressively scales down expected points for players with low minutes.")
+    
+    st.sidebar.markdown("**Poisson Model Weights**")
+    fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="Multiplier for unrecorded FPL assists (rebounds/penalties).")
+    ha_boost_g = st.sidebar.slider("Home/Away Factor", 0.0, 0.15, 0.05, 0.01, help="Percentage advantage given to home teams.")
 
-elif menu_category == "EPL":
+    st.sidebar.markdown("**ICT / Form Hybrid Weights**")
+    advanced_mode = st.sidebar.toggle("Advanced ICT Breakdown", value=False)
+    
+    if not advanced_mode:
+        w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
+        w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
+        w_ict = st.sidebar.slider("ICT Index (Quality)", 0, 100, 40, 5)
+        weights_g = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
+    else:
+        w_form = st.sidebar.slider("Form", 0, 100, 20, 5)
+        w_own = st.sidebar.slider("Ownership %", 0, 100, 20, 5)
+        w_inf = st.sidebar.slider("Influence", 0, 100, 20, 5)
+        w_cre = st.sidebar.slider("Creativity", 0, 100, 20, 5)
+        w_thr = st.sidebar.slider("Threat", 0, 100, 20, 5)
+        weights_g = {'form': w_form, 'selected_by_percent': w_own, 'influence': w_inf, 'creativity': w_cre, 'threat': w_thr}
+        
+    blend_factor_g = st.sidebar.slider("ICT Impact on xP (%)", 0.0, 50.0, 15.0, 5.0, help="How much should the subjective ICT/Form sliders above boost or penalize the pure objective Poisson xP?")
+
+elif menu_category == "⚽ EPL Matches & Stats":
     app_mode = st.sidebar.radio("Select Module:", [
         "📅 Match Results & Fixtures",
         "📊 Live League Table",
         "📈 Team Trends (xG vs Actual)",
         "🌐 Understat Team Stats" 
     ])
-elif menu_category == "Bet Advisor":
+elif menu_category == "📈 Betting Advisor":
     app_mode = st.sidebar.radio("Select Module:", [
         "📈 For your information only"
     ])
 
-# LOGOUT BUTTON
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Sign Out", use_container_width=True):
     st.session_state["authenticated"] = False
     st.rerun()
 
+# Pre-calculate master data for FPL modules
+if menu_category == "🏆 Fantasy Premier League":
+    master_df = calculate_hybrid_metrics(players_df, teams_df, understat_shooting_df, 0.8, 0.2, fa_boost_g, ha_boost_g, min_mins_g, weights_g, blend_factor_g)
+
 # ==========================================
-# MODULE 1: PLAYER SCOUT CARD (with Comparison)
+# FPL MODULE 1: ADVANCED PLAYER SCOUT
 # ==========================================
-if app_mode == "👤 Player Scout Card":
-    st.title("👤 Player Performance Profile")
+if app_mode == "👤 Advanced Player Scout":
+    st.title("👤 Advanced Player Scout Profile")
     
-    if players_df is not None and not players_df.empty:
+    if not master_df.empty:
         view_mode = st.radio("Select View Mode:", ["Single Profile", "⚔️ Head-to-Head Comparison"], horizontal=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         f_col1, f_col2 = st.columns(2)
-        teams_list = ["All"] + sorted(players_df['team_name'].unique().tolist())
+        teams_list = ["All"] + sorted(master_df['team_name'].unique().tolist())
         selected_team = f_col1.selectbox("Filter by Team:", teams_list)
         selected_pos = f_col2.selectbox("Filter by Position:", ["All", "GKP", "DEF", "MID", "FWD"])
         
-        filtered_df = players_df.copy()
+        filtered_df = master_df.copy()
         if selected_team != "All": filtered_df = filtered_df[filtered_df['team_name'] == selected_team]
         if selected_pos != "All": filtered_df = filtered_df[filtered_df['position'] == selected_pos]
         
-        player_list = sorted((filtered_df['first_name'] + " " + filtered_df['second_name']).tolist())
+        player_list = sorted(filtered_df['full_name'].tolist())
         
         if len(player_list) > 0:
-            
             def render_scout_card(p_data):
-                chance_val = int(p_data.get('chance_of_playing_next_round', 100)) if pd.notna(p_data.get('chance_of_playing_next_round')) else 100
+                chance_val = int(p_data.get('chance_of_playing_next_round', 100))
                 chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
+                boost_pct = ((p_data['hybrid_multiplier'] - 1.0) * 100)
+                boost_color = "#01fc7a" if boost_pct >= 0 else "#ff005a"
+                boost_sign = "+" if boost_pct >= 0 else ""
                 
                 return f"""
                 <div class="scout-card">
@@ -342,16 +353,18 @@ if app_mode == "👤 Player Scout Card":
                             <h2 style="margin: 0; font-size: 2.0rem; font-weight: 800; color: var(--text-color);">{p_data['first_name'].upper()} {p_data['second_name'].upper()}</h2>
                             <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.0rem;">
                                 Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; 
-                                Points: <b>{int(p_data['total_points'])}</b><br>
-                                Next Opp: <b>{p_data.get('next_opponent', 'N/A')}</b><br>
-                                Proj Pts: <b style="color: #0088cc;">{p_data.get('predicted_points', 0.0)}</b> &nbsp;|&nbsp;
+                                Pts: <b>{int(p_data['total_points'])}</b><br>
+                                Next: <b>{p_data.get('next_opponent', 'N/A')}</b><br>
                                 Fit: <b style="color: {chance_color};">{chance_val}%</b>
                             </p>
                         </div>
                         <div style="text-align: right; background: var(--background-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                            <h4 style="color: #0088cc; margin:0 0 5px 0; font-weight: 600;">xG: {p_data.get('expected_goals', 0.0):.2f}</h4>
-                            <h4 style="color: #cc0066; margin:0 0 10px 0; font-weight: 600;">xA: {p_data.get('expected_assists', 0.0):.2f}</h4>
-                            <div style="color: var(--text-color); font-size: 0.8rem;">Form: <b>{p_data['form']}</b><br>ICT: <b>{p_data['ict_index']}</b></div>
+                            <div style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">Pure Poisson xP: {p_data['v2_xp']:.2f} | ICT Form Nudge: <span style="color: {boost_color};">{boost_sign}{boost_pct:.1f}%</span></div>
+                            <h3 style="color: #0088cc; margin:0 0 5px 0; font-weight: 800;">Final Proj xP: {p_data['final_xp']:.2f}</h3>
+                            <div style="color: var(--text-color); font-size: 0.9rem;">
+                                Atk Mult: <b>{p_data['attack_mult']:.2f}x</b> &nbsp;|&nbsp; 
+                                Poisson CS Odds: <b style="color: #01fc7a;">{p_data['prob_cs']*100:.0f}%</b>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -359,7 +372,7 @@ if app_mode == "👤 Player Scout Card":
 
             if view_mode == "Single Profile":
                 selected_player = st.selectbox("Select Player:", player_list)
-                p_data = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == selected_player].iloc[0]
+                p_data = filtered_df[filtered_df['full_name'] == selected_player].iloc[0]
                 
                 st.markdown(render_scout_card(p_data), unsafe_allow_html=True)
                 
@@ -411,7 +424,6 @@ if app_mode == "👤 Player Scout Card":
                     st_echarts(radar_options, height="300px")
 
             else:
-                # HEAD TO HEAD COMPARISON
                 c_a, c_b = st.columns(2)
                 with c_a:
                     player_a = st.selectbox("Select Player A:", player_list, index=0)
@@ -419,16 +431,14 @@ if app_mode == "👤 Player Scout Card":
                     idx_b = 1 if len(player_list) > 1 else 0
                     player_b = st.selectbox("Select Player B:", player_list, index=idx_b)
                 
-                p_data_a = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == player_a].iloc[0]
-                p_data_b = filtered_df[(filtered_df['first_name'] + " " + filtered_df['second_name']) == player_b].iloc[0]
+                p_data_a = filtered_df[filtered_df['full_name'] == player_a].iloc[0]
+                p_data_b = filtered_df[filtered_df['full_name'] == player_b].iloc[0]
                 
                 c_a.markdown(render_scout_card(p_data_a), unsafe_allow_html=True)
                 c_b.markdown(render_scout_card(p_data_b), unsafe_allow_html=True)
                 
                 st.markdown("### ⚔️ Dual-Radar Profile")
-                
-                def get_pct(col, p_data):
-                    return int((players_df[col] < p_data[col]).mean() * 100)
+                def get_pct(col, p_data): return int((players_df[col] < p_data[col]).mean() * 100)
                 
                 radar_dual_opts = {
                     "tooltip": {"trigger": "item"},
@@ -464,309 +474,26 @@ if app_mode == "👤 Player Scout Card":
                     }]
                 }
                 st_echarts(radar_dual_opts, height="400px")
-
-            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
-            st.markdown("### 🏆 Top Performers by Metric")
-            st.caption(f"Showing the best **{selected_pos if selected_pos != 'All' else 'Players'}** from **{selected_team if selected_team != 'All' else 'All Teams'}**.")
-            
-            m_c1, m_c2, m_c3, m_c4 = st.columns(4)
-            
-            def display_top_5(df, metric_col, title, col):
-                top_5 = df.sort_values(by=metric_col, ascending=False).head(5)
-                with col:
-                    st.markdown(f"<div style='background: var(--secondary-background-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 10px;'>", unsafe_allow_html=True)
-                    st.markdown(f"<h5 style='color: var(--text-color); margin-top:0;'>{title}</h5>", unsafe_allow_html=True)
-                    for _, row in top_5.iterrows():
-                        st.markdown(f"<div class='leaderboard-item'><b>{row['first_name'][0]}. {row['second_name']}</b><br><span class='leaderboard-stat'>{row[metric_col]}</span> <span style='font-size:11px; opacity: 0.7;'>({row['team_name']})</span></div>", unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-                        
-            display_top_5(filtered_df, 'threat', '🔥 Highest Threat', m_c1)
-            display_top_5(filtered_df, 'creativity', '✨ Most Creative', m_c2)
-            display_top_5(filtered_df, 'influence', '💪 Most Influential', m_c3)
-            display_top_5(filtered_df, 'ict_index', '⭐ Overall ICT', m_c4)
-            
-            st.markdown("<br><hr style='border-color: var(--border-color);'>", unsafe_allow_html=True)
-            st.markdown("### 🔍 Interactive Player Database")
-            grid_cols = ['first_name', 'second_name', 'team_name', 'position', 'cost_m', 'total_points', 'next_opponent', 'predicted_points', 'expected_goals', 'expected_assists', 'ict_index', 'chance_of_playing_next_round']
-            available_cols = [c for c in grid_cols if c in filtered_df.columns]
-            
-            st.dataframe(
-                filtered_df[available_cols], 
-                width="stretch", 
-                hide_index=True,
-                column_config={
-                    "first_name": "First Name",
-                    "second_name": "Last Name",
-                    "team_name": "Club",
-                    "position": "Pos",
-                    "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
-                    "total_points": st.column_config.ProgressColumn("Total Pts", format="%d", min_value=0, max_value=int(players_df['total_points'].max())),
-                    "next_opponent": "Next Match",
-                    "predicted_points": st.column_config.NumberColumn("Proj Pts", format="%.1f"),
-                    "expected_goals": st.column_config.NumberColumn("xG", format="%.2f"),
-                    "expected_assists": st.column_config.NumberColumn("xA", format="%.2f"),
-                    "ict_index": st.column_config.NumberColumn("ICT", format="%.1f"),
-                    "chance_of_playing_next_round": st.column_config.NumberColumn("Fit %", format="%d%%")
-                }
-            )
-
-        else:
-            st.warning("No players found with these filters.")
-
-# ==========================================
-# MODULE 2: FPL SQUAD OPTIMIZER (v1.0)
-# ==========================================
-elif app_mode == "⚡ FPL Squad Optimizer":
-    st.title("⚡ Prescriptive FPL Squad Optimizer (v1.0)")
-    
-    st.sidebar.header("1. Budget Constraints")
-    budget = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
-    
-    st.sidebar.header("2. Bench Strategy")
-    bench_weight = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1, help="0.1 = Dump cheapest fodder on bench to maximize Starting XI. 1.0 = Spread budget equally (Bench Boost).")
-    
-    st.sidebar.header("3. Target Formation")
-    formation_choices = ["Auto (Best Points)", "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]
-    target_formation = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices)
-    
-    st.sidebar.header("4. Custom Strategy Weights")
-    advanced_mode = st.sidebar.toggle("Advanced Metric Breakdown", value=False)
-    
-    if not advanced_mode:
-        st.sidebar.info("💡 **Base Mode:** Uses bundled ICT Index alongside Form & Ownership.")
-        w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
-        w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
-        w_ict = st.sidebar.slider("ICT Index (Quality)", 0, 100, 40, 5)
-        weights = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
-    else:
-        st.sidebar.info("⚙️ **Advanced Mode:** Unbundles ICT into Influence, Creativity, and Threat.")
-        w_form = st.sidebar.slider("Form", 0, 100, 20, 5)
-        w_own = st.sidebar.slider("Ownership %", 0, 100, 20, 5)
-        w_inf = st.sidebar.slider("Influence (Impact)", 0, 100, 20, 5)
-        w_cre = st.sidebar.slider("Creativity (Assists)", 0, 100, 20, 5)
-        w_thr = st.sidebar.slider("Threat (Goals)", 0, 100, 20, 5)
-        weights = {'form': w_form, 'selected_by_percent': w_own, 'influence': w_inf, 'creativity': w_cre, 'threat': w_thr}
-
-    total_w = sum(weights.values())
-    if total_w > 0: weights = {k: v / total_w for k, v in weights.items()}
-
-    st.sidebar.header("5. Locked Players (Optional)")
-    if players_df is not None:
-        player_choices = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
-        locked_players = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices, max_selections=14)
-    else:
-        locked_players = []
-
-    if st.button("🚀 Generate Optimal Squad", type="primary", width="stretch"):
-        if players_df is not None:
-            df = players_df.copy()
-            df['full_name'] = df['first_name'] + " " + df['second_name']
-            
-            df = df[(df['status'] == 'a') | (df['full_name'].isin(locked_players))].copy()
-            
-            for metric in weights.keys():
-                min_v, max_v = df[metric].min(), df[metric].max()
-                df[f'{metric}_norm'] = (df[metric] - min_v) / (max_v - min_v) if max_v > min_v else 0.0
-            
-            df['custom_score'] = sum(df[f'{metric}_norm'] * w for metric, w in weights.items())
                 
-            prob = pulp.LpProblem("Optimal_FPL_Squad", pulp.LpMaximize)
-            squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
-            starter_vars = pulp.LpVariable.dicts("starter", df.index, cat='Binary')
-            bench_vars = pulp.LpVariable.dicts("bench", df.index, cat='Binary')
-            
-            prob += pulp.lpSum([df.loc[i, 'custom_score'] * starter_vars[i] + bench_weight * df.loc[i, 'custom_score'] * bench_vars[i] for i in df.index])
-            
-            for i in df.index:
-                prob += squad_vars[i] == starter_vars[i] + bench_vars[i]
-            
-            prob += pulp.lpSum([df.loc[i, 'now_cost'] * squad_vars[i] for i in df.index]) <= (budget * 10) 
-            prob += pulp.lpSum([squad_vars[i] for i in df.index]) == 15 
-            prob += pulp.lpSum([starter_vars[i] for i in df.index]) == 11 
-            prob += pulp.lpSum([bench_vars[i] for i in df.index]) == 4 
-            
-            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
-            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
-            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
-            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
-            
-            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
-            
-            if target_formation == "Auto (Best Points)":
-                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) >= 3
-                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
-                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
-            else:
-                def_req, mid_req, fwd_req = map(int, target_formation.split('-'))
-                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == def_req
-                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == mid_req
-                prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == fwd_req
-            
-            for t_id in df['team'].unique(): 
-                prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
-            
-            locked_indices = df[df['full_name'].isin(locked_players)].index.tolist()
-            for idx in locked_indices:
-                prob += squad_vars[idx] == 1
-                
-            prob.solve(pulp.PULP_CBC_CMD(msg=False))
-            
-            if pulp.LpStatus[prob.status] == 'Optimal':
-                squad = df.loc[[i for i in df.index if squad_vars[i].varValue == 1]].copy()
-                starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
-                bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
-                
-                bench_gkp = bench_raw[bench_raw['element_type'] == 1]
-                bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='custom_score', ascending=False)
-                bench = pd.concat([bench_gkp, bench_outfield])
-
-                captain_id = starters['predicted_points'].idxmax()
-                captain_row = starters.loc[captain_id]
-                
-                # Sum of starting XI predicted points + Captain bonus (Captain points are doubled)
-                total_expected_points = starters['predicted_points'].sum() + captain_row['predicted_points']
-
-                st.success("✅ Optimization Complete!")
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Total Spent", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget - squad['cost_m'].sum():.1f}M")
-                c2.metric("Projected Points", f"{total_expected_points:.1f} pts", help="Starting XI xP + Captain Bonus")
-                c3.metric("Starting XI Rating (/11.0)", f"{starters['custom_score'].sum():.2f}")
-                c4.metric("Bench Rating (/4.0)", f"{bench['custom_score'].sum():.2f}")
-                
-                # --- ADDING ECHARTS TREEMAP ---
-                st.markdown("### 💰 Budget Allocation Treemap")
-                treemap_data = [
-                    {
-                        "name": "Starting XI",
-                        "itemStyle": {"color": "#0088cc"},
-                        "children": [{"name": row.second_name, "value": row.cost_m} for row in starters.itertuples()]
-                    },
-                    {
-                        "name": "Bench",
-                        "itemStyle": {"color": "#cc0066"},
-                        "children": [{"name": row.second_name, "value": row.cost_m} for row in bench.itertuples()]
-                    }
-                ]
-                treemap_opts = {
-                    "tooltip": {"trigger": "item", "formatter": "{b}: £{c}M"},
-                    "series": [{
-                        "type": "treemap",
-                        "roam": False,
-                        "nodeClick": False,
-                        "breadcrumb": {"show": False},
-                        "data": treemap_data,
-                        "label": {"show": True, "formatter": "{b}\n£{c}M"}
-                    }]
-                }
-                st_echarts(treemap_opts, height="250px")
-
-                st.markdown("### 👑 Captaincy & Strategy")
-                if captain_row['predicted_points'] >= 7.5:
-                    st.success(f"🔥 **Triple Captain Alert:** **{captain_row['second_name']}** is projected for an elite **{captain_row['predicted_points']} points** against {captain_row.get('next_opponent', 'their next opponent')}. Consider using your Triple Captain chip!")
-                else:
-                    st.info(f"🛡️ **Captain Recommendation:** **{captain_row['second_name']}** (Projected: {captain_row['predicted_points']} pts). A Triple Captain chip is not highly advised this week.")
-
-
-                st.markdown("### 🏟️ The Starting XI (with FDR)")
-                st.caption("Dots indicate overall team strength: Green = Easy, Grey = Avg, Red = Hard")
-                st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
-                
-                def get_fdr_style(val):
-                    bg = {2: "#01fc7a", 3: "#94a3b8", 4: "#ff005a", 5: "#9f1239"}.get(val, "#94a3b8")
-                    txt = "black" if val in [2, 3] else "white"
-                    return f"background-color: {bg}; color: {txt};"
-
-                def render_row(players_in_row, card_class='pitch-card'):
-                    if not players_in_row.empty:
-                        cols = st.columns(len(players_in_row))
-                        for col, row_data in zip(cols, players_in_row.itertuples()):
-                            strength_val = int(row_data.team_strength) if pd.notna(row_data.team_strength) else 3
-                            inline_fdr = get_fdr_style(strength_val)
-                            
-                            chance_val = int(row_data.chance_of_playing_next_round) if pd.notna(row_data.chance_of_playing_next_round) else 100
-                            chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
-                            
-                            is_captain = (row_data.Index == captain_id)
-                            cap_badge = "<span class='badge-cap'>C</span>" if is_captain and card_class == 'pitch-card' else ""
-                            
-                            col.markdown(f"""
-                            <div class='{card_class}'>
-                                <div style='position: absolute; top: -8px; right: -8px; padding: 4px 8px; border-radius: 50%; font-size: 11px; font-weight: bold; border: 1px solid var(--border-color); z-index: 10; {inline_fdr} box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
-                                    {strength_val}
-                                </div>
-                                <b style='color: var(--text-color); font-size: 14px;'>{row_data.second_name} {cap_badge}</b><br>
-                                <span style='font-size:11px; opacity:0.8;'>{row_data.team_name}</span><br>
-                                <span style='font-size:11px; color:#ff007f;'>vs {row_data.next_opponent}</span><br>
-                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{row_data.cost_m}m | xP: {row_data.predicted_points}</span><br>
-                                <span style='font-size:10px; color:{chance_color}; font-weight:bold;'>Fit: {chance_val}%</span>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    st.write("") 
-
-                render_row(starters[starters['element_type'] == 1]) 
-                render_row(starters[starters['element_type'] == 2]) 
-                render_row(starters[starters['element_type'] == 3]) 
-                render_row(starters[starters['element_type'] == 4]) 
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                st.markdown("### 🪑 The Bench (Ordered by Priority)")
-                render_row(bench, card_class='bench-card')
-
-            else:
-                st.error("⚠️ Optimizer could not find a valid squad. Try loosening your budget or removing locked players that violate rules/formation constraints.")
-
 # ==========================================
-# FANTASY V1.1 MODULE 1: MODEL CONTROL PANEL & DATA BANK
+# FPL MODULE 2: UNIFIED DATA & POINTS MATRIX
 # ==========================================
-elif app_mode == "📊 Model Control Panel & Data Bank":
-    st.title("📊 Model Control Panel & Master Data Bank")
-    st.write("Tune model multipliers via the sidebar to update Expected Points (xP) globally.")
+elif app_mode == "🗄️ Model Data & Points Matrix":
+    st.title("🗄️ Model Data & Expected Points Decomposition")
+    st.write("Explore the underlying data bank and see exactly how the unified Hybrid model calculates every expected point.")
     
-    st.markdown("---")
-    st.markdown("### 🗄️ Master Player Data Bank")
-    st.caption("Note: Players filtered out by the Minimum Mins/Game slider are securely assigned 0.0 xP.")
+    tab1, tab2 = st.tabs(["🧮 xP Breakdown Matrix", "🗄️ Master Player Data Bank"])
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
-    if not v2_data.empty:
-        cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name', 'v2_xp']
-        st.dataframe(
-            v2_data[cols_to_show],
-            width="stretch",
-            hide_index=True,
-            column_config={
-                "full_name": st.column_config.TextColumn("Player", help="Player's full name."),
-                "team_name": st.column_config.TextColumn("Club", help="Player's team."),
-                "position": st.column_config.TextColumn("Pos", help="FPL Position."),
-                "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f", help="Current FPL price."),
-                "minutes": st.column_config.NumberColumn("Mins", help="Total minutes played this season."),
-                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f", help="Average minutes per elapsed team game."),
-                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f", help="Expected Goals per 90 minutes. Scaled down for bench players."),
-                "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f", help="Expected Assists per 90 minutes. Scaled down for bench players."),
-                "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f", help="Team's expected goals conceded per 90 minutes."),
-                "opp_name": st.column_config.TextColumn("Opponent", help="Next FPL opponent."),
-                "v2_xp": st.column_config.NumberColumn("Calculated xP", format="%.2f", help="Total Expected Points from the Poisson and multiplier logic.")
-            }
-        )
-
-# ==========================================
-# FANTASY V1.1 MODULE 2: POINTS BREAKDOWN MATRIX
-# ==========================================
-elif app_mode == "🧮 Points Breakdown Matrix":
-    st.title("🧮 Points Breakdown Matrix")
-    st.write("Detailed decomposition of expected points across Appearance, Attack, Poisson Defense, and Defcon/Bonus.")
-    
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
-    if not v2_data.empty:
+    with tab1:
         f1, f2 = st.columns(2)
         pos_filter = f1.selectbox("Filter Position:", ["All", "GKP", "DEF", "MID", "FWD"], key="matrix_pos")
-        team_filter = f2.selectbox("Filter Club:", ["All"] + sorted(v2_data['team_name'].unique().tolist()), key="matrix_team")
+        team_filter = f2.selectbox("Filter Club:", ["All"] + sorted(master_df['team_name'].unique().tolist()), key="matrix_team")
         
-        filtered_matrix = v2_data.copy()
+        filtered_matrix = master_df.copy()
         if pos_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['position'] == pos_filter]
         if team_filter != "All": filtered_matrix = filtered_matrix[filtered_matrix['team_name'] == team_filter]
         
-        # --- ADDING ECHARTS STACKED BAR CHART ---
-        top_df = filtered_matrix.sort_values(by='v2_xp', ascending=False).head(15).iloc[::-1] # Reverse to display top at top of ECharts
+        top_df = filtered_matrix.sort_values(by='final_xp', ascending=False).head(15).iloc[::-1]
         
         if not top_df.empty:
             st.markdown("### 📊 Top 15 Players xP Decomposition")
@@ -778,59 +505,64 @@ elif app_mode == "🧮 Points Breakdown Matrix":
                 "yAxis": {"type": "category", "data": top_df['full_name'].tolist()},
                 "color": ["#8f9bba", "#0088cc", "#01fc7a", "#ffcc00"],
                 "series": [
-                    {
-                        "name": "Appearance", "type": "bar", "stack": "total",
-                        "data": top_df['exp_app_pts'].round(2).tolist()
-                    },
-                    {
-                        "name": "Attack", "type": "bar", "stack": "total",
-                        "data": (top_df['exp_goal_pts'] + top_df['exp_assist_pts']).round(2).tolist()
-                    },
-                    {
-                        "name": "Defense", "type": "bar", "stack": "total",
-                        "data": (top_df['exp_cs_pts'] + top_df['exp_conc_penalty']).clip(lower=0).round(2).tolist()
-                    },
-                    {
-                        "name": "Bonus", "type": "bar", "stack": "total",
-                        "data": top_df['exp_bonus_pts'].round(2).tolist()
-                    }
+                    {"name": "Appearance", "type": "bar", "stack": "total", "data": top_df['exp_app_pts'].round(2).tolist()},
+                    {"name": "Attack", "type": "bar", "stack": "total", "data": (top_df['exp_goal_pts'] + top_df['exp_assist_pts']).round(2).tolist()},
+                    {"name": "Defense", "type": "bar", "stack": "total", "data": (top_df['exp_cs_pts'] + top_df['exp_conc_penalty']).clip(lower=0).round(2).tolist()},
+                    {"name": "Bonus", "type": "bar", "stack": "total", "data": top_df['exp_bonus_pts'].round(2).tolist()}
                 ]
             }
             st_echarts(stacked_options, height="450px")
         
-        st.markdown("### 🧮 Data Matrix")
-        matrix_cols = ['full_name', 'position', 'team_name', 'mins_per_game', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'exp_conc_penalty', 'exp_bonus_pts', 'v2_xp']
-        
+        st.markdown("### 🧮 Granular Data Matrix")
+        matrix_cols = ['full_name', 'position', 'team_name', 'mins_per_game', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'hybrid_multiplier', 'v2_xp', 'final_xp']
         st.dataframe(
-            filtered_matrix[matrix_cols].sort_values(by='v2_xp', ascending=False),
-            width="stretch",
-            hide_index=True,
+            filtered_matrix[matrix_cols].sort_values(by='final_xp', ascending=False),
+            width="stretch", hide_index=True,
             column_config={
-                "full_name": st.column_config.TextColumn("Player", help="Player's full name."),
-                "position": st.column_config.TextColumn("Pos", help="FPL Position."),
-                "team_name": st.column_config.TextColumn("Club", help="Player's team."),
-                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f", help="Average minutes played per game."),
-                "exp_app_pts": st.column_config.NumberColumn("App xP", format="%.2f", help="Expected points from appearances, dynamically scaled based on mins/game."),
-                "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f", help="Expected points from goals, scaled by position and opponent defense."),
-                "exp_assist_pts": st.column_config.NumberColumn("Assist xP", format="%.2f", help="Expected points from assists, including the Fantasy Assist Boost."),
-                "prob_cs": st.column_config.NumberColumn("Poisson CS Prob", format="%.2f", help="Poisson probability (0.0 to 1.0) of a clean sheet."),
-                "exp_cs_pts": st.column_config.NumberColumn("Clean Sheet xP", format="%.2f", help="Expected clean sheet points, scaled by position and appearance likelihood."),
-                "exp_conc_penalty": st.column_config.NumberColumn("2+ Goals Penalty", format="%.2f", help="Expected minus points from conceding 2 or more goals."),
-                "exp_bonus_pts": st.column_config.NumberColumn("BPS / Defcon xP", format="%.2f", help="Expected bonus and defensive contribution points."),
-                "v2_xp": st.column_config.NumberColumn("Total xP", format="%.2f", help="Final calculated Expected Points.")
+                "full_name": st.column_config.TextColumn("Player"),
+                "position": st.column_config.TextColumn("Pos"),
+                "team_name": st.column_config.TextColumn("Club"),
+                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
+                "exp_app_pts": st.column_config.NumberColumn("App xP", format="%.2f", help="Points from playing time."),
+                "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f"),
+                "exp_assist_pts": st.column_config.NumberColumn("Assist xP", format="%.2f"),
+                "prob_cs": st.column_config.NumberColumn("CS Odds", format="%.2f", help="Poisson probability of Clean Sheet."),
+                "exp_cs_pts": st.column_config.NumberColumn("CS xP", format="%.2f"),
+                "hybrid_multiplier": st.column_config.NumberColumn("ICT Form Boost", format="%.2fx", help="Modifier applied from the subjective ICT/Form sliders."),
+                "v2_xp": st.column_config.NumberColumn("Pure Poisson xP", format="%.2f"),
+                "final_xp": st.column_config.NumberColumn("Final Blended xP", format="%.2f", help="Used by the Optimizer.")
+            }
+        )
+
+    with tab2:
+        st.markdown("### 🗄️ Raw Underlying Player Data Bank")
+        cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name']
+        st.dataframe(
+            master_df[cols_to_show],
+            width="stretch", hide_index=True,
+            column_config={
+                "full_name": st.column_config.TextColumn("Player"),
+                "team_name": st.column_config.TextColumn("Club"),
+                "position": st.column_config.TextColumn("Pos"),
+                "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
+                "minutes": st.column_config.NumberColumn("Total Mins"),
+                "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
+                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f", help="Expected Goals per 90 (Dampened if low minutes)"),
+                "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f"),
+                "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f"),
+                "opp_name": st.column_config.TextColumn("Next Opponent")
             }
         )
 
 # ==========================================
-# FANTASY V1.1 MODULE 3: FIXTURE MULTIPLIERS & OPPONENT INDEX
+# FPL MODULE 3: FIXTURE MULTIPLIERS
 # ==========================================
-elif app_mode == "📅 Fixture Multipliers & Opponent Index":
+elif app_mode == "📅 Fixture Multipliers":
     st.title("📅 Fixture Multipliers & Opponent Index")
     st.write("Compare team attacks and defenses against the league average to view relative match difficulty multipliers.")
     
-    v2_data = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
-    if not v2_data.empty:
-        team_summary = v2_data.groupby(['team_name', 'opp_name', 'is_home']).agg(
+    if not master_df.empty:
+        team_summary = master_df.groupby(['team_name', 'opp_name', 'is_home']).agg(
             Attack_Multiplier=('attack_mult', 'first'),
             Defensive_Multiplier=('def_mult', 'first'),
             Expected_CS_Chance=('prob_cs', 'first')
@@ -840,55 +572,52 @@ elif app_mode == "📅 Fixture Multipliers & Opponent Index":
         
         st.dataframe(
             team_summary[['team_name', 'Venue', 'Attack_Multiplier', 'Defensive_Multiplier', 'Expected_CS_Chance', 'opp_name']],
-            width="stretch",
-            hide_index=True,
+            width="stretch", hide_index=True,
             column_config={
-                "team_name": st.column_config.TextColumn("Club", help="The team being analyzed."),
-                "Venue": st.column_config.TextColumn("Venue", help="Home or Away fixture."),
+                "team_name": st.column_config.TextColumn("Club"),
+                "Venue": st.column_config.TextColumn("Venue"),
                 "Attack_Multiplier": st.column_config.NumberColumn("Attack Multiplier (xGC Rel)", format="%.2fx", help="Boost applied to attacking players. Based on opponent defense compared to average."),
                 "Defensive_Multiplier": st.column_config.NumberColumn("Defense Multiplier (xG Rel)", format="%.2fx", help="Modifier applied to team xGC. Based on opponent attack compared to average."),
-                "Expected_CS_Chance": st.column_config.NumberColumn("Poisson Clean Sheet Prob", format="%.2f", help="Exact probability of 0 goals conceded derived from adjusted xGC."),
-                "opp_name": st.column_config.TextColumn("Opponent", help="The team they are playing against.")
+                "Expected_CS_Chance": st.column_config.NumberColumn("Poisson CS Prob", format="%.2f", help="Exact probability of 0 goals conceded derived from adjusted xGC."),
+                "opp_name": st.column_config.TextColumn("Opponent")
             }
         )
 
 # ==========================================
-# FANTASY V1.1 MODULE 4: PRESCRIPTIVE SOLVER & SENSITIVITY
+# FPL MODULE 4: UNIFIED SOLVER
 # ==========================================
-elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
-    st.title("⚡ Prescriptive Solver & Sensitivity Analysis")
-    st.write("Integer programming squad optimizer powered by Benchwarmers Poisson and Opponent Multiplier metrics.")
+elif app_mode == "⚡ Unified Squad Optimizer":
+    st.title("⚡ Prescriptive Squad Optimizer (Hybrid Model)")
+    st.write("Integer programming solver maximizing the **Final Blended xP** (Pure Poisson Math + ICT/Form Sliders).")
     
     st.sidebar.markdown("---")
     st.sidebar.header("1. Budget Constraints")
-    budget_v2 = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5, key="solver_v2_budget")
+    budget_v2 = st.sidebar.number_input("Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
     
     st.sidebar.header("2. Bench Strategy")
-    bench_weight_v2 = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1, key="solver_v2_bench")
+    bench_weight_v2 = st.sidebar.slider("Bench Investment Weight", 0.0, 1.0, 0.1, 0.1)
     
     st.sidebar.header("3. Target Formation")
     formation_choices = ["Auto (Best Points)", "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]
-    target_formation_v2 = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices, key="solver_v2_formation")
+    target_formation_v2 = st.sidebar.selectbox("Preferred Starting Formation:", formation_choices)
 
     st.sidebar.header("4. Locked Players (Optional)")
-    if players_df is not None:
-        player_choices_v2 = sorted((players_df['first_name'] + " " + players_df['second_name']).tolist())
-        locked_players_v2 = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices_v2, max_selections=14, key="solver_v2_locked")
+    if master_df is not None:
+        player_choices_v2 = sorted(master_df['full_name'].tolist())
+        locked_players_v2 = st.sidebar.multiselect("Select up to 14 must-have players:", player_choices_v2, max_selections=14)
     else:
         locked_players_v2 = []
 
-    v2_df = calculate_v2_metrics(players_df, teams_df, understat_shooting_df, w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g)
-    
-    if st.button("🚀 Run v1.1 Solver & Sensitivity", type="primary", width="stretch", key="solver_v2_btn"):
-        if not v2_df.empty:
-            df = v2_df[(v2_df['status'] == 'a') & ((v2_df['mins_per_game'] >= min_mins_g) | (v2_df['full_name'].isin(locked_players_v2)))].copy()
+    if st.button("🚀 Run Hybrid Solver & Sensitivity", type="primary", width="stretch"):
+        if not master_df.empty:
+            df = master_df[(master_df['status'] == 'a') & ((master_df['mins_per_game'] >= min_mins_g) | (master_df['full_name'].isin(locked_players_v2)))].copy()
             
-            prob = pulp.LpProblem("Optimal_FPL_V2", pulp.LpMaximize)
+            prob = pulp.LpProblem("Optimal_FPL_Hybrid", pulp.LpMaximize)
             squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
             starter_vars = pulp.LpVariable.dicts("starter", df.index, cat='Binary')
             bench_vars = pulp.LpVariable.dicts("bench", df.index, cat='Binary')
             
-            prob += pulp.lpSum([df.loc[i, 'v2_xp'] * starter_vars[i] + bench_weight_v2 * df.loc[i, 'v2_xp'] * bench_vars[i] for i in df.index])
+            prob += pulp.lpSum([df.loc[i, 'final_xp'] * starter_vars[i] + bench_weight_v2 * df.loc[i, 'final_xp'] * bench_vars[i] for i in df.index])
             
             for i in df.index:
                 prob += squad_vars[i] == starter_vars[i] + bench_vars[i]
@@ -902,7 +631,6 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
-            
             prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
             
             if target_formation_v2 == "Auto (Best Points)":
@@ -930,20 +658,19 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                 bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
                 
                 bench_gkp = bench_raw[bench_raw['element_type'] == 1]
-                bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='v2_xp', ascending=False)
+                bench_outfield = bench_raw[bench_raw['element_type'] > 1].sort_values(by='final_xp', ascending=False)
                 bench = pd.concat([bench_gkp, bench_outfield])
                 
-                captain_id = starters['v2_xp'].idxmax()
+                captain_id = starters['final_xp'].idxmax()
                 captain_row = starters.loc[captain_id]
-                total_xp = starters['v2_xp'].sum() + captain_row['v2_xp']
+                total_xp = starters['final_xp'].sum() + captain_row['final_xp']
                 
-                st.success("✅ v1.1 Squad Solution Computed!")
+                st.success("✅ Hybrid Squad Solution Computed!")
                 sc1, sc2, sc3 = st.columns(3)
                 sc1.metric("Spent Budget", f"£{squad['cost_m'].sum():.1f}M", f"Bank: £{budget_v2 - squad['cost_m'].sum():.1f}M")
-                sc2.metric("Projected Gameweek Points (xP)", f"{total_xp:.2f} pts")
-                sc3.metric("Captain Pick", f"{captain_row['second_name']} ({captain_row['v2_xp']} xP)")
+                sc2.metric("Proj Points (Final xP)", f"{total_xp:.2f} pts")
+                sc3.metric("Captain Pick", f"{captain_row['second_name']} ({captain_row['final_xp']:.2f} xP)")
                 
-                # --- ADDING ECHARTS TREEMAP ---
                 st.markdown("### 💰 Budget Allocation Treemap")
                 treemap_data = [
                     {
@@ -983,7 +710,7 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                                 <b style='color: var(--text-color); font-size: 14px;'>{p.second_name} {cap}</b><br>
                                 <span style='font-size:11px; opacity:0.8;'>{p.team_name}</span><br>
                                 <span style='font-size:11px; color:#ff007f;'>vs {p.next_opponent}</span><br>
-                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{p.cost_m}m | xP: {p.v2_xp:.2f}</span>
+                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{p.cost_m}m | xP: {p.final_xp:.2f}</span>
                             </div>
                             """, unsafe_allow_html=True)
                     st.write("")
@@ -998,35 +725,166 @@ elif app_mode == "⚡ Prescriptive Solver & Sensitivity":
                 render_v2_pitch(bench, card_class='bench-card')
                 
                 st.markdown("### 🔍 Sensitivity & Close Misses")
-                st.caption("Top players with highest xP who barely missed the budget or team constraint thresholds:")
+                st.caption("Top players with highest Final xP who barely missed the budget or team constraint thresholds:")
                 
-                unpicked = df[~df.index.isin(squad.index)].sort_values(by='v2_xp', ascending=False).head(8)
+                unpicked = df[~df.index.isin(squad.index)].sort_values(by='final_xp', ascending=False).head(8)
                 st.dataframe(
-                    unpicked[['full_name', 'team_name', 'position', 'cost_m', 'v2_xp', 'next_opponent']],
-                    width="stretch",
-                    hide_index=True,
+                    unpicked[['full_name', 'team_name', 'position', 'cost_m', 'v2_xp', 'final_xp', 'next_opponent']],
+                    width="stretch", hide_index=True,
                     column_config={
-                        "full_name": st.column_config.TextColumn("Player", help="Player name."),
-                        "team_name": st.column_config.TextColumn("Club", help="Player's team."),
-                        "position": st.column_config.TextColumn("Pos", help="FPL Position."),
-                        "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f", help="Current FPL price."),
-                        "v2_xp": st.column_config.NumberColumn("Expected Points (xP)", format="%.2f", help="Total calculated xP for the next gameweek."),
-                        "next_opponent": st.column_config.TextColumn("Fixture", help="Next opponent and venue.")
+                        "full_name": st.column_config.TextColumn("Player"),
+                        "team_name": st.column_config.TextColumn("Club"),
+                        "position": st.column_config.TextColumn("Pos"),
+                        "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
+                        "v2_xp": st.column_config.NumberColumn("Poisson Base xP", format="%.2f"),
+                        "final_xp": st.column_config.NumberColumn("Final Blended xP", format="%.2f", help="The final score used by the solver."),
+                        "next_opponent": st.column_config.TextColumn("Fixture")
                     }
                 )
             else:
                 st.error("No optimal solution found for the current constraints.")
 
 # ==========================================
-# MODULE 3: TEAM Betting EDGE (For your information only)
+# MODULE 5: REAL EPL MATCHES & STATS
+# ==========================================
+elif app_mode == "📅 Match Results & Fixtures":
+    st.title("📅 Match Results & Fixtures")
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
+        selected_season_raw = st.selectbox("Select Season:", available_seasons, format_func=format_season)
+        szn_matches = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].copy()
+        if not szn_matches.empty:
+            szn_matches = szn_matches.sort_values('date', ascending=True)
+            szn_matches['gameweek'] = (szn_matches.groupby('season').cumcount() // 10) + 1
+            max_gw = int(szn_matches['gameweek'].max())
+            selected_gw_str = st.selectbox("Select Matchweek:", [f"Gameweek {i}" for i in range(1, max_gw + 1)])
+            selected_gw_num = int(selected_gw_str.split(" ")[1])
+            gw_matches = szn_matches[szn_matches['gameweek'] == selected_gw_num].sort_values('date')
+            
+            if not gw_matches.empty:
+                for _, row in gw_matches.iterrows():
+                    st.markdown(f"""
+                    <div class="fixture-card">
+                        <div style="width: 35%; text-align: right;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{row['home_team']}</div>
+                            <div style="font-size: 0.85rem; color: #0088cc;">xG: {float(row.get('home_xG', row.get('home_xg', 0.0))):.2f}</div>
+                        </div>
+                        <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
+                            <div class="score-box">{int(row['home_goals'])} <span style='opacity:0.5'>-</span> {int(row['away_goals'])}</div>
+                            <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{row['date'].strftime('%d %b %Y')}</span>
+                        </div>
+                        <div style="width: 35%; text-align: left;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{row['away_team']}</div>
+                            <div style="font-size: 0.85rem; color: #cc0066;">xG: {float(row.get('away_xG', row.get('away_xg', 0.0))):.2f}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else: st.info("No fixtures found.")
+        else: st.warning("No matches found for this season.")
+
+elif app_mode == "📊 Live League Table":
+    st.title("📊 Expected vs Actual League Table")
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
+        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
+        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
+        
+        if not szn_df.empty:
+            teams = pd.concat([szn_df['home_team'], szn_df['away_team']]).unique()
+            team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'xG': 0.0, 'xGA': 0.0, 'xPts': 0.0, 'Matches': 0} for team in teams}
+
+            for _, row in szn_df.iterrows():
+                h, a = row['home_team'], row['away_team']
+                h_g, a_g = row['home_goals'], row['away_goals']
+                
+                team_records[h]['Matches'] += 1
+                team_records[a]['Matches'] += 1
+                team_records[h]['GF'] += h_g
+                team_records[h]['GA'] += a_g
+                team_records[h]['GD'] += (h_g - a_g)
+                team_records[h]['xG'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
+                team_records[h]['xGA'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
+                team_records[h]['xPts'] += float(row.get('home_expected_points', row.get('home_xpts', 0.0)))
+                
+                team_records[a]['GF'] += a_g
+                team_records[a]['GA'] += h_g
+                team_records[a]['GD'] += (a_g - h_g)
+                team_records[a]['xG'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
+                team_records[a]['xGA'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
+                team_records[a]['xPts'] += float(row.get('away_expected_points', row.get('away_xpts', 0.0)))
+                
+                if h_g > a_g:
+                    team_records[h]['Pts'] += 3; team_records[h]['W'] += 1; team_records[a]['L'] += 1
+                elif a_g > h_g:
+                    team_records[a]['Pts'] += 3; team_records[a]['W'] += 1; team_records[h]['L'] += 1
+                else:
+                    team_records[h]['Pts'] += 1; team_records[a]['Pts'] += 1; team_records[h]['D'] += 1; team_records[a]['D'] += 1
+            
+            table_df = pd.DataFrame([{'Club': k, 'MP': v['Matches'], 'Pts': v['Pts'], 'xPts': v['xPts'], 'GD': v['GD'], 'GF': v['GF'], 'xG': v['xG'], 'GA': v['GA'], 'xGA': v['xGA']} for k, v in team_records.items()])
+            table_df = table_df.sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
+            table_df.index += 1
+            
+            st.dataframe(
+                table_df, width="stretch",
+                column_config={
+                    "Pts": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=int(table_df['Pts'].max())),
+                    "xPts": st.column_config.NumberColumn("xPts", format="%.1f"),
+                    "xG": st.column_config.NumberColumn("xG", format="%.1f"),
+                    "xGA": st.column_config.NumberColumn("xGA", format="%.1f")
+                }
+            )
+
+elif app_mode == "📈 Team Trends (xG vs Actual)":
+    st.title("📈 Team Trends: Expected vs Actual")
+    if understat_shooting_df is not None and not understat_shooting_df.empty:
+        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
+        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
+        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
+        
+        if not szn_df.empty:
+            col1, col2 = st.columns(2)
+            selected_team = col1.selectbox("Select Team:", sorted(list(set(szn_df['home_team'].tolist() + szn_df['away_team'].tolist()))))
+            metric_choice = col2.selectbox("Select Metric:", ["Goals For", "Goals Against", "Points"])
+            
+            team_matches = szn_df[(szn_df['home_team'] == selected_team) | (szn_df['away_team'] == selected_team)].copy()
+            
+            if not team_matches.empty:
+                actual_vals, expected_vals = [], []
+                for _, row in team_matches.iterrows():
+                    is_home = (row['home_team'] == selected_team)
+                    h_score, a_score = row['home_goals'], row['away_goals']
+                    h_xg, a_xg = float(row.get('home_xG', row.get('home_xg', 0.0))), float(row.get('away_xG', row.get('away_xg', 0.0)))
+                    h_xpts, a_xpts = float(row.get('home_expected_points', row.get('home_xpts', 0.0))), float(row.get('away_expected_points', row.get('away_xpts', 0.0)))
+                    
+                    if metric_choice == "Goals For":
+                        actual_vals.append(h_score if is_home else a_score); expected_vals.append(h_xg if is_home else a_xg)
+                    elif metric_choice == "Goals Against":
+                        actual_vals.append(a_score if is_home else h_score); expected_vals.append(a_xg if is_home else h_xg)
+                    elif metric_choice == "Points":
+                        gf, ga = (h_score, a_score) if is_home else (a_score, h_score)
+                        actual_vals.append(3 if gf > ga else (1 if gf == ga else 0))
+                        expected_vals.append(h_xpts if is_home else a_xpts)
+                        
+                trend_df = pd.DataFrame({'Gameweek': range(1, len(actual_vals) + 1), 'Actual': np.cumsum(actual_vals), 'Expected': np.cumsum(expected_vals)})
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=trend_df['Gameweek'], y=trend_df['Actual'], mode='lines+markers', name=f'Actual {metric_choice}', line=dict(color='#0088cc', width=3)))
+                fig.add_trace(go.Scatter(x=trend_df['Gameweek'], y=trend_df['Expected'], mode='lines', name=f'Expected {metric_choice}', line=dict(color='#cc0066', width=3, dash='dot')))
+                fig.update_layout(title=f"{selected_team} - Cumulative {metric_choice} ({format_season(selected_season_raw)})", xaxis_title="Gameweek", template=chart_theme, hovermode='x unified')
+                st.plotly_chart(fig, use_container_width=True)
+
+elif app_mode == "🌐 Understat Team Stats":
+    st.title("🌐 Understat Team Match Stats")
+    if understat_shooting_df is not None: st.dataframe(understat_shooting_df, width="stretch")
+
+# ==========================================
+# MODULE 6: BETTING ADVISOR
 # ==========================================
 elif app_mode == "📈 For your information only":
     st.title("📈 Predictive Match Analytics")
-    
     if match_df is not None and not match_df.empty:
         available_seasons = sorted(match_df['Season'].unique().tolist(), reverse=True)
         selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
-        
         szn_match_df = match_df[match_df['Season'] == selected_season_raw]
         
         if not szn_match_df.empty:
@@ -1039,63 +897,38 @@ elif app_mode == "📈 For your information only":
             away_m['Venue'] = 'Away'
             
             fact_matches = pd.concat([home_m, away_m], ignore_index=True)
-            fact_matches['HT_Status'] = np.where(fact_matches['Scored_HT'] > fact_matches['Conceded_HT'], 'Winning',
-                                                 np.where(fact_matches['Scored_HT'] < fact_matches['Conceded_HT'], 'Losing', 'Drawing'))
-            fact_matches['FT_Status'] = np.where(fact_matches['Scored_FT'] > fact_matches['Conceded_FT'], 'Win',
-                                                 np.where(fact_matches['Scored_FT'] < fact_matches['Conceded_FT'], 'Loss', 'Draw'))
+            fact_matches['HT_Status'] = np.where(fact_matches['Scored_HT'] > fact_matches['Conceded_HT'], 'Winning', np.where(fact_matches['Scored_HT'] < fact_matches['Conceded_HT'], 'Losing', 'Drawing'))
+            fact_matches['FT_Status'] = np.where(fact_matches['Scored_FT'] > fact_matches['Conceded_FT'], 'Win', np.where(fact_matches['Scored_FT'] < fact_matches['Conceded_FT'], 'Loss', 'Draw'))
             
             tab1, tab2, tab3, tab4 = st.tabs(["🔄 Losing at HT", "🛡️ Winning at HT", "🏠 Home vs Away", "🎯 Chaos Quadrant"])
             
             with tab1:
-                losing_ht = fact_matches[fact_matches['HT_Status'] == 'Losing']
-                fig1 = px.histogram(losing_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Trailing at HT ({format_season(selected_season_raw)})",
-                                    color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
-                fig1.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig1 = px.histogram(fact_matches[fact_matches['HT_Status'] == 'Losing'], y="Team", color="FT_Status", title="Match Outcomes When Trailing at HT", color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
+                fig1.update_layout(yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig1, width="stretch")
-                
             with tab2:
-                winning_ht = fact_matches[fact_matches['HT_Status'] == 'Winning']
-                fig2 = px.histogram(winning_ht, y="Team", color="FT_Status", title=f"Match Outcomes When Leading at HT ({format_season(selected_season_raw)})",
-                                    color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
-                fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig2 = px.histogram(fact_matches[fact_matches['HT_Status'] == 'Winning'], y="Team", color="FT_Status", title="Match Outcomes When Leading at HT", color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
+                fig2.update_layout(yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig2, width="stretch")
-                
             with tab3:
                 ha_stats = fact_matches.groupby(['Team', 'Venue']).size().reset_index(name='Matches')
                 ha_wins = fact_matches[fact_matches['FT_Status'] == 'Win'].groupby(['Team', 'Venue']).size().reset_index(name='Wins')
                 ha_merged = pd.merge(ha_stats, ha_wins, on=['Team', 'Venue'], how='left').fillna(0)
                 ha_merged['Win_Rate'] = (ha_merged['Wins'] / ha_merged['Matches']) * 100
-                
-                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title=f"Win Rate %: Home vs Away ({format_season(selected_season_raw)})",
-                              color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
-                fig3.update_layout(template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title="Win Rate %: Home vs Away", color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
                 st.plotly_chart(fig3, width="stretch")
-
             with tab4:
-                pts_map = {'Win': 3, 'Draw': 1, 'Loss': 0}
-                fact_matches['Pts'] = fact_matches['FT_Status'].map(pts_map)
+                fact_matches['Pts'] = fact_matches['FT_Status'].map({'Win': 3, 'Draw': 1, 'Loss': 0})
+                team_stats = fact_matches.groupby('Team').agg(Avg_Scored=('Scored_FT', 'mean'), Avg_Conceded=('Conceded_FT', 'mean'), Total_Pts=('Pts', 'sum')).reset_index()
                 
-                team_stats = fact_matches.groupby('Team').agg(
-                    Avg_Scored=('Scored_FT', 'mean'), 
-                    Avg_Conceded=('Conceded_FT', 'mean'),
-                    Total_Pts=('Pts', 'sum')
-                ).reset_index()
+                fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', size='Total_Pts', size_max=25, color_discrete_sequence=['#0088cc'])
+                fig4.update_traces(textposition='top center')
                 
-                fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', 
-                                  size='Total_Pts', size_max=25,
-                                  color_discrete_sequence=['#0088cc'])
-                fig4.update_traces(textposition='top center', marker=dict(line=dict(width=1, color='DarkSlateGrey')))
+                x_mean, y_mean = team_stats['Avg_Conceded'].mean(), team_stats['Avg_Scored'].mean()
+                x_min, x_max = max(0, team_stats['Avg_Conceded'].min() - 0.5), team_stats['Avg_Conceded'].max() + 0.5
+                y_min, y_max = max(0, team_stats['Avg_Scored'].min() - 0.5), team_stats['Avg_Scored'].max() + 0.5
                 
-                x_mean = team_stats['Avg_Conceded'].mean()
-                y_mean = team_stats['Avg_Scored'].mean()
-                x_min = max(0, team_stats['Avg_Conceded'].min() - 0.5)
-                x_max = team_stats['Avg_Conceded'].max() + 0.5
-                y_min = max(0, team_stats['Avg_Scored'].min() - 0.5)
-                y_max = team_stats['Avg_Scored'].max() + 0.5
-                
-                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Scored")
-                fig4.add_vline(x=x_mean, line_dash="dash", line_color="#cc0066", annotation_text="Avg Conceded")
-                
+                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#cc0066"); fig4.add_vline(x=x_mean, line_dash="dash", line_color="#cc0066")
                 fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 136, 204, 0.1)", line_width=0, layer="below")
                 fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(204, 0, 102, 0.1)", line_width=0, layer="below")
                 
@@ -1104,260 +937,5 @@ elif app_mode == "📈 For your information only":
                 fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
                 fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#cc0066", size=14))
                 
-                fig4.update_layout(title=f"The Chaos Quadrant ({format_season(selected_season_raw)}) - Bubble Size = Total Points", 
-                                   xaxis_title="Average Goals Conceded (Fewer is Better)",
-                                   yaxis_title="Average Goals Scored (More is Better)",
-                                   xaxis=dict(range=[x_min, x_max]),
-                                   yaxis=dict(range=[y_min, y_max]),
-                                   template=chart_theme, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig4.update_layout(title="The Chaos Quadrant", xaxis_title="Avg Goals Conceded (Fewer = Better)", yaxis_title="Avg Goals Scored (More = Better)", xaxis=dict(range=[x_min, x_max]), yaxis=dict(range=[y_min, y_max]))
                 st.plotly_chart(fig4, width="stretch")
-        else:
-            st.warning("No matches found for this season/filter.")
-    else:
-        st.warning("Match dataset is currently loading or unavailable.")
-
-# ==========================================
-# MODULE 4: MATCH RESULTS & FIXTURES
-# ==========================================
-elif app_mode == "📅 Match Results & Fixtures":
-    st.title("📅 Match Results & Fixtures")
-    st.write("Browse actual match scores alongside Understat Expected Goals (xG), filtered by Gameweek.")
-    
-    if understat_shooting_df is not None and not understat_shooting_df.empty:
-        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
-        selected_season_raw = st.selectbox("Select Season:", available_seasons, format_func=format_season)
-        
-        szn_matches = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].copy()
-        
-        if not szn_matches.empty:
-            szn_matches = szn_matches.sort_values('date', ascending=True)
-            szn_matches['gameweek'] = (szn_matches.groupby('season').cumcount() // 10) + 1
-            
-            max_gw = int(szn_matches['gameweek'].max())
-            gw_list = [f"Gameweek {i}" for i in range(1, max_gw + 1)]
-            
-            selected_gw_str = st.selectbox("Select Matchweek:", gw_list)
-            selected_gw_num = int(selected_gw_str.split(" ")[1])
-            
-            gw_matches = szn_matches[szn_matches['gameweek'] == selected_gw_num].sort_values('date')
-            
-            st.markdown(f"### 🗓️ {format_season(selected_season_raw)} - {selected_gw_str}")
-            st.markdown("---")
-            
-            if not gw_matches.empty:
-                for _, row in gw_matches.iterrows():
-                    match_date = row['date'].strftime('%d %b %Y')
-                    h_team = row['home_team']
-                    a_team = row['away_team']
-                    h_score = int(row['home_goals'])
-                    a_score = int(row['away_goals'])
-                    
-                    h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
-                    a_xg = float(row.get('away_xG', row.get('away_xg', 0.0)))
-                    
-                    st.markdown(f"""
-                    <div class="fixture-card">
-                        <div style="width: 35%; text-align: right;">
-                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{h_team}</div>
-                            <div style="font-size: 0.85rem; color: #0088cc;">xG: {h_xg:.2f}</div>
-                        </div>
-                        <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
-                            <div class="score-box">{h_score} <span style='opacity:0.5'>-</span> {a_score}</div>
-                            <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{match_date}</span>
-                        </div>
-                        <div style="width: 35%; text-align: left;">
-                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{a_team}</div>
-                            <div style="font-size: 0.85rem; color: #cc0066;">xG: {a_xg:.2f}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("No fixtures found for this gameweek.")
-        else:
-            st.warning("No matches found for this season.")
-    else:
-        st.warning("Understat Match dataset is currently loading or unavailable.")
-
-# ==========================================
-# MODULE 5: LIVE LEAGUE TABLE (Upgraded with xG)
-# ==========================================
-elif app_mode == "📊 Live League Table":
-    st.title("📊 Expected vs Actual League Table")
-    
-    if understat_shooting_df is not None and not understat_shooting_df.empty:
-        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
-        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
-        
-        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
-        
-        if not szn_df.empty:
-            teams = pd.concat([szn_df['home_team'], szn_df['away_team']]).unique()
-            team_records = {team: {'W': 0, 'D': 0, 'L': 0, 'Pts': 0, 'GD': 0, 'GF': 0, 'GA': 0, 'xG': 0.0, 'xGA': 0.0, 'xPts': 0.0, 'Matches': 0} for team in teams}
-
-            for _, row in szn_df.iterrows():
-                home = row['home_team']
-                away = row['away_team']
-                h_score = row['home_goals']
-                a_score = row['away_goals']
-                
-                team_records[home]['Matches'] += 1
-                team_records[away]['Matches'] += 1
-                
-                team_records[home]['GF'] += h_score
-                team_records[home]['GA'] += a_score
-                team_records[home]['GD'] += (h_score - a_score)
-                team_records[home]['xG'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
-                team_records[home]['xGA'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
-                team_records[home]['xPts'] += float(row.get('home_expected_points', row.get('home_xpts', 0.0)))
-                
-                team_records[away]['GF'] += a_score
-                team_records[away]['GA'] += h_score
-                team_records[away]['GD'] += (a_score - h_score)
-                team_records[away]['xG'] += float(row.get('away_xG', row.get('away_xg', 0.0)))
-                team_records[away]['xGA'] += float(row.get('home_xG', row.get('home_xg', 0.0)))
-                team_records[away]['xPts'] += float(row.get('away_expected_points', row.get('away_xpts', 0.0)))
-                
-                if h_score > a_score:
-                    team_records[home]['Pts'] += 3
-                    team_records[home]['W'] += 1
-                    team_records[away]['L'] += 1
-                elif a_score > h_score:
-                    team_records[away]['Pts'] += 3
-                    team_records[away]['W'] += 1
-                    team_records[home]['L'] += 1
-                else:
-                    team_records[home]['Pts'] += 1
-                    team_records[away]['Pts'] += 1
-                    team_records[home]['D'] += 1
-                    team_records[away]['D'] += 1
-            
-            final_table = []
-            for team, stats in team_records.items():
-                final_table.append({'Club': team, 'MP': stats['Matches'], 'Pts': stats['Pts'], 'xPts': stats['xPts'], 'GD': stats['GD'], 'GF': stats['GF'], 'xG': stats['xG'], 'GA': stats['GA'], 'xGA': stats['xGA']})
-            
-            table_df = pd.DataFrame(final_table).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
-            table_df.index += 1
-            
-            st.dataframe(
-                table_df, 
-                width="stretch",
-                column_config={
-                    "Pts": st.column_config.ProgressColumn("Pts", format="%d", min_value=0, max_value=int(table_df['Pts'].max())),
-                    "xPts": st.column_config.NumberColumn("xPts", format="%.1f"),
-                    "GD": st.column_config.NumberColumn("GD"),
-                    "xG": st.column_config.NumberColumn("xG", format="%.1f"),
-                    "xGA": st.column_config.NumberColumn("xGA", format="%.1f")
-                }
-            )
-        else:
-            st.warning("No matches found for this filter.")
-    else:
-        st.warning("Understat dataset is currently loading or unavailable.")
-
-# ==========================================
-# MODULE 6: TEAM TRENDS (xG vs Actual)
-# ==========================================
-elif app_mode == "📈 Team Trends (xG vs Actual)":
-    st.title("📈 Team Trends: Expected vs Actual")
-    st.write("Track a team's cumulative performance over the season (up to 38 gameweeks), comparing actual results against expected metrics.")
-    
-    if understat_shooting_df is not None and not understat_shooting_df.empty:
-        available_seasons = sorted(understat_shooting_df['season'].unique().tolist(), reverse=True)
-        selected_season_raw = st.selectbox("Select Season to Analyze:", available_seasons, format_func=format_season)
-        
-        szn_df = understat_shooting_df[understat_shooting_df['season'] == selected_season_raw].sort_values('date')
-        
-        if not szn_df.empty:
-            teams = sorted(list(set(szn_df['home_team'].tolist() + szn_df['away_team'].tolist())))
-            
-            col1, col2 = st.columns(2)
-            selected_team = col1.selectbox("Select Team:", teams, index=0)
-            metric_choice = col2.selectbox("Select Metric:", ["Goals For", "Goals Against", "Points"])
-            
-            team_matches = szn_df[(szn_df['home_team'] == selected_team) | (szn_df['away_team'] == selected_team)].copy()
-            
-            if not team_matches.empty:
-                actual_vals = []
-                expected_vals = []
-                
-                for _, row in team_matches.iterrows():
-                    is_home = (row['home_team'] == selected_team)
-                    
-                    h_score = row['home_goals']
-                    a_score = row['away_goals']
-                    h_xg = float(row.get('home_xG', row.get('home_xg', 0.0)))
-                    a_xg = float(row.get('away_xG', row.get('away_xg', 0.0)))
-                    h_xpts = float(row.get('home_expected_points', row.get('home_xpts', 0.0)))
-                    a_xpts = float(row.get('away_expected_points', row.get('away_xpts', 0.0)))
-                    
-                    if metric_choice == "Goals For":
-                        actual_vals.append(h_score if is_home else a_score)
-                        expected_vals.append(h_xg if is_home else a_xg)
-                    elif metric_choice == "Goals Against":
-                        actual_vals.append(a_score if is_home else h_score)
-                        expected_vals.append(a_xg if is_home else h_xg)
-                    elif metric_choice == "Points":
-                        gf = h_score if is_home else a_score
-                        ga = a_score if is_home else h_score
-                        pts = 3 if gf > ga else (1 if gf == ga else 0)
-                        xpts = h_xpts if is_home else a_xpts
-                        
-                        actual_vals.append(pts)
-                        expected_vals.append(xpts)
-                        
-                trend_df = pd.DataFrame({
-                    'Gameweek': range(1, len(actual_vals) + 1),
-                    'Actual': np.cumsum(actual_vals),
-                    'Expected': np.cumsum(expected_vals)
-                })
-                
-                fig = go.Figure()
-                
-                fig.add_trace(go.Scatter(
-                    x=trend_df['Gameweek'], 
-                    y=trend_df['Actual'], 
-                    mode='lines+markers',
-                    name=f'Actual {metric_choice}',
-                    line=dict(color='#0088cc', width=3, dash='solid'),
-                    marker=dict(size=6)
-                ))
-                
-                fig.add_trace(go.Scatter(
-                    x=trend_df['Gameweek'], 
-                    y=trend_df['Expected'], 
-                    mode='lines',
-                    name=f'Expected {metric_choice} (xG/xPts)',
-                    line=dict(color='#cc0066', width=3, dash='dot')
-                ))
-                
-                fig.update_layout(
-                    title=f"{selected_team} - Cumulative {metric_choice} ({format_season(selected_season_raw)})",
-                    xaxis_title="Matches Played (Gameweek)",
-                    yaxis_title=f"Cumulative {metric_choice}",
-                    xaxis=dict(tickmode='linear', tick0=1, dtick=1),
-                    template=chart_theme,
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    hovermode='x unified',
-                    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No matches found for this team in the selected season.")
-        else:
-            st.warning("No matches found for this filter.")
-    else:
-        st.warning("Understat dataset is currently loading or unavailable.")
-
-# ==========================================
-# MODULE 7: UNDERSTAT TEAM STATS (soccerdata)
-# ==========================================
-elif app_mode == "🌐 Understat Team Stats":
-    st.title("🌐 Understat Team Match Stats")
-    st.write("Aggregated team match statistics directly from Understat (via `soccerdata`).")
-
-    if understat_shooting_df is not None:
-        st.dataframe(understat_shooting_df, width="stretch")
-    else:
-        st.error("⚠️ Understat data could not be loaded at this time. Please ensure the CSV exists in your repository.")

@@ -90,6 +90,18 @@ def get_current_event():
     except: return 1
 
 @st.cache_data(ttl=3600)
+def fetch_manager_squad(manager_id, curr_event):
+    """Fetches the live FPL squad cleanly and securely caches it."""
+    try:
+        r = requests.get(f"https://fantasy.premierleague.com/api/entry/{manager_id}/event/{curr_event}/picks/", timeout=5).json()
+        if 'picks' in r:
+            my_elements = [p['element'] for p in r['picks']]
+            manager_bank = r['entry_history']['bank'] / 10.0
+            return my_elements, manager_bank
+    except: pass
+    return None, 0.0
+
+@st.cache_data(ttl=3600)
 def load_fpl_data():
     url = "https://fantasy.premierleague.com/api/bootstrap-static/"
     try:
@@ -186,7 +198,6 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df = p_df.copy()
     df['full_name'] = df['first_name'] + " " + df['second_name']
     
-    # Dictionary for translating short opponent names into full team names
     short_to_full = dict(zip(t_df['short_name'], t_df['name']))
     
     df['mins_played'] = pd.to_numeric(df.get('minutes', 0), errors='coerce').fillna(0)
@@ -194,7 +205,6 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['mins_per_game'] = (df['mins_played'] / max_possible_games).round(1)
     is_eligible = df['mins_per_game'] >= min_mins
     
-    # Identify Penalty Takers & apply +0.15 xG/90 baseline boost
     df['is_pen_taker'] = pd.to_numeric(df.get('penalties_order', 0), errors='coerce') == 1
     
     dampener = np.clip(df['mins_per_game'] / 60.0, 0.4, 1.0)
@@ -202,7 +212,6 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['xg_p90'] = np.where(df['is_pen_taker'], df['xg_p90_base'] + 0.15, df['xg_p90_base'])
     df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
-    # Understat / League Averages
     t_stats = {}
     if u_df is not None and not u_df.empty:
         latest_szn = u_df['season'].max()
@@ -238,7 +247,6 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['cs_val'] = df['element_type'].map({1: 4.0, 2: 4.0, 3: 1.0, 4: 0.0})
     df['conc_penalty_val'] = df['element_type'].map({1: -1.0, 2: -1.0, 3: 0.0, 4: 0.0})
     
-    # 4. Multi-GW Horizon Iteration
     gw_weights = [1.0, 0.8, 0.6]
     df['v2_xp'] = 0.0
     df['exp_goal_pts_acc'] = 0.0
@@ -257,7 +265,6 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
         opp_xg = opp_name.apply(lambda x: get_stat(x, 'xg_p90'))
         opp_xgc = opp_name.apply(lambda x: get_stat(x, 'xgc_p90'))
         
-        # Generic FDR modifier (1 = 1.2x, 3 = 1.0x, 5 = 0.8x)
         fdr_mult = 1.0 + (3 - fdr) * 0.1
         
         attack_mult = (opp_xgc / league_avg_xgc).clip(0.5, 2.0) * fdr_mult
@@ -370,7 +377,7 @@ if menu_category == "🏆 Fantasy Premier League":
         "🗄️ Model Data & Points Matrix",
         "📅 Fixture Multipliers",
         "⚡ Unified Squad Optimizer",
-        "🔄 AI Transfer Suggester",
+        "🔄 Transfer Suggester",
         "🏆 Live Mini-League Standings"
     ])
     
@@ -867,137 +874,140 @@ elif app_mode == "⚡ Unified Squad Optimizer":
                 st.error("No optimal solution found for the current constraints.")
 
 # ==========================================
-# FPL MODULE 5: AI TRANSFER SUGGESTER
+# FPL MODULE 5: TRANSFER SUGGESTER
 # ==========================================
-elif app_mode == "🔄 AI Transfer Suggester":
-    st.title("🔄 AI Transfer Suggester")
-    st.write("Extract your actual FPL team and let the AI optimizer calculate the best mathematically sound transfers based on your live Hybrid settings.")
-    
-    num_transfers = st.selectbox("Number of Transfers to make (Max 15 for Wildcard):", list(range(1, 16)))
+elif app_mode == "🔄 Transfer Suggester":
+    st.title("🔄 Transfer Suggester")
+    st.write("Extract your actual FPL team and let the optimizer calculate the best mathematically sound transfers based on your live Hybrid settings.")
     
     st.sidebar.markdown("---")
     st.sidebar.header("Bench Strategy")
     transfer_bench_weight = st.sidebar.slider("Bench Investment Weight (Transfers)", 0.0, 1.0, 0.1, 0.1)
     
-    if st.button("🚀 Analyze Best Transfers", type="primary", width="stretch"):
-        if user_manager_id and master_df is not None and not master_df.empty:
-            curr_event = get_current_event()
+    if user_manager_id and master_df is not None and not master_df.empty:
+        curr_event = get_current_event()
+        
+        my_elements, manager_bank = fetch_manager_squad(user_manager_id, curr_event)
+        
+        if my_elements:
+            df = master_df[(master_df['status'] == 'a') | (master_df['id'].isin(my_elements))].copy()
+            current_squad_indices = df[df['id'].isin(my_elements)].index.tolist()
+            current_squad_df = df.loc[current_squad_indices]
             
-            with st.spinner(f"Fetching live squad for Manager {user_manager_id}..."):
-                try:
-                    r = requests.get(f"https://fantasy.premierleague.com/api/entry/{user_manager_id}/event/{curr_event}/picks/", timeout=5).json()
-                    if 'picks' in r:
-                        my_elements = [p['element'] for p in r['picks']]
-                        manager_bank = r['entry_history']['bank'] / 10.0
+            if len(current_squad_indices) == 15:
+                st.markdown("### 🛠️ Transfer Configuration")
+                c1, c2 = st.columns(2)
+                
+                forced_out_names = c1.multiselect("Targeted Sales (Optional): Select players you DEFINITELY want to transfer out.", sorted(current_squad_df['full_name'].tolist()))
+                
+                min_transfers = max(1, len(forced_out_names))
+                num_transfers = c2.selectbox("Number of Transfers to make (Max 15 for Wildcard):", list(range(min_transfers, 16)))
+                
+                if st.button("🚀 Analyze Best Transfers", type="primary", width="stretch"):
+                    with st.spinner("Calculating optimal transfers..."):
+                        total_available_budget = current_squad_df['cost_m'].sum() + manager_bank
                         
-                        df = master_df[(master_df['status'] == 'a') | (master_df['id'].isin(my_elements))].copy()
+                        prob = pulp.LpProblem("Optimal_Transfer", pulp.LpMaximize)
+                        squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
+                        starter_vars = pulp.LpVariable.dicts("starter", df.index, cat='Binary')
+                        bench_vars = pulp.LpVariable.dicts("bench", df.index, cat='Binary')
                         
-                        current_squad_indices = df[df['id'].isin(my_elements)].index.tolist()
-                        current_squad_df = df.loc[current_squad_indices]
+                        prob += pulp.lpSum([df.loc[i, 'final_xp'] * starter_vars[i] + transfer_bench_weight * df.loc[i, 'final_xp'] * bench_vars[i] for i in df.index])
                         
-                        if len(current_squad_indices) == 15:
-                            current_team_value = current_squad_df['cost_m'].sum()
-                            total_available_budget = current_team_value + manager_bank
+                        for i in df.index: prob += squad_vars[i] == starter_vars[i] + bench_vars[i]
                             
-                            prob = pulp.LpProblem("Optimal_Transfer", pulp.LpMaximize)
-                            squad_vars = pulp.LpVariable.dicts("squad", df.index, cat='Binary')
-                            starter_vars = pulp.LpVariable.dicts("starter", df.index, cat='Binary')
-                            bench_vars = pulp.LpVariable.dicts("bench", df.index, cat='Binary')
+                        prob += pulp.lpSum([df.loc[i, 'now_cost'] * squad_vars[i] for i in df.index]) <= (total_available_budget * 10)
+                        
+                        prob += pulp.lpSum([squad_vars[i] for i in df.index]) == 15
+                        prob += pulp.lpSum([starter_vars[i] for i in df.index]) == 11
+                        prob += pulp.lpSum([bench_vars[i] for i in df.index]) == 4
+                        prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
+                        prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
+                        prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
+                        prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
+                        prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
+                        prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) >= 3
+                        prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
+                        prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
+                        
+                        for t_id in df['team'].unique():
+                            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
                             
-                            prob += pulp.lpSum([df.loc[i, 'final_xp'] * starter_vars[i] + transfer_bench_weight * df.loc[i, 'final_xp'] * bench_vars[i] for i in df.index])
+                        prob += pulp.lpSum([squad_vars[i] for i in current_squad_indices]) >= (15 - num_transfers)
+                        
+                        forced_out_indices = current_squad_df[current_squad_df['full_name'].isin(forced_out_names)].index.tolist()
+                        for idx in forced_out_indices:
+                            prob += squad_vars[idx] == 0
+                        
+                        prob.solve(pulp.PULP_CBC_CMD(msg=False))
+                        
+                        if pulp.LpStatus[prob.status] == 'Optimal':
+                            new_squad_indices = [i for i in df.index if squad_vars[i].varValue == 1]
+                            new_squad_df = df.loc[new_squad_indices]
                             
-                            for i in df.index: prob += squad_vars[i] == starter_vars[i] + bench_vars[i]
-                                
-                            prob += pulp.lpSum([df.loc[i, 'now_cost'] * squad_vars[i] for i in df.index]) <= (total_available_budget * 10)
+                            transfers_out = current_squad_df[~current_squad_df.index.isin(new_squad_indices)]
+                            transfers_in = new_squad_df[~new_squad_df.index.isin(current_squad_indices)]
                             
-                            prob += pulp.lpSum([squad_vars[i] for i in df.index]) == 15
-                            prob += pulp.lpSum([starter_vars[i] for i in df.index]) == 11
-                            prob += pulp.lpSum([bench_vars[i] for i in df.index]) == 4
-                            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
-                            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
-                            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
-                            prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) == 3
-                            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 1
-                            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) >= 3
-                            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) >= 2
-                            prob += pulp.lpSum([starter_vars[i] for i in df.index if df.loc[i, 'element_type'] == 4]) >= 1
+                            st.success("✅ Transfer Calculation Complete!")
                             
-                            for t_id in df['team'].unique():
-                                prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'team'] == t_id]) <= 3
-                                
-                            prob += pulp.lpSum([squad_vars[i] for i in current_squad_indices]) >= (15 - num_transfers)
+                            cc1, cc2 = st.columns(2)
+                            with cc1:
+                                st.markdown("<h3 style='color: #ff005a;'>🛑 Players Out</h3>", unsafe_allow_html=True)
+                                for _, row in transfers_out.iterrows():
+                                    st.markdown(f"<div style='border-left: 4px solid #ff005a; padding-left: 10px; margin-bottom: 5px; background: rgba(255, 0, 90, 0.1); border-radius: 4px;'><b style='font-size: 16px;'>{row['second_name']}</b> <span style='font-size:12px; color:#8f9bba;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
+                            with cc2:
+                                st.markdown("<h3 style='color: #01fc7a;'>✅ Players In</h3>", unsafe_allow_html=True)
+                                for _, row in transfers_in.iterrows():
+                                    st.markdown(f"<div style='border-left: 4px solid #01fc7a; padding-left: 10px; margin-bottom: 5px; background: rgba(1, 252, 122, 0.1); border-radius: 4px;'><b style='font-size: 16px;'>{row['second_name']}</b> <span style='font-size:12px; color:#8f9bba;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
                             
-                            prob.solve(pulp.PULP_CBC_CMD(msg=False))
+                            xp_diff = sum(transfers_in['final_xp']) - sum(transfers_out['final_xp'])
+                            st.markdown(f"<div style='margin-top: 20px; margin-bottom: 30px; text-align: center; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px;'><b>Total Expected Points Gained:</b> <span style='color:#01fc7a; font-size: 24px; font-weight: bold;'>+{xp_diff:.2f} xP</span></div>", unsafe_allow_html=True)
                             
-                            if pulp.LpStatus[prob.status] == 'Optimal':
-                                new_squad_indices = [i for i in df.index if squad_vars[i].varValue == 1]
-                                new_squad_df = df.loc[new_squad_indices]
+                            # Render the NEW full squad
+                            new_starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
+                            new_bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
+                            new_bench_gkp = new_bench_raw[new_bench_raw['element_type'] == 1]
+                            new_bench_outfield = new_bench_raw[new_bench_raw['element_type'] > 1].sort_values(by='final_xp', ascending=False)
+                            new_bench = pd.concat([new_bench_gkp, new_bench_outfield])
+                            
+                            new_captain_id = new_starters['final_xp'].idxmax()
+                            
+                            st.markdown("### 🏟️ New Starting XI (After Transfers)")
+                            st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
+                            
+                            def render_v2_pitch(row_df, card_class='pitch-card'):
+                                if not row_df.empty:
+                                    cols = st.columns(len(row_df))
+                                    for col, p in zip(cols, row_df.itertuples()):
+                                        cap = "<span class='badge-cap'>C</span>" if p.Index == new_captain_id and card_class == 'pitch-card' else ""
+                                        is_new = "style='border-color: #01fc7a; box-shadow: 0 0 10px rgba(1,252,122,0.3);'" if p.Index in new_squad_indices and p.Index not in current_squad_indices else ""
+                                        col.markdown(f"""
+                                        <div class='{card_class}' {is_new}>
+                                            <b style='color: var(--text-color); font-size: 14px;'>{p.second_name} {cap}</b><br>
+                                            <span style='font-size:11px; opacity:0.8;'>{p.team_name}</span><br>
+                                            <span style='font-size:11px; color:#ff007f;'>vs {p.next_opponent}</span><br>
+                                            <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{p.cost_m}m | xP: {p.final_xp:.2f}</span>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                st.write("")
                                 
-                                transfers_out = current_squad_df[~current_squad_df.index.isin(new_squad_indices)]
-                                transfers_in = new_squad_df[~new_squad_df.index.isin(current_squad_indices)]
-                                
-                                st.success("✅ AI Transfer Calculation Complete!")
-                                
-                                cc1, cc2 = st.columns(2)
-                                with cc1:
-                                    st.markdown("<h3 style='color: #ff005a;'>🛑 Players Out</h3>", unsafe_allow_html=True)
-                                    for _, row in transfers_out.iterrows():
-                                        st.markdown(f"<div style='border-left: 4px solid #ff005a; padding-left: 10px; margin-bottom: 5px; background: rgba(255, 0, 90, 0.1); border-radius: 4px;'><b style='font-size: 16px;'>{row['second_name']}</b> <span style='font-size:12px; color:#8f9bba;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
-                                with cc2:
-                                    st.markdown("<h3 style='color: #01fc7a;'>✅ Players In</h3>", unsafe_allow_html=True)
-                                    for _, row in transfers_in.iterrows():
-                                        st.markdown(f"<div style='border-left: 4px solid #01fc7a; padding-left: 10px; margin-bottom: 5px; background: rgba(1, 252, 122, 0.1); border-radius: 4px;'><b style='font-size: 16px;'>{row['second_name']}</b> <span style='font-size:12px; color:#8f9bba;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
-                                
-                                xp_diff = sum(transfers_in['final_xp']) - sum(transfers_out['final_xp'])
-                                st.markdown(f"<div style='margin-top: 20px; margin-bottom: 30px; text-align: center; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px;'><b>Total Expected Points Gained:</b> <span style='color:#01fc7a; font-size: 24px; font-weight: bold;'>+{xp_diff:.2f} xP</span></div>", unsafe_allow_html=True)
-                                
-                                # Render the NEW full squad
-                                new_starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
-                                new_bench_raw = df.loc[[i for i in df.index if bench_vars[i].varValue == 1]].copy()
-                                new_bench_gkp = new_bench_raw[new_bench_raw['element_type'] == 1]
-                                new_bench_outfield = new_bench_raw[new_bench_raw['element_type'] > 1].sort_values(by='final_xp', ascending=False)
-                                new_bench = pd.concat([new_bench_gkp, new_bench_outfield])
-                                
-                                new_captain_id = new_starters['final_xp'].idxmax()
-                                
-                                st.markdown("### 🏟️ New Starting XI (After Transfers)")
-                                st.markdown("<div class='pitch-container'>", unsafe_allow_html=True)
-                                
-                                def render_v2_pitch(row_df, card_class='pitch-card'):
-                                    if not row_df.empty:
-                                        cols = st.columns(len(row_df))
-                                        for col, p in zip(cols, row_df.itertuples()):
-                                            cap = "<span class='badge-cap'>C</span>" if p.Index == new_captain_id and card_class == 'pitch-card' else ""
-                                            is_new = "style='border-color: #01fc7a; box-shadow: 0 0 10px rgba(1,252,122,0.3);'" if p.Index in new_squad_indices and p.Index not in current_squad_indices else ""
-                                            col.markdown(f"""
-                                            <div class='{card_class}' {is_new}>
-                                                <b style='color: var(--text-color); font-size: 14px;'>{p.second_name} {cap}</b><br>
-                                                <span style='font-size:11px; opacity:0.8;'>{p.team_name}</span><br>
-                                                <span style='font-size:11px; color:#ff007f;'>vs {p.next_opponent}</span><br>
-                                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{p.cost_m}m | xP: {p.final_xp:.2f}</span>
-                                            </div>
-                                            """, unsafe_allow_html=True)
-                                    st.write("")
-                                    
-                                render_v2_pitch(new_starters[new_starters['element_type'] == 1])
-                                render_v2_pitch(new_starters[new_starters['element_type'] == 2])
-                                render_v2_pitch(new_starters[new_starters['element_type'] == 3])
-                                render_v2_pitch(new_starters[new_starters['element_type'] == 4])
-                                st.markdown("</div>", unsafe_allow_html=True)
-                                
-                                st.markdown("### 🪑 New Bench (Ordered by Priority)")
-                                render_v2_pitch(new_bench, card_class='bench-card')
-                                
-                            else:
-                                st.error("No valid transfer sequence found. Ensure your team structure allows affordable moves.")
+                            render_v2_pitch(new_starters[new_starters['element_type'] == 1])
+                            render_v2_pitch(new_starters[new_starters['element_type'] == 2])
+                            render_v2_pitch(new_starters[new_starters['element_type'] == 3])
+                            render_v2_pitch(new_starters[new_starters['element_type'] == 4])
+                            st.markdown("</div>", unsafe_allow_html=True)
+                            
+                            st.markdown("### 🪑 New Bench (Ordered by Priority)")
+                            render_v2_pitch(new_bench, card_class='bench-card')
+                            
                         else:
-                            st.error("Could not load a complete 15-man squad for this Manager ID.")
-                    else:
-                        st.error("Invalid Manager ID or no team selected for the current event.")
-                except Exception as e:
-                    st.error(f"Failed to fetch FPL API data. Please ensure the Manager ID is valid. Error: {e}")
+                            st.error("No valid transfer sequence found. Ensure your team structure allows affordable moves.")
+            else:
+                st.error("Could not load a complete 15-man squad for this Manager ID.")
         else:
-            st.warning("Please ensure your Manager ID is entered in the sidebar.")
+            st.error("Invalid Manager ID or no team selected for the current event.")
+    else:
+        st.warning("Please ensure your Manager ID is entered in the sidebar.")
 
 # ==========================================
 # FPL MODULE 6: MINI-LEAGUE VIEWER

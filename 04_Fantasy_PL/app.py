@@ -123,7 +123,8 @@ def load_fpl_data():
         if fix_response.status_code == 200:
             fixtures = pd.DataFrame(fix_response.json())
             if not fixtures.empty and 'event' in fixtures.columns:
-                future_events = sorted(fixtures['event'].dropna().unique())[:3]
+                # Fetch up to 5 Gameweeks of future fixtures
+                future_events = sorted(fixtures['event'].dropna().unique())[:5]
                 
                 team_mapping = dict(zip(teams['id'], teams['short_name']))
                 team_fixtures = {t_id: {'opps': [], 'is_home': [], 'fdr': []} for t_id in teams['id']}
@@ -144,17 +145,17 @@ def load_fpl_data():
                         team_fixtures[a_id]['is_home'].append(False)
                         team_fixtures[a_id]['fdr'].append(a_fdr)
                         
-                players['next_3_opps'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('opps', []))
-                players['next_3_is_home'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('is_home', []))
-                players['next_3_fdr'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('fdr', []))
+                players['next_5_opps'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('opps', []))
+                players['next_5_is_home'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('is_home', []))
+                players['next_5_fdr'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('fdr', []))
                 
                 players['next_opponent'] = players['team'].map(
                     lambda x: f"{team_fixtures.get(x, {}).get('opps', [''])[0]} ({'H' if team_fixtures.get(x, {}).get('is_home', [True])[0] else 'A'})" if team_fixtures.get(x, {}).get('opps') else "Blank GW"
                 )
     except Exception:
-        players['next_3_opps'] = [[] for _ in range(len(players))]
-        players['next_3_is_home'] = [[] for _ in range(len(players))]
-        players['next_3_fdr'] = [[] for _ in range(len(players))]
+        players['next_5_opps'] = [[] for _ in range(len(players))]
+        players['next_5_is_home'] = [[] for _ in range(len(players))]
+        players['next_5_fdr'] = [[] for _ in range(len(players))]
         players['next_opponent'] = "N/A"
     
     players['status'] = players.get('status', 'a').fillna('a')
@@ -192,7 +193,7 @@ def load_understat_data():
     except Exception:
         return None
 
-def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boost, min_mins, weights_dict, blend_factor):
+def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boost, min_mins, weights_dict, blend_factor, horizon):
     if p_df is None or t_df is None: return pd.DataFrame()
         
     df = p_df.copy()
@@ -247,7 +248,10 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['cs_val'] = df['element_type'].map({1: 4.0, 2: 4.0, 3: 1.0, 4: 0.0})
     df['conc_penalty_val'] = df['element_type'].map({1: -1.0, 2: -1.0, 3: 0.0, 4: 0.0})
     
-    gw_weights = [1.0, 0.8, 0.6]
+    # Define decay weights up to 5 weeks
+    base_weights = [1.0, 0.8, 0.6, 0.4, 0.2]
+    gw_weights = base_weights[:horizon]
+    
     df['v2_xp'] = 0.0
     df['exp_goal_pts_acc'] = 0.0
     df['exp_assist_pts_acc'] = 0.0
@@ -257,9 +261,9 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['exp_bonus_pts_acc'] = 0.0
     
     for gw_idx, weight in enumerate(gw_weights):
-        opp_short = df['next_3_opps'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else 'Blank')
-        is_home = df['next_3_is_home'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else False)
-        fdr = df['next_3_fdr'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else 3)
+        opp_short = df['next_5_opps'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else 'Blank')
+        is_home = df['next_5_is_home'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else False)
+        fdr = df['next_5_fdr'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else 3)
         
         opp_name = opp_short.map(short_to_full).fillna('Average Team')
         opp_xg = opp_name.apply(lambda x: get_stat(x, 'xg_p90'))
@@ -387,21 +391,22 @@ if menu_category == "🏆 Fantasy Premier League":
     
     if preset != "Custom":
         if "Sweet Spot" in preset:
-            min_mins_g, fa_boost_g, ha_boost_g = 50.0, 1.35, 0.06
+            horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 3, 50.0, 1.35, 0.06
             w_form, w_own, w_ict, blend_factor_g = 5, 5, 90, 10.0
         elif "Form Chaser" in preset:
-            min_mins_g, fa_boost_g, ha_boost_g = 25.0, 1.40, 0.05
+            horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 1, 25.0, 1.40, 0.05
             w_form, w_own, w_ict, blend_factor_g = 80, 10, 10, 40.0
         elif "Crowd Chaser" in preset:
-            min_mins_g, fa_boost_g, ha_boost_g = 25.0, 1.40, 0.05
+            horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 1, 25.0, 1.40, 0.05
             w_form, w_own, w_ict, blend_factor_g = 10, 80, 10, 40.0
         elif "ICT Chaser" in preset:
-            min_mins_g, fa_boost_g, ha_boost_g = 45.0, 1.35, 0.05
+            horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 3, 45.0, 1.35, 0.05
             w_form, w_own, w_ict, blend_factor_g = 0, 0, 100, 25.0
             
         st.sidebar.info(f"Using **{preset}** settings.")
         weights_g = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
     else:
+        horizon_g = st.sidebar.slider("Planning Horizon (Gameweeks)", 1, 5, 3, 1, help="How many future gameweeks to analyze. Points decay for games further out.")
         min_mins_g = st.sidebar.slider("Min Mins/Game Filter", 10.0, 90.0, 25.0, 5.0, help="Filters out benchwarmers and aggressively scales down expected points for players with low minutes.")
         st.sidebar.markdown("**Poisson Model Weights**")
         fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05)
@@ -420,14 +425,14 @@ elif menu_category == "⚽ EPL Matches & Stats":
         "📈 Team Trends (xG vs Actual)",
         "🌐 Understat Team Stats" 
     ])
-    w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g = 0.8, 0.2, 1.4, 0.05, 25.0
+    w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g, horizon_g = 0.8, 0.2, 1.4, 0.05, 25.0, 3
     weights_g, blend_factor_g = {}, 0.0
 
 elif menu_category == "📈 Betting Advisor":
     app_mode = st.sidebar.radio("Select Module:", [
         "📈 For your information only"
     ])
-    w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g = 0.8, 0.2, 1.4, 0.05, 25.0
+    w_long_g, w_short_g, fa_boost_g, ha_boost_g, min_mins_g, horizon_g = 0.8, 0.2, 1.4, 0.05, 25.0, 3
     weights_g, blend_factor_g = {}, 0.0
 
 st.sidebar.markdown("---")
@@ -437,7 +442,7 @@ if st.sidebar.button("🚪 Sign Out", use_container_width=True):
 
 # Pre-calculate master data for FPL modules
 if menu_category == "🏆 Fantasy Premier League":
-    master_df = calculate_hybrid_metrics(players_df, teams_df, understat_shooting_df, 0.8, 0.2, fa_boost_g, ha_boost_g, min_mins_g, weights_g, blend_factor_g)
+    master_df = calculate_hybrid_metrics(players_df, teams_df, understat_shooting_df, 0.8, 0.2, fa_boost_g, ha_boost_g, min_mins_g, weights_g, blend_factor_g, horizon_g)
 
 # ==========================================
 # FPL MODULE 1: ADVANCED PLAYER SCOUT
@@ -487,7 +492,7 @@ if app_mode == "👤 Advanced Player Scout":
                             </p>
                         </div>
                         <div style="text-align: right; background: var(--background-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                            <div style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">3-GW Horizon xP: {p_data['v2_xp']:.2f} | ICT Form Nudge: <span style="color: {boost_color};">{boost_sign}{boost_pct:.1f}%</span></div>
+                            <div style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">{horizon_g}-GW Horizon xP: {p_data['v2_xp']:.2f} | ICT Form Nudge: <span style="color: {boost_color};">{boost_sign}{boost_pct:.1f}%</span></div>
                             <h3 style="color: #0088cc; margin:0 0 5px 0; font-weight: 800;">Final Proj xP: {p_data['final_xp']:.2f}</h3>
                             <div style="color: var(--text-color); font-size: 0.9rem;">
                                 {pen_badge} GW1 Atk Mult: <b>{p_data['attack_mult']:.2f}x</b> &nbsp;|&nbsp; 
@@ -607,10 +612,10 @@ if app_mode == "👤 Advanced Player Scout":
 # FPL MODULE 2: UNIFIED DATA & POINTS MATRIX
 # ==========================================
 elif app_mode == "🗄️ Model Data & Points Matrix":
-    st.title("🗄️ Model Data & 3-GW Expected Points Decomposition")
-    st.write("Explore the underlying data bank and see exactly how the unified Multi-GW model calculates every expected point.")
+    st.title(f"🗄️ Model Data & {horizon_g}-GW Expected Points Decomposition")
+    st.write(f"Explore the underlying data bank and see exactly how the unified Multi-GW model calculates every expected point across your selected {horizon_g}-GW horizon.")
     
-    tab1, tab2 = st.tabs(["🧮 3-GW xP Breakdown Matrix", "🗄️ Master Player Data Bank"])
+    tab1, tab2 = st.tabs([f"🧮 {horizon_g}-GW xP Breakdown Matrix", "🗄️ Master Player Data Bank"])
     
     with tab1:
         f1, f2 = st.columns(2)
@@ -624,7 +629,7 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
         top_df = filtered_matrix.sort_values(by='final_xp', ascending=False).head(15).iloc[::-1]
         
         if not top_df.empty:
-            st.markdown("### 📊 Top 15 Players xP Decomposition (3-GW Horizon)")
+            st.markdown(f"### 📊 Top 15 Players xP Decomposition ({horizon_g}-GW Horizon)")
             stacked_options = {
                 "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
                 "legend": {"data": ["Appearance", "Attack", "Defense", "Bonus"], "textStyle": {"color": "#8f9bba"}},
@@ -641,7 +646,7 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
             }
             st_echarts(stacked_options, height="450px")
         
-        st.markdown("### 🧮 Granular Data Matrix (Aggregated 3-GW Horizon)")
+        st.markdown(f"### 🧮 Granular Data Matrix (Aggregated {horizon_g}-GW Horizon)")
         matrix_cols = ['full_name', 'position', 'team_name', 'mins_per_game', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'hybrid_multiplier', 'v2_xp', 'final_xp']
         st.dataframe(
             filtered_matrix[matrix_cols].sort_values(by='final_xp', ascending=False),
@@ -657,7 +662,7 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
                 "prob_cs": st.column_config.NumberColumn("GW1 CS Odds", format="%.2f", help="GW1 Poisson probability of Clean Sheet."),
                 "exp_cs_pts": st.column_config.NumberColumn("CS xP", format="%.2f"),
                 "hybrid_multiplier": st.column_config.NumberColumn("ICT Form Boost", format="%.2fx"),
-                "v2_xp": st.column_config.NumberColumn("3-GW Poisson xP", format="%.2f"),
+                "v2_xp": st.column_config.NumberColumn(f"{horizon_g}-GW Poisson xP", format="%.2f"),
                 "final_xp": st.column_config.NumberColumn("Final Blended xP", format="%.2f")
             }
         )

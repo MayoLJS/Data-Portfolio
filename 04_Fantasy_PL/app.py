@@ -78,7 +78,7 @@ def format_season(season_str):
     return season_str
 
 # ==========================================
-# 3. DATA LOADERS & HYBRID MATH ENGINE
+# 3. DATA LOADERS & MULTI-GW MATH ENGINE
 # ==========================================
 @st.cache_data(ttl=3600)
 def get_current_event():
@@ -105,27 +105,45 @@ def load_fpl_data():
     players['team_name'] = players['team'].map(dict(zip(teams['id'], teams['name'])))
     players['team_strength'] = players['team'].map(dict(zip(teams['id'], teams['strength']))).fillna(3)
     players['predicted_points'] = pd.to_numeric(players.get('ep_next', 0), errors='coerce').fillna(0.0)
-    players['next_opponent'] = "N/A"
     
     try:
         fix_response = requests.get("https://fantasy.premierleague.com/api/fixtures/?future=1", timeout=5)
         if fix_response.status_code == 200:
             fixtures = pd.DataFrame(fix_response.json())
             if not fixtures.empty and 'event' in fixtures.columns:
-                next_event = fixtures['event'].dropna().min()
-                next_fixtures = fixtures[fixtures['event'] == next_event]
+                future_events = sorted(fixtures['event'].dropna().unique())[:3]
                 
                 team_mapping = dict(zip(teams['id'], teams['short_name']))
-                next_opp_dict = {}
-                for _, row in next_fixtures.iterrows():
-                    h_id = row['team_h']
-                    a_id = row['team_a']
-                    next_opp_dict[h_id] = f"{team_mapping.get(a_id, 'UNK')} (H)"
-                    next_opp_dict[a_id] = f"{team_mapping.get(h_id, 'UNK')} (A)"
+                team_fixtures = {t_id: {'opps': [], 'is_home': [], 'fdr': []} for t_id in teams['id']}
                 
-                players['next_opponent'] = players['team'].map(next_opp_dict).fillna("Blank GW")
+                for event in future_events:
+                    ev_fix = fixtures[fixtures['event'] == event]
+                    for _, row in ev_fix.iterrows():
+                        h_id = row['team_h']
+                        a_id = row['team_a']
+                        h_fdr = row['team_h_difficulty']
+                        a_fdr = row['team_a_difficulty']
+                        
+                        team_fixtures[h_id]['opps'].append(team_mapping.get(a_id, 'UNK'))
+                        team_fixtures[h_id]['is_home'].append(True)
+                        team_fixtures[h_id]['fdr'].append(h_fdr)
+                        
+                        team_fixtures[a_id]['opps'].append(team_mapping.get(h_id, 'UNK'))
+                        team_fixtures[a_id]['is_home'].append(False)
+                        team_fixtures[a_id]['fdr'].append(a_fdr)
+                        
+                players['next_3_opps'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('opps', []))
+                players['next_3_is_home'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('is_home', []))
+                players['next_3_fdr'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('fdr', []))
+                
+                players['next_opponent'] = players['team'].map(
+                    lambda x: f"{team_fixtures.get(x, {}).get('opps', [''])[0]} ({'H' if team_fixtures.get(x, {}).get('is_home', [True])[0] else 'A'})" if team_fixtures.get(x, {}).get('opps') else "Blank GW"
+                )
     except Exception:
-        pass
+        players['next_3_opps'] = [[] for _ in range(len(players))]
+        players['next_3_is_home'] = [[] for _ in range(len(players))]
+        players['next_3_fdr'] = [[] for _ in range(len(players))]
+        players['next_opponent'] = "N/A"
     
     players['status'] = players.get('status', 'a').fillna('a')
     players['chance_of_playing_next_round'] = pd.to_numeric(players.get('chance_of_playing_next_round', 100), errors='coerce').fillna(100.0)
@@ -173,15 +191,15 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['mins_per_game'] = (df['mins_played'] / max_possible_games).round(1)
     is_eligible = df['mins_per_game'] >= min_mins
     
+    # Identify Penalty Takers & apply +0.15 xG/90 baseline boost
+    df['is_pen_taker'] = pd.to_numeric(df.get('penalties_order', 0), errors='coerce') == 1
+    
     dampener = np.clip(df['mins_per_game'] / 60.0, 0.4, 1.0)
-    df['xg_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_goals'] / df['mins_played']) * 90.0 * dampener, 0.0)
+    df['xg_p90_base'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_goals'] / df['mins_played']) * 90.0 * dampener, 0.0)
+    df['xg_p90'] = np.where(df['is_pen_taker'], df['xg_p90_base'] + 0.15, df['xg_p90_base'])
     df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
-    df['is_home'] = df['next_opponent'].str.contains(r'\(H\)', regex=True)
-    df['opp_short'] = df['next_opponent'].str.replace(' (H)', '', regex=False).str.replace(' (A)', '', regex=False)
-    short_to_full = dict(zip(t_df['short_name'], t_df['name']))
-    df['opp_name'] = df['opp_short'].map(short_to_full).fillna('Average Team')
-    
+    # 3. Understat / League Averages
     t_stats = {}
     if u_df is not None and not u_df.empty:
         latest_szn = u_df['season'].max()
@@ -205,34 +223,77 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
         return t_stats.get(name, {}).get(stat, league_avg_xg)
         
     df['team_xgc'] = df['team_name'].apply(lambda x: get_stat(x, 'xgc_p90'))
-    df['opp_xg'] = df['opp_name'].apply(lambda x: get_stat(x, 'xg_p90'))
-    df['opp_xgc'] = df['opp_name'].apply(lambda x: get_stat(x, 'xgc_p90'))
     
     fit_prob = df['chance_of_playing_next_round'] / 100.0
     df['p_app_1'] = np.where(is_eligible, np.clip(df['mins_per_game'] / 25.0, 0.0, 1.0) * 0.95 * fit_prob, 0.0)
     df['p_app_2'] = np.where(is_eligible, np.clip((df['mins_per_game'] - 40.0) / 40.0, 0.0, 1.0) * 0.85 * fit_prob, 0.0)
-    df['exp_app_pts'] = df['p_app_1'] * 1.0 + df['p_app_2'] * 1.0
+    df['exp_app_pts_base'] = df['p_app_1'] * 1.0 + df['p_app_2'] * 1.0
+    df['exp_bonus_pts_base'] = np.where(is_eligible & (df['mins_played'] > 0), (df['bps'] / df['mins_played']) * 90.0 * 0.04 * dampener, 0.0)
     
     goal_pts_map = {1: 6, 2: 6, 3: 5, 4: 4}
     df['goal_val'] = df['element_type'].map(goal_pts_map)
-    df['attack_mult'] = (df['opp_xgc'] / league_avg_xgc).clip(0.5, 2.0)
-    df['exp_goal_pts'] = np.where(is_eligible, (df['xg_p90'] * df['goal_val']) * df['attack_mult'], 0.0)
-    df['exp_assist_pts'] = np.where(is_eligible, (df['xa_p90'] * 3.0 * fa_boost) * df['attack_mult'], 0.0)
-    
-    df['def_mult'] = (df['opp_xg'] / league_avg_xg).clip(0.5, 2.0)
-    df['match_xgc'] = df['team_xgc'] * df['def_mult']
-    df['prob_cs'] = np.where(is_eligible, np.exp(-df['match_xgc']), 0.0)
-    df['prob_conc_2plus'] = np.where(is_eligible, 1.0 - np.exp(-df['match_xgc']) * (1.0 + df['match_xgc']), 0.0)
-    
     df['cs_val'] = df['element_type'].map({1: 4.0, 2: 4.0, 3: 1.0, 4: 0.0})
     df['conc_penalty_val'] = df['element_type'].map({1: -1.0, 2: -1.0, 3: 0.0, 4: 0.0})
-    df['exp_cs_pts'] = np.where(is_eligible, df['prob_cs'] * df['cs_val'] * df['p_app_2'], 0.0)
-    df['exp_conc_penalty'] = np.where(is_eligible, df['prob_conc_2plus'] * df['conc_penalty_val'] * df['p_app_1'], 0.0)
-    df['exp_bonus_pts'] = np.where(is_eligible & (df['mins_played'] > 0), (df['bps'] / df['mins_played']) * 90.0 * 0.04 * dampener, 0.0)
     
-    df['raw_xp'] = df['exp_app_pts'] + df['exp_goal_pts'] + df['exp_assist_pts'] + df['exp_cs_pts'] + df['exp_conc_penalty'] + df['exp_bonus_pts']
-    ha_factor = np.where(df['is_home'], 1.0 + ha_boost, 1.0 - ha_boost)
-    df['v2_xp'] = np.where(is_eligible, (df['raw_xp'] * ha_factor).round(2), 0.0)
+    # 4. Multi-GW Horizon Iteration
+    gw_weights = [1.0, 0.8, 0.6]
+    df['v2_xp'] = 0.0
+    df['exp_goal_pts_acc'] = 0.0
+    df['exp_assist_pts_acc'] = 0.0
+    df['exp_cs_pts_acc'] = 0.0
+    df['exp_conc_penalty_acc'] = 0.0
+    df['exp_app_pts_acc'] = 0.0
+    df['exp_bonus_pts_acc'] = 0.0
+    
+    for gw_idx, weight in enumerate(gw_weights):
+        opp_short = df['next_3_opps'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else 'Blank')
+        is_home = df['next_3_is_home'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else False)
+        fdr = df['next_3_fdr'].apply(lambda x: x[gw_idx] if isinstance(x, list) and len(x) > gw_idx else 3)
+        
+        opp_name = opp_short.map(short_to_full).fillna('Average Team')
+        opp_xg = opp_name.apply(lambda x: get_stat(x, 'xg_p90'))
+        opp_xgc = opp_name.apply(lambda x: get_stat(x, 'xgc_p90'))
+        
+        # Generic FDR modifier (1 = 1.2x, 3 = 1.0x, 5 = 0.8x)
+        fdr_mult = 1.0 + (3 - fdr) * 0.1
+        
+        attack_mult = (opp_xgc / league_avg_xgc).clip(0.5, 2.0) * fdr_mult
+        def_mult = (opp_xg / league_avg_xg).clip(0.5, 2.0) * (1.0 / fdr_mult)
+        
+        ha_factor = np.where(is_home, 1.0 + ha_boost, 1.0 - ha_boost)
+        
+        gw_goal = np.where(is_eligible & (opp_short != 'Blank'), (df['xg_p90'] * df['goal_val']) * attack_mult * ha_factor, 0.0)
+        gw_assist = np.where(is_eligible & (opp_short != 'Blank'), (df['xa_p90'] * 3.0 * fa_boost) * attack_mult * ha_factor, 0.0)
+        
+        match_xgc = df['team_xgc'] * def_mult
+        prob_cs = np.where(is_eligible & (opp_short != 'Blank'), np.exp(-match_xgc), 0.0)
+        prob_conc_2plus = np.where(is_eligible & (opp_short != 'Blank'), 1.0 - np.exp(-match_xgc) * (1.0 + match_xgc), 0.0)
+        
+        gw_cs = np.where(is_eligible & (opp_short != 'Blank'), prob_cs * df['cs_val'] * df['p_app_2'] * ha_factor, 0.0)
+        gw_conc_pen = np.where(is_eligible & (opp_short != 'Blank'), prob_conc_2plus * df['conc_penalty_val'] * df['p_app_1'] * ha_factor, 0.0)
+        gw_app = np.where(is_eligible & (opp_short != 'Blank'), df['exp_app_pts_base'] * ha_factor, 0.0)
+        gw_bonus = np.where(is_eligible & (opp_short != 'Blank'), df['exp_bonus_pts_base'] * ha_factor, 0.0)
+        
+        df['exp_goal_pts_acc'] += gw_goal * weight
+        df['exp_assist_pts_acc'] += gw_assist * weight
+        df['exp_cs_pts_acc'] += gw_cs * weight
+        df['exp_conc_penalty_acc'] += gw_conc_pen * weight
+        df['exp_app_pts_acc'] += gw_app * weight
+        df['exp_bonus_pts_acc'] += gw_bonus * weight
+        
+        if gw_idx == 0:
+            df['attack_mult'] = attack_mult
+            df['prob_cs'] = prob_cs
+            df['is_home'] = is_home
+            df['opp_name'] = opp_name
+
+    df['exp_goal_pts'] = df['exp_goal_pts_acc']
+    df['exp_assist_pts'] = df['exp_assist_pts_acc']
+    df['exp_cs_pts'] = df['exp_cs_pts_acc']
+    df['exp_conc_penalty'] = df['exp_conc_penalty_acc']
+    df['exp_app_pts'] = df['exp_app_pts_acc']
+    df['exp_bonus_pts'] = df['exp_bonus_pts_acc']
+    df['v2_xp'] = (df['exp_goal_pts'] + df['exp_assist_pts'] + df['exp_cs_pts'] + df['exp_conc_penalty'] + df['exp_app_pts'] + df['exp_bonus_pts']).round(2)
 
     total_w = sum(weights_dict.values())
     if total_w > 0:
@@ -312,29 +373,35 @@ if menu_category == "🏆 Fantasy Premier League":
     
     st.sidebar.markdown("---")
     st.sidebar.header("⚙️ Unified Model Tuning")
-    min_mins_g = st.sidebar.slider("Min Mins/Game Filter", 10.0, 90.0, 25.0, 5.0, help="Filters out benchwarmers and aggressively scales down expected points for players with low minutes.")
+    preset = st.sidebar.selectbox("🎯 Strategy Preset:", ["Custom", "The Sweet Spot", "The Form Chaser", "The Crowd Chaser", "The ICT Chaser"])
     
-    st.sidebar.markdown("**Poisson Model Weights**")
-    fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05, help="Multiplier for unrecorded FPL assists (rebounds/penalties).")
-    ha_boost_g = st.sidebar.slider("Home/Away Factor", 0.0, 0.15, 0.05, 0.01, help="Percentage advantage given to home teams.")
-
-    st.sidebar.markdown("**ICT / Form Hybrid Weights**")
-    advanced_mode = st.sidebar.toggle("Advanced ICT Breakdown", value=False)
-    
-    if not advanced_mode:
+    if preset != "Custom":
+        if "Sweet Spot" in preset:
+            min_mins_g, fa_boost_g, ha_boost_g = 50.0, 1.35, 0.06
+            w_form, w_own, w_ict, blend_factor_g = 5, 5, 90, 10.0
+        elif "Form Chaser" in preset:
+            min_mins_g, fa_boost_g, ha_boost_g = 25.0, 1.40, 0.05
+            w_form, w_own, w_ict, blend_factor_g = 80, 10, 10, 40.0
+        elif "Crowd Chaser" in preset:
+            min_mins_g, fa_boost_g, ha_boost_g = 25.0, 1.40, 0.05
+            w_form, w_own, w_ict, blend_factor_g = 10, 80, 10, 40.0
+        elif "ICT Chaser" in preset:
+            min_mins_g, fa_boost_g, ha_boost_g = 45.0, 1.35, 0.05
+            w_form, w_own, w_ict, blend_factor_g = 0, 0, 100, 25.0
+            
+        st.sidebar.info(f"Using **{preset}** settings.")
+        weights_g = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
+    else:
+        min_mins_g = st.sidebar.slider("Min Mins/Game Filter", 10.0, 90.0, 25.0, 5.0, help="Filters out benchwarmers and aggressively scales down expected points for players with low minutes.")
+        st.sidebar.markdown("**Poisson Model Weights**")
+        fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05)
+        ha_boost_g = st.sidebar.slider("Home/Away Factor", 0.0, 0.15, 0.05, 0.01)
+        st.sidebar.markdown("**ICT / Form Hybrid Weights**")
         w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
         w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
         w_ict = st.sidebar.slider("ICT Index (Quality)", 0, 100, 40, 5)
         weights_g = {'form': w_form, 'selected_by_percent': w_own, 'ict_index': w_ict}
-    else:
-        w_form = st.sidebar.slider("Form", 0, 100, 20, 5)
-        w_own = st.sidebar.slider("Ownership %", 0, 100, 20, 5)
-        w_inf = st.sidebar.slider("Influence", 0, 100, 20, 5)
-        w_cre = st.sidebar.slider("Creativity", 0, 100, 20, 5)
-        w_thr = st.sidebar.slider("Threat", 0, 100, 20, 5)
-        weights_g = {'form': w_form, 'selected_by_percent': w_own, 'influence': w_inf, 'creativity': w_cre, 'threat': w_thr}
-        
-    blend_factor_g = st.sidebar.slider("ICT Impact on xP (%)", 0.0, 50.0, 15.0, 5.0, help="How much should the subjective ICT/Form sliders above boost or penalize the pure objective Poisson xP?")
+        blend_factor_g = st.sidebar.slider("ICT Impact on xP (%)", 0.0, 50.0, 15.0, 5.0)
 
 elif menu_category == "⚽ EPL Matches & Stats":
     app_mode = st.sidebar.radio("Select Module:", [
@@ -391,6 +458,8 @@ if app_mode == "👤 Advanced Player Scout":
                 boost_color = "#01fc7a" if boost_pct >= 0 else "#ff005a"
                 boost_sign = "+" if boost_pct >= 0 else ""
                 
+                pen_badge = "🎯 PEN TAKER | " if p_data.get('is_pen_taker', False) else ""
+                
                 return f"""
                 <div class="scout-card">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -408,11 +477,11 @@ if app_mode == "👤 Advanced Player Scout":
                             </p>
                         </div>
                         <div style="text-align: right; background: var(--background-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                            <div style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">Pure Poisson xP: {p_data['v2_xp']:.2f} | ICT Form Nudge: <span style="color: {boost_color};">{boost_sign}{boost_pct:.1f}%</span></div>
+                            <div style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">3-GW Horizon xP: {p_data['v2_xp']:.2f} | ICT Form Nudge: <span style="color: {boost_color};">{boost_sign}{boost_pct:.1f}%</span></div>
                             <h3 style="color: #0088cc; margin:0 0 5px 0; font-weight: 800;">Final Proj xP: {p_data['final_xp']:.2f}</h3>
                             <div style="color: var(--text-color); font-size: 0.9rem;">
-                                Atk Mult: <b>{p_data['attack_mult']:.2f}x</b> &nbsp;|&nbsp; 
-                                Poisson CS Odds: <b style="color: #01fc7a;">{p_data['prob_cs']*100:.0f}%</b>
+                                {pen_badge} GW1 Atk Mult: <b>{p_data['attack_mult']:.2f}x</b> &nbsp;|&nbsp; 
+                                GW1 CS Odds: <b style="color: #01fc7a;">{p_data['prob_cs']*100:.0f}%</b>
                             </div>
                         </div>
                     </div>
@@ -528,10 +597,10 @@ if app_mode == "👤 Advanced Player Scout":
 # FPL MODULE 2: UNIFIED DATA & POINTS MATRIX
 # ==========================================
 elif app_mode == "🗄️ Model Data & Points Matrix":
-    st.title("🗄️ Model Data & Expected Points Decomposition")
-    st.write("Explore the underlying data bank and see exactly how the unified Hybrid model calculates every expected point.")
+    st.title("🗄️ Model Data & 3-GW Expected Points Decomposition")
+    st.write("Explore the underlying data bank and see exactly how the unified Multi-GW model calculates every expected point.")
     
-    tab1, tab2 = st.tabs(["🧮 xP Breakdown Matrix", "🗄️ Master Player Data Bank"])
+    tab1, tab2 = st.tabs(["🧮 3-GW xP Breakdown Matrix", "🗄️ Master Player Data Bank"])
     
     with tab1:
         f1, f2 = st.columns(2)
@@ -545,7 +614,7 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
         top_df = filtered_matrix.sort_values(by='final_xp', ascending=False).head(15).iloc[::-1]
         
         if not top_df.empty:
-            st.markdown("### 📊 Top 15 Players xP Decomposition")
+            st.markdown("### 📊 Top 15 Players xP Decomposition (3-GW Horizon)")
             stacked_options = {
                 "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
                 "legend": {"data": ["Appearance", "Attack", "Defense", "Bonus"], "textStyle": {"color": "#8f9bba"}},
@@ -562,7 +631,7 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
             }
             st_echarts(stacked_options, height="450px")
         
-        st.markdown("### 🧮 Granular Data Matrix")
+        st.markdown("### 🧮 Granular Data Matrix (Aggregated 3-GW Horizon)")
         matrix_cols = ['full_name', 'position', 'team_name', 'mins_per_game', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'hybrid_multiplier', 'v2_xp', 'final_xp']
         st.dataframe(
             filtered_matrix[matrix_cols].sort_values(by='final_xp', ascending=False),
@@ -572,20 +641,20 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
                 "position": st.column_config.TextColumn("Pos"),
                 "team_name": st.column_config.TextColumn("Club"),
                 "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
-                "exp_app_pts": st.column_config.NumberColumn("App xP", format="%.2f", help="Points from playing time."),
+                "exp_app_pts": st.column_config.NumberColumn("App xP", format="%.2f"),
                 "exp_goal_pts": st.column_config.NumberColumn("Goal xP", format="%.2f"),
                 "exp_assist_pts": st.column_config.NumberColumn("Assist xP", format="%.2f"),
-                "prob_cs": st.column_config.NumberColumn("CS Odds", format="%.2f", help="Poisson probability of Clean Sheet."),
+                "prob_cs": st.column_config.NumberColumn("GW1 CS Odds", format="%.2f", help="GW1 Poisson probability of Clean Sheet."),
                 "exp_cs_pts": st.column_config.NumberColumn("CS xP", format="%.2f"),
-                "hybrid_multiplier": st.column_config.NumberColumn("ICT Form Boost", format="%.2fx", help="Modifier applied from the subjective ICT/Form sliders."),
-                "v2_xp": st.column_config.NumberColumn("Pure Poisson xP", format="%.2f"),
-                "final_xp": st.column_config.NumberColumn("Final Blended xP", format="%.2f", help="Used by the Optimizer.")
+                "hybrid_multiplier": st.column_config.NumberColumn("ICT Form Boost", format="%.2fx"),
+                "v2_xp": st.column_config.NumberColumn("3-GW Poisson xP", format="%.2f"),
+                "final_xp": st.column_config.NumberColumn("Final Blended xP", format="%.2f")
             }
         )
 
     with tab2:
         st.markdown("### 🗄️ Raw Underlying Player Data Bank")
-        cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'team_xgc', 'opp_name']
+        cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'is_pen_taker', 'team_xgc', 'opp_name']
         st.dataframe(
             master_df[cols_to_show],
             width="stretch", hide_index=True,
@@ -596,10 +665,11 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
                 "cost_m": st.column_config.NumberColumn("Price (£M)", format="£%.1f"),
                 "minutes": st.column_config.NumberColumn("Total Mins"),
                 "mins_per_game": st.column_config.NumberColumn("Mins/Game", format="%.1f"),
-                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f", help="Expected Goals per 90 (Dampened if low minutes)"),
+                "xg_p90": st.column_config.NumberColumn("xG / 90", format="%.2f", help="Includes Pen Taker baseline boosts."),
                 "xa_p90": st.column_config.NumberColumn("xA / 90", format="%.2f"),
+                "is_pen_taker": st.column_config.CheckboxColumn("Pen Taker?"),
                 "team_xgc": st.column_config.NumberColumn("Team xGC", format="%.2f"),
-                "opp_name": st.column_config.TextColumn("Next Opponent")
+                "opp_name": st.column_config.TextColumn("GW1 Opponent")
             }
         )
 
@@ -628,7 +698,7 @@ elif app_mode == "📅 Fixture Multipliers":
                 "Attack_Multiplier": st.column_config.NumberColumn("Attack Multiplier (xGC Rel)", format="%.2fx", help="Boost applied to attacking players. Based on opponent defense compared to average."),
                 "Defensive_Multiplier": st.column_config.NumberColumn("Defense Multiplier (xG Rel)", format="%.2fx", help="Modifier applied to team xGC. Based on opponent attack compared to average."),
                 "Expected_CS_Chance": st.column_config.NumberColumn("Poisson CS Prob", format="%.2f", help="Exact probability of 0 goals conceded derived from adjusted xGC."),
-                "opp_name": st.column_config.TextColumn("Opponent")
+                "opp_name": st.column_config.TextColumn("GW1 Opponent")
             }
         )
 
@@ -800,7 +870,7 @@ elif app_mode == "🔄 AI Transfer Suggester":
     st.title("🔄 AI Transfer Suggester")
     st.write("Extract your actual FPL team and let the AI optimizer calculate the best mathematically sound transfers based on your live Hybrid settings.")
     
-    num_transfers = st.selectbox("Number of Transfers to make:", [1, 2, 3])
+    num_transfers = st.selectbox("Number of Transfers to make:", list(range(1, 16)))
     
     st.sidebar.markdown("---")
     st.sidebar.header("Bench Strategy")

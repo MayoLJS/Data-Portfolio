@@ -9,66 +9,75 @@ import re
 from streamlit_echarts import st_echarts
 
 # ==========================================
-# 1. PAGE CONFIG & PREMIUM CUSTOM CSS
+# 1. PAGE CONFIG & CLAUDE AESTHETIC CSS
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
-    /* Import Premium Fonts (Inter for text, Fira Code for metrics) */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Fira+Code:wght@500;700&display=swap');
+    /* Import Premium Anthropic-Style Fonts (Inter, Lora Serif, Fira Code) */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Fira+Code:wght@400;600&display=swap');
 
     /* Global Font Assignments */
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
+        color: #2D2D2D;
     }
     
-    /* Metrics, Headers, and Data use Monospace for an analytical look */
-    h1, h2, h3, h4, h5, h6, .score-box, .stMetricValue, .leaderboard-stat {
-        font-family: 'Fira Code', monospace !important;
+    /* Elegant Serif for Headers */
+    h1, h2, h3 {
+        font-family: 'Lora', serif !important;
+        color: #1A1A1A;
+        font-weight: 600;
         letter-spacing: -0.5px;
     }
+    
+    /* Metrics and Data use Monospace */
+    .score-box, .stMetricValue, .leaderboard-stat {
+        font-family: 'Fira Code', monospace !important;
+    }
 
-    /* Refined Custom Card Containers */
+    /* Refined Custom Card Containers (Clean White & Soft Shadows) */
     .scout-card { 
-        background: var(--secondary-background-color); 
-        border: 1px solid rgba(0, 136, 204, 0.2); 
-        border-radius: 16px; 
+        background: #FFFFFF; 
+        border: 1px solid #E5E2DC; 
+        border-radius: 12px; 
         padding: 24px; 
         margin-bottom: 20px; 
-        box-shadow: 0 8px 24px rgba(0,0,0,0.08); 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03); 
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .scout-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 32px rgba(0,136,204,0.15);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
     }
     
     /* Pitch & Bench Cards */
     .pitch-card, .bench-card { 
-        background: var(--secondary-background-color); 
-        border-radius: 12px; 
+        background: #FFFFFF; 
+        border-radius: 8px; 
         padding: 16px; 
         text-align: center; 
         position: relative;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #E5E2DC;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
     }
-    .pitch-card { border: 1px solid #00f2fe; }
-    .bench-card { border: 1px solid #ff007f; opacity: 0.95; }
+    .pitch-card { border-top: 3px solid #D97757; } /* Anthropic Terracotta */
+    .bench-card { border-top: 3px solid #8C8C8C; } /* Soft Gray */
     
     /* Premium Pitch Background */
     .pitch-container { 
-        background: linear-gradient(180deg, rgba(20, 30, 48, 0.5) 0%, rgba(36, 59, 85, 0.5) 100%); 
-        border-radius: 24px; 
+        background: linear-gradient(180deg, #F5F4F0 0%, #EBEAE5 100%); 
+        border-radius: 16px; 
         padding: 30px; 
-        border: 1px solid rgba(255, 255, 255, 0.1); 
+        border: 1px solid #E5E2DC; 
         margin-bottom: 30px;
     }
 
     /* Fixture Cards */
     .fixture-card { 
-        background: var(--secondary-background-color); 
-        border: 1px solid var(--border-color); 
+        background: #FFFFFF; 
+        border: 1px solid #E5E2DC; 
         border-radius: 12px; 
         padding: 20px; 
         margin-bottom: 12px; 
@@ -78,24 +87,24 @@ st.markdown("""
         transition: all 0.2s ease;
     }
     .fixture-card:hover { 
-        border-color: rgba(0, 136, 204, 0.5); 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+        border-color: #D97757; 
+        box-shadow: 0 4px 12px rgba(217, 119, 87, 0.08); 
     }
     
     /* Modern Pill-Shaped Badges */
-    .badge-cyan { background: rgba(0, 242, 254, 0.1); color: #00f2fe; border: 1px solid #00f2fe; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;}
-    .badge-pink { background: rgba(255, 0, 127, 0.1); color: #ff007f; border: 1px solid #ff007f; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;}
-    .badge-cap { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #000; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 900; margin-left: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
+    .badge-cyan { background: #F4EBE8; color: #D97757; border: 1px solid #EADAD5; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
+    .badge-pink { background: #F0EFEA; color: #555555; border: 1px solid #E0DFDA; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
+    .badge-cap { background: #E5E2DC; color: #1A1A1A; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: 6px; border: 1px solid #D1CDC4;}
     
     /* Elevated Score Box */
-    .score-box { background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 24px; font-size: 24px; font-weight: 800; letter-spacing: 2px; color: var(--text-color); }
+    .score-box { background: #F9F8F6; border: 1px solid #E5E2DC; border-radius: 8px; padding: 10px 20px; font-size: 22px; font-weight: 700; letter-spacing: 1px; color: #1A1A1A; }
     
     /* Clean up Streamlit Default UI */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    .leaderboard-item { font-size: 14px; padding: 10px 0; border-bottom: 1px solid var(--border-color); color: var(--text-color); }
-    .leaderboard-stat { color: #0088cc; font-weight: 700; font-size: 16px; font-family: 'Fira Code', monospace;}
+    .leaderboard-item { font-size: 14px; padding: 10px 0; border-bottom: 1px solid #E5E2DC; color: #2D2D2D; }
+    .leaderboard-stat { color: #D97757; font-weight: 700; font-size: 16px; font-family: 'Fira Code', monospace;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -111,12 +120,12 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("<h1 style='text-align: center; margin-top: 50px; font-family: \"Fira Code\", monospace;'>🔐 EPL Hub</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #8f9bba;'>Secure access required.</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; margin-top: 50px; font-family: \"Lora\", serif;'>🔐 EPL Hub</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #8C8C8C;'>Secure access required.</p>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.markdown("<div style='background: var(--secondary-background-color); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 8px 24px rgba(0,0,0,0.1);'>", unsafe_allow_html=True)
+        st.markdown("<div style='background: #FFFFFF; padding: 30px; border-radius: 12px; border: 1px solid #E5E2DC; box-shadow: 0 4px 16px rgba(0,0,0,0.03);'>", unsafe_allow_html=True)
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         if st.button("Log In", type="primary", use_container_width=True):
@@ -528,9 +537,9 @@ if app_mode == "👤 Advanced Player Scout":
         if len(player_list) > 0:
             def render_scout_card(p_data):
                 chance_val = int(p_data.get('chance_of_playing_next_round', 100))
-                chance_color = "#01fc7a" if chance_val == 100 else ("#ffcc00" if chance_val > 0 else "#ff005a")
+                chance_color = "#4E7A5E" if chance_val == 100 else ("#D97757" if chance_val > 0 else "#B34D4D")
                 boost_pct = ((p_data['hybrid_multiplier'] - 1.0) * 100)
-                boost_color = "#01fc7a" if boost_pct >= 0 else "#ff005a"
+                boost_color = "#4E7A5E" if boost_pct >= 0 else "#B34D4D"
                 boost_sign = "+" if boost_pct >= 0 else ""
                 
                 pen_badge = "🎯 PEN TAKER | " if p_data.get('is_pen_taker', False) else ""
@@ -543,20 +552,20 @@ if app_mode == "👤 Advanced Player Scout":
                                 <span class="badge-cyan" style="margin-right: 8px;">{p_data['position']}</span>
                                 <span class="badge-pink">{p_data['team_name']}</span>
                             </div>
-                            <h2 style="margin: 0; font-size: 2.0rem; font-weight: 800; color: var(--text-color);">{p_data['first_name'].upper()} {p_data['second_name'].upper()}</h2>
-                            <p style="margin: 8px 0 0 0; color: var(--text-color); opacity: 0.8; font-size: 1.0rem;">
-                                Price: <b>£{p_data['cost_m']}M</b> &nbsp;|&nbsp; 
-                                Pts: <b>{int(p_data['total_points'])}</b><br>
+                            <h2 style="margin: 0; font-size: 2.0rem; color: #1A1A1A;">{p_data['first_name'].upper()} {p_data['second_name'].upper()}</h2>
+                            <p style="margin: 8px 0 0 0; color: #555555; opacity: 0.9; font-size: 1.0rem;">
+                                Price: <b style="font-family: 'Fira Code', monospace;">£{p_data['cost_m']}M</b> &nbsp;|&nbsp; 
+                                Pts: <b style="font-family: 'Fira Code', monospace;">{int(p_data['total_points'])}</b><br>
                                 Next: <b>{p_data.get('next_opponent', 'N/A')}</b><br>
-                                Fit: <b style="color: {chance_color};">{chance_val}%</b>
+                                Fit: <b style="color: {chance_color}; font-family: 'Fira Code', monospace;">{chance_val}%</b>
                             </p>
                         </div>
-                        <div style="text-align: right; background: var(--background-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                            <div style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">{horizon_g}-GW Horizon xP: {p_data['v2_xp']:.2f} | ICT Form Nudge: <span style="color: {boost_color};">{boost_sign}{boost_pct:.1f}%</span></div>
-                            <h3 style="color: #0088cc; margin:0 0 5px 0; font-weight: 800;">Final Proj xP: {p_data['final_xp']:.2f}</h3>
-                            <div style="color: var(--text-color); font-size: 0.9rem;">
-                                {pen_badge} GW1 Atk Mult: <b>{p_data['attack_mult']:.2f}x</b> &nbsp;|&nbsp; 
-                                GW1 CS Odds: <b style="color: #01fc7a;">{p_data['prob_cs']*100:.0f}%</b>
+                        <div style="text-align: right; background: #F9F8F6; padding: 15px; border-radius: 8px; border: 1px solid #E5E2DC;">
+                            <div style="color: #555555; font-size: 0.8rem; margin-bottom: 5px;">{horizon_g}-GW Horizon xP: {p_data['v2_xp']:.2f} | ICT Form Nudge: <span style="color: {boost_color};">{boost_sign}{boost_pct:.1f}%</span></div>
+                            <h3 style="color: #D97757; margin:0 0 5px 0; font-weight: 800;">Final Proj xP: {p_data['final_xp']:.2f}</h3>
+                            <div style="color: #555555; font-size: 0.9rem;">
+                                {pen_badge} GW1 Atk Mult: <b style="font-family: 'Fira Code', monospace;">{p_data['attack_mult']:.2f}x</b> &nbsp;|&nbsp; 
+                                GW1 CS Odds: <b style="color: #4E7A5E; font-family: 'Fira Code', monospace;">{p_data['prob_cs']*100:.0f}%</b>
                             </div>
                         </div>
                     </div>
@@ -578,7 +587,7 @@ if app_mode == "👤 Advanced Player Scout":
                         if col_name in players_df.columns:
                             val = p_data[col_name]
                             percentile = int((players_df[col_name] < val).mean() * 100)
-                            st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc; font-family: \"Fira Code\", monospace;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: #555555;'><b>{label}</b>: <span style='color:#D97757; font-family: \"Fira Code\", monospace; font-weight:600;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
                             st.progress(percentile / 100.0)
                 
                 with rc2:
@@ -599,7 +608,7 @@ if app_mode == "👤 Advanced Player Scout":
                                 {"name": "xA", "max": 100}
                             ],
                             "splitArea": {"show": False},
-                            "axisName": {"color": "#8f9bba"}
+                            "axisName": {"color": "#555555"}
                         },
                         "series": [{
                             "name": "Player Profile vs League",
@@ -608,8 +617,8 @@ if app_mode == "👤 Advanced Player Scout":
                                 {
                                     "value": [pct_thr, pct_cre, pct_inf, pct_xg, pct_xa],
                                     "name": p_data['second_name'],
-                                    "itemStyle": {"color": "#0088cc"},
-                                    "areaStyle": {"color": "rgba(0, 136, 204, 0.4)"}
+                                    "itemStyle": {"color": "#D97757"},
+                                    "areaStyle": {"color": "rgba(217, 119, 87, 0.3)"}
                                 }
                             ]
                         }]
@@ -635,7 +644,7 @@ if app_mode == "👤 Advanced Player Scout":
                 
                 radar_dual_opts = {
                     "tooltip": {"trigger": "item"},
-                    "legend": {"data": [p_data_a['second_name'], p_data_b['second_name']], "textStyle": {"color": "#8f9bba"}},
+                    "legend": {"data": [p_data_a['second_name'], p_data_b['second_name']], "textStyle": {"color": "#555555"}},
                     "radar": {
                         "indicator": [
                             {"name": "Threat", "max": 100},
@@ -645,7 +654,7 @@ if app_mode == "👤 Advanced Player Scout":
                             {"name": "xA", "max": 100}
                         ],
                         "splitArea": {"show": False},
-                        "axisName": {"color": "#8f9bba"}
+                        "axisName": {"color": "#555555"}
                     },
                     "series": [{
                         "name": "H2H Comparison",
@@ -654,14 +663,14 @@ if app_mode == "👤 Advanced Player Scout":
                             {
                                 "value": [get_pct('threat', p_data_a), get_pct('creativity', p_data_a), get_pct('influence', p_data_a), get_pct('expected_goals', p_data_a), get_pct('expected_assists', p_data_a)],
                                 "name": p_data_a['second_name'],
-                                "itemStyle": {"color": "#0088cc"},
-                                "areaStyle": {"color": "rgba(0, 136, 204, 0.4)"}
+                                "itemStyle": {"color": "#D97757"},
+                                "areaStyle": {"color": "rgba(217, 119, 87, 0.3)"}
                             },
                             {
                                 "value": [get_pct('threat', p_data_b), get_pct('creativity', p_data_b), get_pct('influence', p_data_b), get_pct('expected_goals', p_data_b), get_pct('expected_assists', p_data_b)],
                                 "name": p_data_b['second_name'],
-                                "itemStyle": {"color": "#cc0066"},
-                                "areaStyle": {"color": "rgba(204, 0, 102, 0.4)"}
+                                "itemStyle": {"color": "#6B7280"},
+                                "areaStyle": {"color": "rgba(107, 114, 128, 0.3)"}
                             }
                         ]
                     }]
@@ -692,11 +701,11 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
             st.markdown(f"### 📊 Top 15 Players xP Decomposition ({horizon_g}-GW Horizon)")
             stacked_options = {
                 "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-                "legend": {"data": ["Appearance", "Attack", "Defense", "Bonus"], "textStyle": {"color": "#8f9bba"}},
+                "legend": {"data": ["Appearance", "Attack", "Defense", "Bonus"], "textStyle": {"color": "#555555"}},
                 "grid": {"left": "3%", "right": "4%", "bottom": "3%", "containLabel": True},
                 "xAxis": {"type": "value", "splitLine": {"show": False}},
                 "yAxis": {"type": "category", "data": top_df['full_name'].tolist()},
-                "color": ["#8f9bba", "#0088cc", "#01fc7a", "#ffcc00"],
+                "color": ["#8C8C8C", "#D97757", "#4E7A5E", "#F6D365"],
                 "series": [
                     {"name": "Appearance", "type": "bar", "stack": "total", "data": top_df['exp_app_pts'].round(2).tolist()},
                     {"name": "Attack", "type": "bar", "stack": "total", "data": (top_df['exp_goal_pts'] + top_df['exp_assist_pts']).round(2).tolist()},
@@ -869,12 +878,12 @@ elif app_mode == "⚡ Unified Squad Optimizer":
                 treemap_data = [
                     {
                         "name": "Starting XI",
-                        "itemStyle": {"color": "#0088cc"},
+                        "itemStyle": {"color": "#D97757"},
                         "children": [{"name": row.second_name, "value": row.cost_m} for row in starters.itertuples()]
                     },
                     {
                         "name": "Bench",
-                        "itemStyle": {"color": "#cc0066"},
+                        "itemStyle": {"color": "#8C8C8C"},
                         "children": [{"name": row.second_name, "value": row.cost_m} for row in bench.itertuples()]
                     }
                 ]
@@ -901,10 +910,10 @@ elif app_mode == "⚡ Unified Squad Optimizer":
                             cap = "<span class='badge-cap'>C</span>" if p.Index == captain_id and card_class == 'pitch-card' else ""
                             col.markdown(f"""
                             <div class='{card_class}'>
-                                <b style='color: var(--text-color); font-size: 14px;'>{p.second_name} {cap}</b><br>
-                                <span style='font-size:11px; opacity:0.8;'>{p.team_name}</span><br>
-                                <span style='font-size:11px; color:#ff007f;'>vs {p.next_opponent}</span><br>
-                                <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{p.cost_m}m | xP: {p.final_xp:.2f}</span>
+                                <b style='color: #1A1A1A; font-size: 14px; font-weight: 600;'>{p.second_name} {cap}</b><br>
+                                <span style='font-size:11px; color:#8C8C8C;'>{p.team_name}</span><br>
+                                <span style='font-size:11px; color:#D97757;'>vs {p.next_opponent}</span><br>
+                                <span style='color:#2D2D2D; font-weight:700; font-size:13px; font-family: "Fira Code", monospace;'>£{p.cost_m}m | xP: {p.final_xp:.2f}</span>
                             </div>
                             """, unsafe_allow_html=True)
                     st.write("")
@@ -1017,16 +1026,16 @@ elif app_mode == "🔄 Transfer Suggester":
                             
                             cc1, cc2 = st.columns(2)
                             with cc1:
-                                st.markdown("<h3 style='color: #ff005a;'>🛑 Players Out</h3>", unsafe_allow_html=True)
+                                st.markdown("<h3 style='color: #B34D4D;'>🛑 Players Out</h3>", unsafe_allow_html=True)
                                 for _, row in transfers_out.iterrows():
-                                    st.markdown(f"<div style='border-left: 4px solid #ff005a; padding-left: 10px; margin-bottom: 5px; background: rgba(255, 0, 90, 0.1); border-radius: 4px;'><b style='font-size: 16px;'>{row['second_name']}</b> <span style='font-size:12px; color:#8f9bba;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='border-left: 4px solid #B34D4D; padding-left: 10px; margin-bottom: 5px; background: #F9F8F6; border-radius: 4px;'><b style='font-size: 16px; color: #1A1A1A;'>{row['second_name']}</b> <span style='font-size:12px; color:#8C8C8C;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px; color: #555555;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
                             with cc2:
-                                st.markdown("<h3 style='color: #01fc7a;'>✅ Players In</h3>", unsafe_allow_html=True)
+                                st.markdown("<h3 style='color: #4E7A5E;'>✅ Players In</h3>", unsafe_allow_html=True)
                                 for _, row in transfers_in.iterrows():
-                                    st.markdown(f"<div style='border-left: 4px solid #01fc7a; padding-left: 10px; margin-bottom: 5px; background: rgba(1, 252, 122, 0.1); border-radius: 4px;'><b style='font-size: 16px;'>{row['second_name']}</b> <span style='font-size:12px; color:#8f9bba;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='border-left: 4px solid #4E7A5E; padding-left: 10px; margin-bottom: 5px; background: #F9F8F6; border-radius: 4px;'><b style='font-size: 16px; color: #1A1A1A;'>{row['second_name']}</b> <span style='font-size:12px; color:#8C8C8C;'>({row['position']} - £{row['cost_m']}M)</span><br><span style='font-size:12px; color: #555555;'>xP: {row['final_xp']:.2f}</span></div>", unsafe_allow_html=True)
                             
                             xp_diff = sum(transfers_in['final_xp']) - sum(transfers_out['final_xp'])
-                            st.markdown(f"<div style='margin-top: 20px; margin-bottom: 30px; text-align: center; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px;'><b>Total Expected Points Gained:</b> <span style='color:#01fc7a; font-size: 24px; font-weight: bold;'>+{xp_diff:.2f} xP</span></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='margin-top: 20px; margin-bottom: 30px; text-align: center; padding: 15px; border: 1px solid #E5E2DC; border-radius: 8px; background: #FFFFFF;'><b>Total Expected Points Gained:</b> <span style='color:#4E7A5E; font-size: 24px; font-weight: bold; font-family: \"Fira Code\", monospace;'>+{xp_diff:.2f} xP</span></div>", unsafe_allow_html=True)
                             
                             # Render the NEW full squad
                             new_starters = df.loc[[i for i in df.index if starter_vars[i].varValue == 1]].copy()
@@ -1045,13 +1054,13 @@ elif app_mode == "🔄 Transfer Suggester":
                                     cols = st.columns(len(row_df))
                                     for col, p in zip(cols, row_df.itertuples()):
                                         cap = "<span class='badge-cap'>C</span>" if p.Index == new_captain_id and card_class == 'pitch-card' else ""
-                                        is_new = "style='border-color: #01fc7a; box-shadow: 0 0 10px rgba(1,252,122,0.3);'" if p.Index in new_squad_indices and p.Index not in current_squad_indices else ""
+                                        is_new = "style='border-color: #4E7A5E; box-shadow: 0 0 12px rgba(78,122,94,0.15);'" if p.Index in new_squad_indices and p.Index not in current_squad_indices else ""
                                         col.markdown(f"""
                                         <div class='{card_class}' {is_new}>
-                                            <b style='color: var(--text-color); font-size: 14px;'>{p.second_name} {cap}</b><br>
-                                            <span style='font-size:11px; opacity:0.8;'>{p.team_name}</span><br>
-                                            <span style='font-size:11px; color:#ff007f;'>vs {p.next_opponent}</span><br>
-                                            <span style='color:#0088cc; font-weight:800; font-size:13px;'>£{p.cost_m}m | xP: {p.final_xp:.2f}</span>
+                                            <b style='color: #1A1A1A; font-size: 14px; font-weight: 600;'>{p.second_name} {cap}</b><br>
+                                            <span style='font-size:11px; color:#8C8C8C;'>{p.team_name}</span><br>
+                                            <span style='font-size:11px; color:#D97757;'>vs {p.next_opponent}</span><br>
+                                            <span style='color:#2D2D2D; font-weight:700; font-size:13px; font-family: "Fira Code", monospace;'>£{p.cost_m}m | xP: {p.final_xp:.2f}</span>
                                         </div>
                                         """, unsafe_allow_html=True)
                                 st.write("")
@@ -1129,11 +1138,11 @@ elif app_mode == "🏆 Live Mini-League Standings":
                         
                         m1, m2, m3 = st.columns(3)
                         if len(month_totals) >= 1:
-                            m1.markdown(f"<div style='background: rgba(255, 215, 0, 0.1); border: 2px solid gold; padding: 20px; border-radius: 10px; text-align: center;'><h1 style='margin:0;'>🥇</h1><h3 style='margin:0;'>{month_totals.iloc[0]['Manager']}</h3><p>{month_totals.iloc[0]['Team']}<br><b style='font-size:20px; color:gold;'>{month_totals.iloc[0]['Net Points']} pts</b></p></div>", unsafe_allow_html=True)
+                            m1.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E5E2DC; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);'><h1 style='margin:0;'>🥇</h1><h3 style='margin:0;'>{month_totals.iloc[0]['Manager']}</h3><p style='color: #555555;'>{month_totals.iloc[0]['Team']}<br><b style='font-size:20px; color:#D97757; font-family: \"Fira Code\", monospace;'>{month_totals.iloc[0]['Net Points']} pts</b></p></div>", unsafe_allow_html=True)
                         if len(month_totals) >= 2:
-                            m2.markdown(f"<div style='background: rgba(192, 192, 192, 0.1); border: 2px solid silver; padding: 20px; border-radius: 10px; text-align: center;'><h1 style='margin:0;'>🥈</h1><h3 style='margin:0;'>{month_totals.iloc[1]['Manager']}</h3><p>{month_totals.iloc[1]['Team']}<br><b style='font-size:20px; color:silver;'>{month_totals.iloc[1]['Net Points']} pts</b></p></div>", unsafe_allow_html=True)
+                            m2.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E5E2DC; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);'><h1 style='margin:0;'>🥈</h1><h3 style='margin:0;'>{month_totals.iloc[1]['Manager']}</h3><p style='color: #555555;'>{month_totals.iloc[1]['Team']}<br><b style='font-size:20px; color:#8C8C8C; font-family: \"Fira Code\", monospace;'>{month_totals.iloc[1]['Net Points']} pts</b></p></div>", unsafe_allow_html=True)
                         if len(month_totals) >= 3:
-                            m3.markdown(f"<div style='background: rgba(205, 127, 50, 0.1); border: 2px solid #cd7f32; padding: 20px; border-radius: 10px; text-align: center;'><h1 style='margin:0;'>🥉</h1><h3 style='margin:0;'>{month_totals.iloc[2]['Manager']}</h3><p>{month_totals.iloc[2]['Team']}<br><b style='font-size:20px; color:#cd7f32;'>{month_totals.iloc[2]['Net Points']} pts</b></p></div>", unsafe_allow_html=True)
+                            m3.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E5E2DC; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);'><h1 style='margin:0;'>🥉</h1><h3 style='margin:0;'>{month_totals.iloc[2]['Manager']}</h3><p style='color: #555555;'>{month_totals.iloc[2]['Team']}<br><b style='font-size:20px; color:#A67B5B; font-family: \"Fira Code\", monospace;'>{month_totals.iloc[2]['Net Points']} pts</b></p></div>", unsafe_allow_html=True)
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.dataframe(month_totals, width="stretch")
@@ -1166,16 +1175,16 @@ elif app_mode == "📅 Match Results & Fixtures":
                     st.markdown(f"""
                     <div class="fixture-card">
                         <div style="width: 35%; text-align: right;">
-                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{row['home_team']}</div>
-                            <div style="font-size: 0.85rem; color: #0088cc;">xG: {float(row.get('home_xG', row.get('home_xg', 0.0))):.2f}</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #1A1A1A;">{row['home_team']}</div>
+                            <div style="font-size: 0.85rem; color: #D97757; font-family: 'Fira Code', monospace;">xG: {float(row.get('home_xG', row.get('home_xg', 0.0))):.2f}</div>
                         </div>
                         <div style="width: 30%; display: flex; flex-direction: column; align-items: center;">
                             <div class="score-box">{int(row['home_goals'])} <span style='opacity:0.5'>-</span> {int(row['away_goals'])}</div>
-                            <span style="font-size: 0.8rem; margin-top: 6px; color: var(--text-color); opacity: 0.7; text-transform: uppercase;">{row['date'].strftime('%d %b %Y')}</span>
+                            <span style="font-size: 0.8rem; margin-top: 6px; color: #8C8C8C; text-transform: uppercase;">{row['date'].strftime('%d %b %Y')}</span>
                         </div>
                         <div style="width: 35%; text-align: left;">
-                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-color);">{row['away_team']}</div>
-                            <div style="font-size: 0.85rem; color: #cc0066;">xG: {float(row.get('away_xG', row.get('away_xg', 0.0))):.2f}</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #1A1A1A;">{row['away_team']}</div>
+                            <div style="font-size: 0.85rem; color: #8C8C8C; font-family: 'Fira Code', monospace;">xG: {float(row.get('away_xG', row.get('away_xg', 0.0))):.2f}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -1268,8 +1277,8 @@ elif app_mode == "📈 Team Trends (xG vs Actual)":
                 trend_df = pd.DataFrame({'Gameweek': range(1, len(actual_vals) + 1), 'Actual': np.cumsum(actual_vals), 'Expected': np.cumsum(expected_vals)})
                 
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(x=trend_df['Gameweek'], y=trend_df['Actual'], mode='lines+markers', name=f'Actual {metric_choice}', line=dict(color='#0088cc', width=3)))
-                fig.add_trace(go.Scatter(x=trend_df['Gameweek'], y=trend_df['Expected'], mode='lines', name=f'Expected {metric_choice}', line=dict(color='#cc0066', width=3, dash='dot')))
+                fig.add_trace(go.Scatter(x=trend_df['Gameweek'], y=trend_df['Actual'], mode='lines+markers', name=f'Actual {metric_choice}', line=dict(color='#D97757', width=3)))
+                fig.add_trace(go.Scatter(x=trend_df['Gameweek'], y=trend_df['Expected'], mode='lines', name=f'Expected {metric_choice}', line=dict(color='#8C8C8C', width=3, dash='dot')))
                 fig.update_layout(title=f"{selected_team} - Cumulative {metric_choice} ({format_season(selected_season_raw)})", xaxis_title="Gameweek", template=chart_theme, hovermode='x unified')
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -1303,11 +1312,11 @@ elif app_mode == "📈 For your information only":
             tab1, tab2, tab3, tab4 = st.tabs(["🔄 Losing at HT", "🛡️ Winning at HT", "🏠 Home vs Away", "🎯 Chaos Quadrant"])
             
             with tab1:
-                fig1 = px.histogram(fact_matches[fact_matches['HT_Status'] == 'Losing'], y="Team", color="FT_Status", title="Match Outcomes When Trailing at HT", color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
+                fig1 = px.histogram(fact_matches[fact_matches['HT_Status'] == 'Losing'], y="Team", color="FT_Status", title="Match Outcomes When Trailing at HT", color_discrete_map={'Win': '#D97757', 'Draw': '#E5E2DC', 'Loss': '#8C8C8C'}, orientation='h')
                 fig1.update_layout(yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig1, width="stretch")
             with tab2:
-                fig2 = px.histogram(fact_matches[fact_matches['HT_Status'] == 'Winning'], y="Team", color="FT_Status", title="Match Outcomes When Leading at HT", color_discrete_map={'Win': '#0088cc', 'Draw': '#8f9bba', 'Loss': '#cc0066'}, orientation='h')
+                fig2 = px.histogram(fact_matches[fact_matches['HT_Status'] == 'Winning'], y="Team", color="FT_Status", title="Match Outcomes When Leading at HT", color_discrete_map={'Win': '#D97757', 'Draw': '#E5E2DC', 'Loss': '#8C8C8C'}, orientation='h')
                 fig2.update_layout(yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig2, width="stretch")
             with tab3:
@@ -1315,27 +1324,27 @@ elif app_mode == "📈 For your information only":
                 ha_wins = fact_matches[fact_matches['FT_Status'] == 'Win'].groupby(['Team', 'Venue']).size().reset_index(name='Wins')
                 ha_merged = pd.merge(ha_stats, ha_wins, on=['Team', 'Venue'], how='left').fillna(0)
                 ha_merged['Win_Rate'] = (ha_merged['Wins'] / ha_merged['Matches']) * 100
-                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title="Win Rate %: Home vs Away", color_discrete_map={'Home': '#0088cc', 'Away': '#cc0066'})
+                fig3 = px.bar(ha_merged, x="Team", y="Win_Rate", color="Venue", barmode="group", title="Win Rate %: Home vs Away", color_discrete_map={'Home': '#D97757', 'Away': '#8C8C8C'})
                 st.plotly_chart(fig3, width="stretch")
             with tab4:
                 fact_matches['Pts'] = fact_matches['FT_Status'].map({'Win': 3, 'Draw': 1, 'Loss': 0})
                 team_stats = fact_matches.groupby('Team').agg(Avg_Scored=('Scored_FT', 'mean'), Avg_Conceded=('Conceded_FT', 'mean'), Total_Pts=('Pts', 'sum')).reset_index()
                 
-                fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', size='Total_Pts', size_max=25, color_discrete_sequence=['#0088cc'])
+                fig4 = px.scatter(team_stats, x='Avg_Conceded', y='Avg_Scored', text='Team', size='Total_Pts', size_max=25, color_discrete_sequence=['#D97757'])
                 fig4.update_traces(textposition='top center')
                 
                 x_mean, y_mean = team_stats['Avg_Conceded'].mean(), team_stats['Avg_Scored'].mean()
                 x_min, x_max = max(0, team_stats['Avg_Conceded'].min() - 0.5), team_stats['Avg_Conceded'].max() + 0.5
                 y_min, y_max = max(0, team_stats['Avg_Scored'].min() - 0.5), team_stats['Avg_Scored'].max() + 0.5
                 
-                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#cc0066"); fig4.add_vline(x=x_mean, line_dash="dash", line_color="#cc0066")
-                fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(0, 136, 204, 0.1)", line_width=0, layer="below")
-                fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(204, 0, 102, 0.1)", line_width=0, layer="below")
+                fig4.add_hline(y=y_mean, line_dash="dash", line_color="#8C8C8C"); fig4.add_vline(x=x_mean, line_dash="dash", line_color="#8C8C8C")
+                fig4.add_shape(type="rect", x0=x_min, x1=x_mean, y0=y_mean, y1=y_max, fillcolor="rgba(217, 119, 87, 0.1)", line_width=0, layer="below")
+                fig4.add_shape(type="rect", x0=x_mean, x1=x_max, y0=y_min, y1=y_mean, fillcolor="rgba(140, 140, 140, 0.1)", line_width=0, layer="below")
                 
-                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#0088cc", size=16))
-                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#8f9bba", size=14))
-                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#8f9bba", size=14))
-                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#cc0066", size=14))
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_max-0.1, text="🔥 Elite", showarrow=False, font=dict(color="#D97757", size=16))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_max-0.1, text="🎭 Entertainers", showarrow=False, font=dict(color="#555555", size=14))
+                fig4.add_annotation(x=x_min + (x_mean-x_min)/2, y=y_min+0.1, text="🛡️ Park the Bus", showarrow=False, font=dict(color="#555555", size=14))
+                fig4.add_annotation(x=x_max - (x_max-x_mean)/2, y=y_min+0.1, text="📉 Strugglers", showarrow=False, font=dict(color="#8C8C8C", size=14))
                 
                 fig4.update_layout(title="The Chaos Quadrant", xaxis_title="Avg Goals Conceded (Fewer = Better)", yaxis_title="Avg Goals Scored (More = Better)", xaxis=dict(range=[x_min, x_max]), yaxis=dict(range=[y_min, y_max]))
                 st.plotly_chart(fig4, width="stretch")

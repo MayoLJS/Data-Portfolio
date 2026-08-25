@@ -133,6 +133,15 @@ if not st.session_state["authenticated"]:
         if st.button("Log In", type="primary", use_container_width=True):
             if username in VALID_USERS and VALID_USERS[username] == password:
                 st.session_state["authenticated"] = True
+                
+                # Dynamic ID assignment based on login
+                if username.lower() == "olu" or username == "2783761":
+                    st.session_state["default_manager_id"] = "2783761"
+                    st.session_state["default_league_id"] = "685121"
+                else:
+                    st.session_state["default_manager_id"] = username if username.isdigit() else ""
+                    st.session_state["default_league_id"] = ""
+                    
                 st.rerun()
             else:
                 st.error("⚠️ Invalid Username or Password")
@@ -438,9 +447,10 @@ st.sidebar.markdown("---")
 
 menu_category = st.sidebar.selectbox("Select Category:", ["🏆 Fantasy Premier League", "⚽ EPL Matches & Stats", "📈 Betting Advisor"])
 st.sidebar.markdown("---")
+
 st.sidebar.header("👤 Your FPL Context")
-user_manager_id = st.sidebar.text_input("My Manager ID:", value="2783761")
-user_league_id = st.sidebar.text_input("My Mini-League ID:", value="685121")
+user_manager_id = st.sidebar.text_input("My Manager ID:", value=st.session_state.get("default_manager_id", ""))
+user_league_id = st.sidebar.text_input("My Mini-League ID:", value=st.session_state.get("default_league_id", ""))
 st.sidebar.markdown("---")
 
 if menu_category == "🏆 Fantasy Premier League":

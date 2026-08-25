@@ -33,6 +33,7 @@ jobs:
         run: |
           # Ensure this path matches the exact location of your python script
           python 04_Fantasy_PL/extract_data.py
+          python 04_Fantasy_PL/scripts/get_understat.py
 
       - name: 💾 Commit and push new data
         run: |

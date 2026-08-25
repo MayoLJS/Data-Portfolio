@@ -111,10 +111,7 @@ st.markdown("""
 # ==========================================
 # 2. AUTHENTICATION GATEKEEPER
 # ==========================================
-VALID_USERS = {
-    "olu": "admin123",
-    "friend1": "passcode1"
-}
+VALID_USERS = st.secrets["passwords"]
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False

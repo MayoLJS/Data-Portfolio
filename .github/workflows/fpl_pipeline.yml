@@ -1,0 +1,45 @@
+name: Automated FPL Data Extraction
+
+on:
+  schedule:
+    # This cron schedule runs the script every day at 06:00 UTC. 
+    - cron: '0 6 * * *'
+  # The workflow_dispatch command adds a "Run Workflow" button so you can trigger it manually anytime.
+  workflow_dispatch: 
+
+jobs:
+  extract-and-commit:
+    runs-on: ubuntu-latest
+    
+    # This permission is required so the robot can push the new CSVs back to your repo
+    permissions:
+      contents: write 
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install Python libraries
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas requests
+
+      - name: ⚙️ Run FPL extraction script
+        run: |
+          # Ensure this path matches the exact location of your python script
+          python 04_Fantasy_PL/extract_data.py
+
+      - name: 💾 Commit and push new data
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          
+          # This command checks if any data actually changed. 
+          # If the stats are the same, it skips the commit so it doesn't crash.
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated FPL data update" && git push)

@@ -27,12 +27,10 @@ jobs:
       - name: 📦 Install Python libraries
         run: |
           python -m pip install --upgrade pip
-          # Added soccerdata, html5lib, and lxml so get_understat.py works!
           pip install pandas requests soccerdata html5lib lxml
 
-      - name: ⚙️ Run FPL extraction script
+      - name: ⚙️ Run FPL extraction scripts
         run: |
-          # Both paths now correctly point to the /scripts/ folder
           python 04_Fantasy_PL/scripts/extract_data.py
           python 04_Fantasy_PL/scripts/get_understat.py
 
@@ -40,8 +38,9 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
           
-          # This command checks if any data actually changed. 
-          # If the stats are the same, it skips the commit so it doesn't crash.
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated FPL data update" && git push)
+          # Add all data changes across the repository
+          git add 04_Fantasy_PL/data/
+          
+          # Check if there are changes to commit, then commit and push
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated FPL and Understat data update" && git push)

@@ -116,9 +116,7 @@ st.markdown("""
 try:
     VALID_USERS = st.secrets["passwords"]
 except KeyError:
-    # Fallback to defaults if local secrets.toml is missing during dev
     VALID_USERS = {"olu": "admin123", "friend1": "passcode1"}
-    st.warning("Running in local mode without st.secrets.")
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -867,22 +865,67 @@ elif app_mode == "🔄 Transfer Suggester":
 elif app_mode == "🏆 Live Mini-League Standings":
     st.title("🏆 Granular Mini-League Analyzer")
     if user_league_id:
-        history_df, l_name, standings_res, completed_gws = fetch_league_history(user_league_id)
+        with st.spinner("Crunching mini-league history..."):
+            history_df, l_name, standings_res, completed_gws = fetch_league_history(user_league_id)
+            
         if standings_res:
             st.markdown(f"### 🏅 {l_name}")
-            tab1, tab2 = st.tabs(["🏆 Live Overall Standings", "📅 Gameweek Winners"])
+            tab1, tab2, tab3 = st.tabs(["🏆 Live Overall Standings", "📅 Gameweek Winners", "🗓️ Monthly Awards"])
+            
             with tab1:
                 st.dataframe(pd.DataFrame(standings_res)[['rank', 'entry_name', 'player_name', 'event_total', 'total']], width="stretch", hide_index=True)
+            
             with tab2:
-                if not history_df.empty and completed_gws:
-                    selected_gw = st.selectbox("Select Gameweek:", sorted(completed_gws, reverse=True))
-                    gw_df = history_df[history_df['GW'] == selected_gw].sort_values(by='Net Points', ascending=False).reset_index(drop=True)
-                    gw_df.index += 1
-                    if not gw_df.empty:
-                        winner = gw_df.iloc[0]
-                        st.success(f"👑 **Winner:** {winner['Manager']} with **{winner['Net Points']} points!**")
-                        st.dataframe(gw_df[['Manager', 'Team', 'Net Points']], width="stretch")
-        else: st.error("Failed to load league standings.")
+                gw_summary = []
+                for gw in range(1, 39):
+                    if gw in completed_gws and not history_df.empty:
+                        gw_df = history_df[history_df['GW'] == gw].sort_values(by='Net Points', ascending=False)
+                        if not gw_df.empty:
+                            winner = gw_df.iloc[0]
+                            gw_summary.append({"Gameweek": f"GW {gw}", "Team Name": winner['Team'], "Manager": winner['Manager'], "Points": winner['Net Points']})
+                        else:
+                            gw_summary.append({"Gameweek": f"GW {gw}", "Team Name": "Data Unavailable", "Manager": "-", "Points": None})
+                    else:
+                        gw_summary.append({"Gameweek": f"GW {gw}", "Team Name": "-", "Manager": "-", "Points": None})
+                
+                st.markdown("### 📅 Weekly Champions")
+                st.dataframe(
+                    pd.DataFrame(gw_summary), 
+                    width="stretch", 
+                    hide_index=True,
+                    column_config={"Points": st.column_config.NumberColumn("Points", format="%d")}
+                )
+
+            with tab3:
+                if not history_df.empty:
+                    month_summary = []
+                    chronological_months = history_df.sort_values('GW')['Month'].unique()
+                    
+                    for month in chronological_months:
+                        month_df = history_df[history_df['Month'] == month]
+                        month_totals = month_df.groupby(['Manager', 'Team'])['Net Points'].sum().reset_index()
+                        month_totals = month_totals.sort_values(by='Net Points', ascending=False).head(3)
+                        
+                        positions = ["Winner 🥇", "Runner up 🥈", "Second Runner up 🥉"]
+                        for idx, (_, row) in enumerate(month_totals.iterrows()):
+                            month_summary.append({
+                                "Month": month,
+                                "Position": positions[idx],
+                                "Team Name": row['Team'],
+                                "Points": row['Net Points']
+                            })
+                    
+                    st.markdown("### 🗓️ Manager of the Month Awards")
+                    st.dataframe(
+                        pd.DataFrame(month_summary), 
+                        width="stretch", 
+                        hide_index=True,
+                        column_config={"Points": st.column_config.NumberColumn("Points", format="%d")}
+                    )
+                else:
+                    st.info("No monthly data available yet. Check back after a few gameweeks have finished!")
+        else: 
+            st.error("Failed to load league standings. Please check your Mini-League ID.")
 
 # ==========================================
 # MODULE: REAL EPL MATCHES & STATS

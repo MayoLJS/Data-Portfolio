@@ -9,31 +9,93 @@ import re
 from streamlit_echarts import st_echarts
 
 # ==========================================
-# 1. PAGE CONFIG & CUSTOM CSS (LIGHT/DARK COMPATIBLE)
+# 1. PAGE CONFIG & PREMIUM CUSTOM CSS
 # ==========================================
 st.set_page_config(page_title="EPL Hub", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
-    /* Custom Card Containers */
-    .scout-card { background: var(--secondary-background-color); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 12px; padding: 24px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .pitch-card { background: var(--secondary-background-color); border: 1px solid #00f2fe; border-radius: 10px; padding: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,242,254,0.1); position: relative; }
-    .bench-card { background: var(--secondary-background-color); border: 1px solid #ff007f; border-radius: 10px; padding: 12px; text-align: center; position: relative;}
-    .fixture-card { background: var(--secondary-background-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;}
-    .fixture-card:hover { border-color: rgba(0, 136, 204, 0.5); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    /* Import Premium Fonts (Inter for text, Fira Code for metrics) */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Fira+Code:wght@500;700&display=swap');
+
+    /* Global Font Assignments */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
     
-    /* Pitch Background */
-    .pitch-container { background: linear-gradient(180deg, rgba(27, 67, 50, 0.25) 0%, rgba(45, 106, 79, 0.25) 100%); border-radius: 16px; padding: 25px; border: 1px solid rgba(76, 175, 80, 0.5); margin-bottom: 25px;}
+    /* Metrics, Headers, and Data use Monospace for an analytical look */
+    h1, h2, h3, h4, h5, h6, .score-box, .stMetricValue, .leaderboard-stat {
+        font-family: 'Fira Code', monospace !important;
+        letter-spacing: -0.5px;
+    }
+
+    /* Refined Custom Card Containers */
+    .scout-card { 
+        background: var(--secondary-background-color); 
+        border: 1px solid rgba(0, 136, 204, 0.2); 
+        border-radius: 16px; 
+        padding: 24px; 
+        margin-bottom: 20px; 
+        box-shadow: 0 8px 24px rgba(0,0,0,0.08); 
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .scout-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(0,136,204,0.15);
+    }
     
-    /* Badges */
-    .badge-cyan { background: rgba(0, 242, 254, 0.15); color: #0088cc; border: 1px solid #00f2fe; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
-    .badge-pink { background: rgba(255, 0, 127, 0.15); color: #cc0066; border: 1px solid #ff007f; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
-    .badge-cap { background: #ffcc00; color: #000; border: 1px solid #d4af37; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 900; margin-left: 4px;}
-    .score-box { background: var(--background-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 18px; font-size: 20px; font-weight: 800; letter-spacing: 3px; color: var(--text-color); }
+    /* Pitch & Bench Cards */
+    .pitch-card, .bench-card { 
+        background: var(--secondary-background-color); 
+        border-radius: 12px; 
+        padding: 16px; 
+        text-align: center; 
+        position: relative;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .pitch-card { border: 1px solid #00f2fe; }
+    .bench-card { border: 1px solid #ff007f; opacity: 0.95; }
     
-    /* Leaderboard Styling */
-    .leaderboard-item { font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--border-color); color: var(--text-color); }
-    .leaderboard-stat { color: #0088cc; font-weight: 700; font-size: 15px; }
+    /* Premium Pitch Background */
+    .pitch-container { 
+        background: linear-gradient(180deg, rgba(20, 30, 48, 0.5) 0%, rgba(36, 59, 85, 0.5) 100%); 
+        border-radius: 24px; 
+        padding: 30px; 
+        border: 1px solid rgba(255, 255, 255, 0.1); 
+        margin-bottom: 30px;
+    }
+
+    /* Fixture Cards */
+    .fixture-card { 
+        background: var(--secondary-background-color); 
+        border: 1px solid var(--border-color); 
+        border-radius: 12px; 
+        padding: 20px; 
+        margin-bottom: 12px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        transition: all 0.2s ease;
+    }
+    .fixture-card:hover { 
+        border-color: rgba(0, 136, 204, 0.5); 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+    }
+    
+    /* Modern Pill-Shaped Badges */
+    .badge-cyan { background: rgba(0, 242, 254, 0.1); color: #00f2fe; border: 1px solid #00f2fe; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;}
+    .badge-pink { background: rgba(255, 0, 127, 0.1); color: #ff007f; border: 1px solid #ff007f; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;}
+    .badge-cap { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #000; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 900; margin-left: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
+    
+    /* Elevated Score Box */
+    .score-box { background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 24px; font-size: 24px; font-weight: 800; letter-spacing: 2px; color: var(--text-color); }
+    
+    /* Clean up Streamlit Default UI */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    .leaderboard-item { font-size: 14px; padding: 10px 0; border-bottom: 1px solid var(--border-color); color: var(--text-color); }
+    .leaderboard-stat { color: #0088cc; font-weight: 700; font-size: 16px; font-family: 'Fira Code', monospace;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,12 +111,12 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("<h1 style='text-align: center; margin-top: 50px;'>🔐 Welcome to EPL Hub</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Please enter your credentials to access the app.</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; margin-top: 50px; font-family: \"Fira Code\", monospace;'>🔐 EPL Hub</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #8f9bba;'>Secure access required.</p>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.markdown("<div style='background: var(--secondary-background-color); padding: 30px; border-radius: 12px; border: 1px solid var(--border-color);'>", unsafe_allow_html=True)
+        st.markdown("<div style='background: var(--secondary-background-color); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 8px 24px rgba(0,0,0,0.1);'>", unsafe_allow_html=True)
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         if st.button("Log In", type="primary", use_container_width=True):
@@ -91,7 +153,6 @@ def get_current_event():
 
 @st.cache_data(ttl=3600)
 def fetch_manager_squad(manager_id, curr_event):
-    """Fetches the live FPL squad cleanly and securely caches it."""
     try:
         r = requests.get(f"https://fantasy.premierleague.com/api/entry/{manager_id}/event/{curr_event}/picks/", timeout=5).json()
         if 'picks' in r:
@@ -123,7 +184,6 @@ def load_fpl_data():
         if fix_response.status_code == 200:
             fixtures = pd.DataFrame(fix_response.json())
             if not fixtures.empty and 'event' in fixtures.columns:
-                # Fetch up to 5 Gameweeks of future fixtures
                 future_events = sorted(fixtures['event'].dropna().unique())[:5]
                 
                 team_mapping = dict(zip(teams['id'], teams['short_name']))
@@ -248,7 +308,6 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
     df['cs_val'] = df['element_type'].map({1: 4.0, 2: 4.0, 3: 1.0, 4: 0.0})
     df['conc_penalty_val'] = df['element_type'].map({1: -1.0, 2: -1.0, 3: 0.0, 4: 0.0})
     
-    # Define decay weights up to 5 weeks
     base_weights = [1.0, 0.8, 0.6, 0.4, 0.2]
     gw_weights = base_weights[:horizon]
     
@@ -297,6 +356,7 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, w_long, w_short, fa_boost, ha_boo
         
         if gw_idx == 0:
             df['attack_mult'] = attack_mult
+            df['def_mult'] = def_mult
             df['prob_cs'] = prob_cs
             df['is_home'] = is_home
             df['opp_name'] = opp_name
@@ -518,7 +578,7 @@ if app_mode == "👤 Advanced Player Scout":
                         if col_name in players_df.columns:
                             val = p_data[col_name]
                             percentile = int((players_df[col_name] < val).mean() * 100)
-                            st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: var(--text-color);'><b>{label}</b>: <span style='color:#0088cc; font-family: \"Fira Code\", monospace;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
                             st.progress(percentile / 100.0)
                 
                 with rc2:
@@ -612,7 +672,7 @@ if app_mode == "👤 Advanced Player Scout":
 # FPL MODULE 2: UNIFIED DATA & POINTS MATRIX
 # ==========================================
 elif app_mode == "🗄️ Model Data & Points Matrix":
-    st.title(f"🗄️ Model Data & {horizon_g}-GW Expected Points Decomposition")
+    st.title(f"🗄️ Model Data & {horizon_g}-GW Expected Points")
     st.write(f"Explore the underlying data bank and see exactly how the unified Multi-GW model calculates every expected point across your selected {horizon_g}-GW horizon.")
     
     tab1, tab2 = st.tabs([f"🧮 {horizon_g}-GW xP Breakdown Matrix", "🗄️ Master Player Data Bank"])

@@ -134,14 +134,12 @@ if not st.session_state["authenticated"]:
             user_str = str(username).strip()
             if user_str in VALID_USERS and str(VALID_USERS[user_str]) == str(password):
                 st.session_state["authenticated"] = True
-                
                 if user_str.lower() == "olu" or user_str == "2783761":
                     st.session_state["default_manager_id"] = "2783761"
                     st.session_state["default_league_id"] = "685121"
                 else:
                     st.session_state["default_manager_id"] = user_str if user_str.isdigit() else ""
                     st.session_state["default_league_id"] = ""
-                    
                 st.rerun()
             else:
                 st.error("⚠️ Invalid Username or Password")
@@ -243,11 +241,9 @@ def load_fpl_data():
                     for _, row in ev_fix.iterrows():
                         h_id, a_id = row['team_h'], row['team_a']
                         h_fdr, a_fdr = row['team_h_difficulty'], row['team_a_difficulty']
-                        
                         team_fixtures[h_id]['opps'].append(team_mapping.get(a_id, 'UNK'))
                         team_fixtures[h_id]['is_home'].append(True)
                         team_fixtures[h_id]['fdr'].append(h_fdr)
-                        
                         team_fixtures[a_id]['opps'].append(team_mapping.get(h_id, 'UNK'))
                         team_fixtures[a_id]['is_home'].append(False)
                         team_fixtures[a_id]['fdr'].append(a_fdr)
@@ -255,7 +251,6 @@ def load_fpl_data():
                 players['next_5_opps'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('opps', []))
                 players['next_5_is_home'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('is_home', []))
                 players['next_5_fdr'] = players['team'].map(lambda x: team_fixtures.get(x, {}).get('fdr', []))
-                
                 players['next_opponent'] = players['team'].map(
                     lambda x: f"{team_fixtures.get(x, {}).get('opps', [''])[0]} ({'H' if team_fixtures.get(x, {}).get('is_home', [True])[0] else 'A'})" if team_fixtures.get(x, {}).get('opps') else "Blank GW"
                 )
@@ -275,7 +270,6 @@ def load_fpl_data():
             
     players['cost_m'] = players['now_cost'] / 10.0
     players['position'] = players['element_type'].map({1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD'})
-    
     return players, teams
 
 @st.cache_data(ttl=3600)
@@ -295,14 +289,12 @@ def load_understat_data(fpl_fixtures_df):
         df = pd.read_csv(raw_url)
         df['date'] = pd.to_datetime(df['date'])
         
-        # Protect against KeyErrors
         if 'home_team' not in df.columns and 'h_team' in df.columns: df['home_team'] = df['h_team']
         if 'away_team' not in df.columns and 'a_team' in df.columns: df['away_team'] = df['a_team']
             
         df['home_team_std'] = df['home_team'].apply(standardize_team)
         df['away_team_std'] = df['away_team'].apply(standardize_team)
         
-        # BRIDGE: Perfect Gameweek Sync via FPL Fixture Map (Fixes Monday/DGW bug)
         if not fpl_fixtures_df.empty:
             fpl_map = fpl_fixtures_df.set_index(['home_team', 'away_team'])['event'].to_dict()
             df['gameweek'] = df.apply(lambda r: fpl_map.get((r['home_team_std'], r['away_team_std']), np.nan), axis=1)
@@ -316,13 +308,12 @@ def load_understat_data(fpl_fixtures_df):
 
 @st.cache_data(ttl=3600)
 def load_understat_shots():
-    """Robust scraper mapper ensuring no KeyErrors occur regardless of source formatting."""
     raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/04_Fantasy_PL/data/understat_shots.csv"
     try:
         df = pd.read_csv(raw_url)
+        if df.empty: return pd.DataFrame()
         
-        # 1. Exhaustive Column Normalization
-        col_map = {}
+        col_map = {c: c for c in df.columns}
         for c in df.columns:
             cl = str(c).lower().strip()
             if cl in ['xg', 'expected_goals', 'shot_expected_goals']: col_map[c] = 'xG'
@@ -338,34 +329,41 @@ def load_understat_shots():
             elif cl in ['game', 'match', 'match_id', 'game_id']: col_map[c] = 'game'
         df = df.rename(columns=col_map)
         
-        # 2. Safety Defaults
-        if 'X' not in df.columns: df['X'] = 0.5
-        if 'Y' not in df.columns: df['Y'] = 0.5
-        if 'xG' not in df.columns: df['xG'] = 0.0
+        for req in ['X', 'Y', 'xG']:
+            if req not in df.columns: df[req] = 0.5 if req != 'xG' else 0.0
         if 'minute' not in df.columns: df['minute'] = 1
         if 'result' not in df.columns: df['result'] = 'Missed'
         if 'player' not in df.columns: df['player'] = 'Unknown'
         
-        # Normalize result strings
         df['result'] = df['result'].astype(str).str.title()
         
-        # Safely extract home_team and away_team if missing
-        if 'home_team' not in df.columns:
-            if 'game' in df.columns and df['game'].dtype == 'O' and '-' in str(df['game'].iloc[0]):
-                df['home_team'] = df['game'].apply(lambda g: str(g).split(' ', 1)[-1].split('-')[0].strip() if '-' in str(g) else 'Unknown')
-                df['away_team'] = df['game'].apply(lambda g: str(g).split(' ', 1)[-1].split('-')[1].strip() if '-' in str(g) else 'Unknown')
+        # Safely split the game column without crashing if formatting changes
+        def parse_game(g):
+            try:
+                s = str(g)
+                if ' ' in s: s = s.split(' ', 1)[-1]
+                if '-' in s:
+                    parts = s.split('-')
+                    return parts[0].strip(), parts[1].strip()
+            except: pass
+            return 'Unknown', 'Unknown'
+            
+        if 'home_team' not in df.columns or 'away_team' not in df.columns:
+            if 'game' in df.columns:
+                parsed = df['game'].apply(parse_game)
+                df['home_team'] = [p[0] for p in parsed]
+                df['away_team'] = [p[1] for p in parsed]
             else:
                 df['home_team'], df['away_team'] = 'Unknown', 'Unknown'
                 
-        # Resolve the active team that took the shot
         if 'team' in df.columns:
-            df['team_std'] = df['team'].apply(standardize_team)
+            df['team_std'] = df['team']
         elif 'h_a' in df.columns:
             df['team_std'] = np.where(df['h_a'].astype(str).str.lower() == 'h', df['home_team'], df['away_team'])
-            df['team_std'] = df['team_std'].apply(standardize_team)
         else:
             df['team_std'] = 'Unknown'
             
+        df['team_std'] = df['team_std'].apply(standardize_team)
         df['home_team'] = df['home_team'].apply(standardize_team)
         df['away_team'] = df['away_team'].apply(standardize_team)
         
@@ -388,9 +386,7 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boo
     max_possible_games = max(1.0, round(df['mins_played'].max() / 90.0))
     df['mins_per_game'] = (df['mins_played'] / max_possible_games).round(1)
     is_eligible = df['mins_per_game'] >= min_mins
-    
     df['is_pen_taker'] = pd.to_numeric(df.get('penalties_order', 0), errors='coerce') == 1
-    
     dampener = np.clip(df['mins_per_game'] / 60.0, 0.4, 1.0)
     df['xg_p90_base'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_goals'] / df['mins_played']) * 90.0 * dampener, 0.0)
     df['xg_p90'] = np.where(df['is_pen_taker'], df['xg_p90_base'] + 0.15, df['xg_p90_base'])
@@ -598,7 +594,6 @@ user_manager_id = st.sidebar.text_input("My Manager ID:", value=st.session_state
 user_league_id = st.sidebar.text_input("My Mini-League ID:", value=st.session_state.get("default_league_id", ""))
 st.sidebar.markdown("---")
 
-# Global weights placeholders
 w_finishing, w_zone = 50, 50
 
 if menu_category == "🏆 Fantasy Premier League":
@@ -642,15 +637,12 @@ if menu_category == "🏆 Fantasy Premier League":
     else:
         horizon_g = st.sidebar.slider("Planning Horizon (Gameweeks)", 1, 5, 3, 1)
         min_mins_g = st.sidebar.slider("Min Mins/Game Filter", 10.0, 90.0, 25.0, 5.0)
-        
         st.sidebar.markdown("**Granular Shot Data Weights**")
         w_finishing = st.sidebar.slider("Finishing Skill Impact (%)", 0, 100, 50, 10)
         w_zone = st.sidebar.slider("High-Value Zone Impact (%)", 0, 100, 50, 10)
-        
         st.sidebar.markdown("**Poisson Model Weights**")
         fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05)
         ha_boost_g = st.sidebar.slider("Home/Away Factor", 0.0, 0.15, 0.05, 0.01)
-        
         st.sidebar.markdown("**ICT / Form Hybrid Weights**")
         w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
         w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
@@ -807,8 +799,10 @@ elif app_mode == "👤 Advanced Player Scout":
                                 text=p_shots.apply(lambda r: f"Minute: {r['minute']}' | xG: {r['xG']:.2f} | {r['result']}", axis=1), hoverinfo='text'
                             ))
                             st.plotly_chart(p_fig, use_container_width=True)
-                        else: st.info("No individual shot tracking events found for this player in the database.")
-                    else: st.info("Understat shot dataset currently synchronizing...")
+                        else: 
+                            st.info("No individual shot tracking events found for this player in the database.")
+                    else: 
+                        st.warning("🚨 The granular shot dataset is currently empty or still synchronizing.")
             else:
                 c_a, c_b = st.columns(2)
                 with c_a: player_a = st.selectbox("Select Player A:", player_list, index=0)
@@ -1171,7 +1165,6 @@ elif app_mode == "📅 Match Results & Match Center":
                         
                         h_mins = [0] + h_shots['minute'].tolist() + [90] if not h_shots.empty else [0, 90]
                         h_xgs = [0] + h_shots['xG'].cumsum().tolist() + [h_shots['xG'].sum()] if not h_shots.empty else [0, 0]
-                        
                         a_mins = [0] + a_shots['minute'].tolist() + [90] if not a_shots.empty else [0, 90]
                         a_xgs = [0] + a_shots['xG'].cumsum().tolist() + [a_shots['xG'].sum()] if not a_shots.empty else [0, 0]
                         
@@ -1180,19 +1173,23 @@ elif app_mode == "📅 Match Results & Match Center":
                         fig_mom.add_trace(go.Scatter(x=a_mins, y=a_xgs, mode='lines', name=sel_away_team, line=dict(color='#8C8C8C', width=3, shape='hv')))
                         fig_mom.update_layout(xaxis_title="Match Minute", yaxis_title="Cumulative xG", height=380, plot_bgcolor="#FBFBF9")
                         st.plotly_chart(fig_mom, use_container_width=True)
-                    else: st.info("Granular shot timeline not available for this historical game.")
+                    else: st.info(f"No shot progression data recorded for {sel_home_team} vs {sel_away_team}.")
+                else: st.warning("🚨 Shot dataset is currently empty or synchronizing.")
             
             with mc2:
                 st.markdown("#### 🎯 Match Pitch & Shot Map")
-                if understat_shots_df is not None and not understat_shots_df.empty and not m_shots.empty:
-                    pitch_fig = draw_pitch_plotly(f"{sel_home_team} vs {sel_away_team}")
-                    pitch_fig.add_trace(go.Scatter(
-                        x=m_shots['X'], y=m_shots['Y'], mode='markers',
-                        marker=dict(size=m_shots['xG']*35 + 6, color=np.where(m_shots['team_std'] == sel_home_team, '#D97757', '#4E7A5E'), opacity=0.8),
-                        text=m_shots.apply(lambda r: f"{r['minute']}' {r['player']} ({r['team_std']}) - xG: {r['xG']:.2f} [{r['result']}]", axis=1),
-                        hoverinfo='text'
-                    ))
-                    st.plotly_chart(pitch_fig, use_container_width=True)
+                if understat_shots_df is not None and not understat_shots_df.empty:
+                    if not m_shots.empty:
+                        pitch_fig = draw_pitch_plotly(f"{sel_home_team} vs {sel_away_team}")
+                        pitch_fig.add_trace(go.Scatter(
+                            x=m_shots['X'], y=m_shots['Y'], mode='markers',
+                            marker=dict(size=m_shots['xG']*35 + 6, color=np.where(m_shots['team_std'] == sel_home_team, '#D97757', '#4E7A5E'), opacity=0.8),
+                            text=m_shots.apply(lambda r: f"{r['minute']}' {r['player']} ({r['team_std']}) - xG: {r['xG']:.2f} [{r['result']}]", axis=1),
+                            hoverinfo='text'
+                        ))
+                        st.plotly_chart(pitch_fig, use_container_width=True)
+                    else: st.info(f"No pitch tracking events mapped for {sel_home_team} vs {sel_away_team}.")
+                else: st.warning("🚨 Shot dataset is currently empty or synchronizing.")
 
 # ==========================================
 # MODULE: LIVE LEAGUE TABLE
@@ -1231,29 +1228,34 @@ elif app_mode == "🛡️ Defensive Vulnerability Map":
     st.write("Analyze where Premier League defenses are conceding high-danger shots across the pitch.")
     if understat_shots_df is not None and not understat_shots_df.empty:
         all_teams = sorted(understat_shots_df['team_std'].dropna().unique().tolist())
-        target_team = st.selectbox("Select Defending Club:", all_teams)
         
-        conceded_shots = understat_shots_df[(understat_shots_df['home_team'] == target_team) | (understat_shots_df['away_team'] == target_team)].copy()
-        conceded_shots = conceded_shots[conceded_shots['team_std'] != target_team]
-        
-        if not conceded_shots.empty:
-            vm1, vm2 = st.columns([2, 1])
-            with vm1:
-                v_fig = draw_pitch_plotly(f"Shots Conceded by {target_team}")
-                v_fig.add_trace(go.Scatter(
-                    x=conceded_shots['X'], y=conceded_shots['Y'], mode='markers',
-                    marker=dict(size=conceded_shots['xG']*35 + 5, color=np.where(conceded_shots['result'] == 'Goal', '#B34D4D', '#D97757'), opacity=0.7),
-                    text=conceded_shots.apply(lambda r: f"xG: {r['xG']:.2f} | {r['result']}", axis=1), hoverinfo='text'
-                ))
-                st.plotly_chart(v_fig, use_container_width=True)
-            with vm2:
-                st.markdown("#### 🚨 Vulnerability Summary")
-                box_pct = (conceded_shots['X'] >= 0.82).mean() * 100
-                high_xg_count = (conceded_shots['xG'] >= 0.30).sum()
-                st.metric("Total Shots Conceded", len(conceded_shots))
-                st.metric("In-Box Threat Ratio", f"{box_pct:.1f}%")
-                st.metric("Big Chances Conceded (xG > 0.3)", high_xg_count)
-        else: st.info("No shot events logged for this team.")
+        if all_teams:
+            target_team = st.selectbox("Select Defending Club:", all_teams)
+            
+            conceded_shots = understat_shots_df[(understat_shots_df['home_team'] == target_team) | (understat_shots_df['away_team'] == target_team)].copy()
+            conceded_shots = conceded_shots[conceded_shots['team_std'] != target_team]
+            
+            if not conceded_shots.empty and 'X' in conceded_shots.columns:
+                vm1, vm2 = st.columns([2, 1])
+                with vm1:
+                    v_fig = draw_pitch_plotly(f"Shots Conceded by {target_team}")
+                    v_fig.add_trace(go.Scatter(
+                        x=conceded_shots['X'], y=conceded_shots['Y'], mode='markers',
+                        marker=dict(size=conceded_shots['xG']*35 + 5, color=np.where(conceded_shots['result'] == 'Goal', '#B34D4D', '#D97757'), opacity=0.7),
+                        text=conceded_shots.apply(lambda r: f"xG: {r['xG']:.2f} | {r['result']}", axis=1), hoverinfo='text'
+                    ))
+                    st.plotly_chart(v_fig, use_container_width=True)
+                with vm2:
+                    st.markdown("#### 🚨 Vulnerability Summary")
+                    box_pct = (conceded_shots['X'] >= 0.82).mean() * 100
+                    high_xg_count = (conceded_shots['xG'] >= 0.30).sum()
+                    st.metric("Total Shots Conceded", len(conceded_shots))
+                    st.metric("In-Box Threat Ratio", f"{box_pct:.1f}%")
+                    st.metric("Big Chances Conceded (xG > 0.3)", high_xg_count)
+            else: st.info(f"No shot events logged for {target_team} in the database.")
+        else: st.info("No teams mapped in the current dataset.")
+    else: 
+        st.warning("🚨 Granular shot data is currently unavailable. The pipeline is either still synchronizing or 'understat_shots.csv' is empty.")
 
 # ==========================================
 # MODULE: MONTE CARLO BETTING SIMULATOR

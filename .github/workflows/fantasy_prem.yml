@@ -2,8 +2,8 @@ name: Unified Football & FPL Data Pipeline
 
 on:
   schedule:
-    # Runs daily at 06:00 UTC
-    - cron: '0 6 * * *'
+    # Runs daily at 08:00 UTC
+    - cron: '0 8 * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,29 +22,32 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install all dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pandas requests soccerdata html5lib lxml
 
-      - name: ⚙️ Run EPL match extraction
+      - name: ⚙️ Run EPL Match Data Extraction
         env:
           FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
         run: python 02_Automated_Football_Analytics/scripts/extract_match_data.py
 
-      - name: ⚙️ Run FPL & Understat extraction
-        run: |
-          python 04_Fantasy_PL/scripts/extract_data.py
-          python 04_Fantasy_PL/scripts/get_understat.py
+      - name: ⚙️ Run FPL Player Stats Extraction
+        working-directory: ./04_Fantasy_PL
+        run: python scripts/extract_data.py
+
+      - name: ⚙️ Run Understat Metrics Extraction
+        working-directory: ./04_Fantasy_PL
+        run: python scripts/get_understat.py
 
       - name: 💾 Commit and push all data changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Stage data folders for both projects
+          # Stage CSV outputs across both project directories
           git add 02_Automated_Football_Analytics/data/
           git add 04_Fantasy_PL/data/
           
-          # Commit and push only if changes exist
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update EPL, FPL, and Understat data" && git push)
+          # Commit and push only if changes exist to avoid empty commit errors
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated daily update: EPL, FPL, and Understat data" && git push)

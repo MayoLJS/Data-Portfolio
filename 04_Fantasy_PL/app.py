@@ -205,7 +205,6 @@ def fetch_manager_squad(manager_id, curr_event):
 
 @st.cache_data(ttl=3600)
 def load_fpl_all_fixtures():
-    """Extracts all 380 official FPL fixtures to act as the single source of truth for Gameweek numbering."""
     try:
         r = requests.get("https://fantasy.premierleague.com/api/fixtures/", timeout=10).json()
         df_fix = pd.DataFrame(r)
@@ -300,6 +299,11 @@ def load_understat_data(fpl_fixtures_df):
     try:
         df = pd.read_csv(raw_url)
         df['date'] = pd.to_datetime(df['date'])
+        
+        # Guard against key errors
+        if 'home_team' not in df.columns and 'h_team' in df.columns: df['home_team'] = df['h_team']
+        if 'away_team' not in df.columns and 'a_team' in df.columns: df['away_team'] = df['a_team']
+            
         df['home_team_std'] = df['home_team'].apply(standardize_team)
         df['away_team_std'] = df['away_team'].apply(standardize_team)
         
@@ -321,18 +325,49 @@ def load_understat_shots():
     raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/04_Fantasy_PL/data/understat_shots.csv"
     try:
         df = pd.read_csv(raw_url)
+        
+        # 1. Normalize casing of common columns to avoid KeyErrors
+        col_map = {}
+        for c in df.columns:
+            cl = c.lower()
+            if cl == 'xg': col_map[c] = 'xG'
+            elif cl == 'x': col_map[c] = 'X'
+            elif cl == 'y': col_map[c] = 'Y'
+            elif cl == 'result': col_map[c] = 'result'
+            elif cl == 'player': col_map[c] = 'player'
+            elif cl == 'minute': col_map[c] = 'minute'
+            elif cl == 'h_team': col_map[c] = 'home_team'
+            elif cl == 'a_team': col_map[c] = 'away_team'
+            elif cl == 'h_a': col_map[c] = 'h_a'
+            elif cl == 'team': col_map[c] = 'team'
+            elif cl == 'game': col_map[c] = 'game'
+        df = df.rename(columns=col_map)
+        
+        # 2. Safely extract home_team and away_team if missing
+        if 'home_team' not in df.columns:
+            if 'game' in df.columns:
+                df['home_team'] = df['game'].apply(lambda g: str(g).split(' ', 1)[-1].split('-')[0].strip() if '-' in str(g) else 'Unknown')
+                df['away_team'] = df['game'].apply(lambda g: str(g).split(' ', 1)[-1].split('-')[1].strip() if '-' in str(g) else 'Unknown')
+            else:
+                df['home_team'] = 'Unknown'
+                df['away_team'] = 'Unknown'
+                
         if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
+            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            
         df['team_std'] = df['team'].apply(standardize_team) if 'team' in df.columns else df.get('h_a')
+        df['home_team'] = df['home_team'].apply(standardize_team)
+        df['away_team'] = df['away_team'].apply(standardize_team)
+        
         return df
-    except Exception:
+    except Exception as e:
         return pd.DataFrame()
 
 # ==========================================
 # 5. ENHANCED HYBRID MATHEMATICAL ENGINE
 # ==========================================
 @st.cache_data(ttl=3600)
-def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boost, ha_boost, min_mins, w_form, w_own, w_ict, blend_factor, horizon):
+def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boost, ha_boost, min_mins, w_form, w_own, w_ict, blend_factor, horizon, w_finishing, w_zone):
     if p_df.empty or t_df.empty: return pd.DataFrame()
         
     df = p_df.copy()
@@ -352,7 +387,7 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boo
     df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
     # Granular Finishing Skill & Danger-Zone Threat Multiplier
-    if shots_df is not None and not shots_df.empty and 'player' in shots_df.columns:
+    if shots_df is not None and not shots_df.empty and {'player', 'xG', 'X', 'result'}.issubset(shots_df.columns):
         p_shots = shots_df.groupby('player').agg(
             total_shots=('xG', 'count'),
             sum_xg=('xG', 'sum'),
@@ -363,10 +398,14 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boo
         p_shots['finishing_delta'] = (p_shots['goals'] - p_shots['sum_xg']).clip(-2.0, 3.0)
         p_shots['box_threat_ratio'] = (p_shots['box_shots'] / p_shots['total_shots'].clip(lower=1.0)).clip(0.2, 1.0)
         
-        # Merge onto master dataframe
         df = df.merge(p_shots[['player', 'finishing_delta', 'box_threat_ratio']], left_on='second_name', right_on='player', how='left')
-        df['finishing_boost'] = (1.0 + df['finishing_delta'].fillna(0.0) * 0.04).clip(0.85, 1.15)
-        df['zone_boost'] = (1.0 + (df['box_threat_ratio'].fillna(0.6) - 0.5) * 0.1).clip(0.9, 1.1)
+        
+        # Scale the boosts based on sidebar weights
+        finish_scale = (w_finishing / 50.0) * 0.04
+        zone_scale = (w_zone / 50.0) * 0.1
+        
+        df['finishing_boost'] = (1.0 + df['finishing_delta'].fillna(0.0) * finish_scale).clip(0.85, 1.25)
+        df['zone_boost'] = (1.0 + (df['box_threat_ratio'].fillna(0.6) - 0.5) * zone_scale).clip(0.85, 1.25)
     else:
         df['finishing_boost'] = 1.0
         df['zone_boost'] = 1.0
@@ -512,20 +551,13 @@ def fetch_league_history(league_id):
 # 6. PLOTLY PITCH & MOMENTUM CHART HELPERS
 # ==========================================
 def draw_pitch_plotly(title="Shot Map"):
-    """Draws a professional football pitch layout using Plotly shapes."""
     fig = go.Figure()
     
-    # Outer Border & Pitch Grass
     fig.add_shape(type="rect", x0=0, y0=0, x1=1, y1=1, line=dict(color="#D1CDC4", width=2), fillcolor="#FBFBF9")
-    # Halfway Line
     fig.add_shape(type="line", x0=0.5, y0=0, x1=0.5, y1=1, line=dict(color="#E5E2DC", width=2))
-    # Center Circle
     fig.add_shape(type="circle", x0=0.4, y0=0.35, x1=0.6, y1=0.65, line=dict(color="#E5E2DC", width=2))
-    
-    # Left Penalty Area & 6-Yard Box
     fig.add_shape(type="rect", x0=0, y0=0.21, x1=0.17, y1=0.79, line=dict(color="#E5E2DC", width=2))
     fig.add_shape(type="rect", x0=0, y0=0.37, x1=0.06, y1=0.63, line=dict(color="#E5E2DC", width=2))
-    # Right Penalty Area & 6-Yard Box
     fig.add_shape(type="rect", x0=0.83, y0=0.21, x1=1.0, y1=0.79, line=dict(color="#E5E2DC", width=2))
     fig.add_shape(type="rect", x0=0.94, y0=0.37, x1=1.0, y1=0.63, line=dict(color="#E5E2DC", width=2))
     
@@ -559,6 +591,9 @@ user_manager_id = st.sidebar.text_input("My Manager ID:", value=st.session_state
 user_league_id = st.sidebar.text_input("My Mini-League ID:", value=st.session_state.get("default_league_id", ""))
 st.sidebar.markdown("---")
 
+# Global weights placeholders
+w_finishing, w_zone = 50, 50
+
 if menu_category == "🏆 Fantasy Premier League":
     app_mode = st.sidebar.radio("Select Module:", [
         "🏠 Gameweek Dashboard",
@@ -572,29 +607,43 @@ if menu_category == "🏆 Fantasy Premier League":
     
     st.sidebar.markdown("---")
     st.sidebar.header("⚙️ Unified Model Tuning")
-    preset = st.sidebar.selectbox("🎯 Strategy Preset:", ["The Sweet Spot", "Custom", "The Form Chaser", "The Crowd Chaser", "The ICT Chaser"])
+    preset = st.sidebar.selectbox("🎯 Strategy Preset:", ["The Sweet Spot", "The xG Data Analyst", "Custom", "The Form Chaser", "The Crowd Chaser", "The ICT Chaser"])
     
     if preset != "Custom":
         if "Sweet Spot" in preset:
             horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 3, 50.0, 1.35, 0.06
             w_form, w_own, w_ict, blend_factor_g = 5, 5, 90, 10.0
+            w_finishing, w_zone = 50, 50
+        elif "xG Data Analyst" in preset:
+            horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 3, 40.0, 1.35, 0.06
+            w_form, w_own, w_ict, blend_factor_g = 10, 10, 80, 5.0
+            w_finishing, w_zone = 100, 100  # Max out shot data reliance
         elif "Form Chaser" in preset:
             horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 1, 25.0, 1.40, 0.05
             w_form, w_own, w_ict, blend_factor_g = 80, 10, 10, 40.0
+            w_finishing, w_zone = 25, 25
         elif "Crowd Chaser" in preset:
             horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 1, 25.0, 1.40, 0.05
             w_form, w_own, w_ict, blend_factor_g = 10, 80, 10, 40.0
+            w_finishing, w_zone = 10, 10
         elif "ICT Chaser" in preset:
             horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 3, 45.0, 1.35, 0.05
             w_form, w_own, w_ict, blend_factor_g = 0, 0, 100, 25.0
+            w_finishing, w_zone = 0, 0
             
         st.sidebar.info(f"Using **{preset}** settings.")
     else:
         horizon_g = st.sidebar.slider("Planning Horizon (Gameweeks)", 1, 5, 3, 1)
         min_mins_g = st.sidebar.slider("Min Mins/Game Filter", 10.0, 90.0, 25.0, 5.0)
+        
+        st.sidebar.markdown("**Granular Shot Data Weights**")
+        w_finishing = st.sidebar.slider("Finishing Skill Impact (%)", 0, 100, 50, 10)
+        w_zone = st.sidebar.slider("High-Value Zone Impact (%)", 0, 100, 50, 10)
+        
         st.sidebar.markdown("**Poisson Model Weights**")
         fa_boost_g = st.sidebar.slider("Fantasy Assist Boost", 1.0, 1.8, 1.40, 0.05)
         ha_boost_g = st.sidebar.slider("Home/Away Factor", 0.0, 0.15, 0.05, 0.01)
+        
         st.sidebar.markdown("**ICT / Form Hybrid Weights**")
         w_form = st.sidebar.slider("Form (Short-Term)", 0, 100, 20, 5)
         w_own = st.sidebar.slider("Ownership % (Consensus)", 0, 100, 40, 5)
@@ -617,7 +666,7 @@ if st.sidebar.button("🚪 Sign Out", use_container_width=True):
     st.rerun()
 
 if menu_category == "🏆 Fantasy Premier League":
-    master_df = calculate_hybrid_metrics(players_df, teams_df, understat_shooting_df, understat_shots_df, 0.8, 0.2, fa_boost_g, ha_boost_g, min_mins_g, w_form, w_own, w_ict, blend_factor_g, horizon_g)
+    master_df = calculate_hybrid_metrics(players_df, teams_df, understat_shooting_df, understat_shots_df, 0.8, 0.2, fa_boost_g, ha_boost_g, min_mins_g, w_form, w_own, w_ict, blend_factor_g, horizon_g, w_finishing, w_zone)
 
 # ==========================================
 # MODULE: FPL GAMWEEK DASHBOARD
@@ -776,8 +825,19 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
             }
             st_echarts(stacked_options, height="450px")
             
-        matrix_cols = ['full_name', 'position', 'team_name', 'mins_per_game', 'exp_app_pts', 'exp_goal_pts', 'exp_assist_pts', 'prob_cs', 'exp_cs_pts', 'hybrid_multiplier', 'v2_xp', 'final_xp']
-        st.dataframe(filtered_matrix[matrix_cols].sort_values(by='final_xp', ascending=False), width="stretch", hide_index=True)
+        matrix_cols = ['full_name', 'position', 'team_name', 'v2_xp', 'finishing_boost', 'zone_boost', 'hybrid_multiplier', 'final_xp']
+        
+        # Tooltip Column Configurations added back!
+        col_configs = {
+            "full_name": st.column_config.TextColumn("Player"),
+            "v2_xp": st.column_config.NumberColumn("Base Poisson xP", help="Expected Points from pure fixture odds"),
+            "finishing_boost": st.column_config.NumberColumn("Finishing Skill Mult", format="%.2f", help="Shot data modifier based on player xG vs Goals"),
+            "zone_boost": st.column_config.NumberColumn("Shot Zone Mult", format="%.2f", help="Modifier based on shots taken inside the 6-yard box"),
+            "hybrid_multiplier": st.column_config.NumberColumn("Form/ICT Mult", format="%.2f", help="Final blend modifier applying short-term form vs crowd ownership"),
+            "final_xp": st.column_config.NumberColumn("Final Proj xP", format="%.2f", help="The absolute final projected points for the optimizer to solve with.")
+        }
+        
+        st.dataframe(filtered_matrix[matrix_cols].sort_values(by='final_xp', ascending=False), width="stretch", hide_index=True, column_config=col_configs)
 
     with tab2:
         cols_to_show = ['full_name', 'team_name', 'position', 'cost_m', 'minutes', 'mins_per_game', 'xg_p90', 'xa_p90', 'is_pen_taker', 'team_xgc', 'opp_name']
@@ -1043,11 +1103,10 @@ elif app_mode == "📅 Match Results & Match Center":
             
             mc1, mc2 = st.columns(2)
             
-            # Momentum Timing Step Chart
             with mc1:
                 st.markdown("#### ⏱️ Cumulative xG Momentum Chart")
                 if understat_shots_df is not None and not understat_shots_df.empty:
-                    m_shots = understat_shots_df[(understat_shots_df['home_team'].apply(standardize_team) == sel_home_team) & (understat_shots_df['away_team'].apply(standardize_team) == sel_away_team)].copy()
+                    m_shots = understat_shots_df[(understat_shots_df['home_team'] == sel_home_team) & (understat_shots_df['away_team'] == sel_away_team)].copy()
                     if not m_shots.empty:
                         m_shots = m_shots.sort_values('minute')
                         h_shots = m_shots[m_shots['team_std'] == sel_home_team]
@@ -1060,7 +1119,6 @@ elif app_mode == "📅 Match Results & Match Center":
                         st.plotly_chart(fig_mom, use_container_width=True)
                     else: st.info("Granular shot timeline not available for this historical game.")
             
-            # Shot Pitch Map
             with mc2:
                 st.markdown("#### 🎯 Match Pitch & Shot Map")
                 if understat_shots_df is not None and not understat_shots_df.empty and not m_shots.empty:
@@ -1093,7 +1151,15 @@ elif app_mode == "📊 Live League Table":
             
         table_df = pd.DataFrame([{'Club': k, 'Pts': v['Pts'], 'GD': v['GD'], 'GF': v['GF'], 'xG': round(v['xG'], 2), 'GA': v['GA'], 'xGA': round(v['xGA'], 2)} for k, v in team_records.items()]).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
         table_df.index += 1
-        st.dataframe(table_df, width="stretch")
+        
+        # Tooltip Column Configurations added back!
+        col_configs = {
+            "Pts": st.column_config.NumberColumn("Pts", help="Total League Points"),
+            "xG": st.column_config.NumberColumn("xG", help="Expected Goals For (Attack Quality)"),
+            "xGA": st.column_config.NumberColumn("xGA", help="Expected Goals Against (Defensive Vulnerability)"),
+            "GD": st.column_config.NumberColumn("GD", help="Actual Goal Difference")
+        }
+        st.dataframe(table_df, width="stretch", column_config=col_configs)
 
 # ==========================================
 # MODULE: DEFENSIVE VULNERABILITY MAP
@@ -1105,11 +1171,10 @@ elif app_mode == "🛡️ Defensive Vulnerability Map":
         all_teams = sorted(understat_shots_df['team_std'].dropna().unique().tolist())
         target_team = st.selectbox("Select Defending Club:", all_teams)
         
-        # Shots conceded by this team
-        conceded_shots = understat_shots_df[(understat_shots_df['home_team'].apply(standardize_team) == target_team) | (understat_shots_df['away_team'].apply(standardize_team) == target_team)].copy()
+        conceded_shots = understat_shots_df[(understat_shots_df['home_team'] == target_team) | (understat_shots_df['away_team'] == target_team)].copy()
         conceded_shots = conceded_shots[conceded_shots['team_std'] != target_team]
         
-        if not conceded_shots.empty:
+        if not conceded_shots.empty and 'X' in conceded_shots.columns:
             vm1, vm2 = st.columns([2, 1])
             with vm1:
                 v_fig = draw_pitch_plotly(f"Shots Conceded by {target_team}")

@@ -18,16 +18,10 @@ def fetch_rolling_3_year_matches():
     
     match_records = []
     
-    # Dynamically determine the current season year (starts in August)
     current_year = datetime.now().year
     current_month = datetime.now().month
     
-    if current_month < 8:
-        latest_season = current_year - 1
-    else:
-        latest_season = current_year
-        
-    # Create a list of the last 3 seasons dynamically
+    latest_season = current_year - 1 if current_month < 8 else current_year
     seasons = [str(latest_season - i) for i in range(3)]
     print(f"Fetching data for seasons: {seasons}")
     
@@ -41,7 +35,8 @@ def fetch_rolling_3_year_matches():
         
         if response.status_code == 200:
             data = response.json()
-            for match in data.get('matches', []):
+            matches = data.get('matches', [])
+            for match in matches:
                 score_data = match.get('score', {})
                 ht_data = score_data.get('halfTime', {})
                 ft_data = score_data.get('fullTime', {})
@@ -58,37 +53,36 @@ def fetch_rolling_3_year_matches():
                     'Away_Score_FT': ft_data.get('away'),
                     'Winner': score_data.get('winner')
                 })
-            print(f"Successfully fetched season {season}")
+            print(f"Successfully fetched {len(matches)} matches for season {season}")
         else:
-            print(f"Skipped season {season} (API Status: {response.status_code}). Free tier may restrict older data.")
+            print(f"Failed/Skipped season {season} (Status: {response.status_code}): {response.text}")
         
-        # Sleep 6 seconds to stay within free tier rate limit (10 requests/minute)
         time.sleep(6)
         
     return pd.DataFrame(match_records)
 
 def transform_and_save_data(df):
-    """Cleans the dataframe and saves it to the designated data folder."""
+    """Cleans the dataframe and saves it to BOTH analytics and FPL data folders."""
     if df.empty:
-        print("No data fetched. Exiting.")
-        return
+        raise RuntimeError("No match data fetched from API. Check API key permissions and response logs.")
 
-    # Standardize UTC date string to datetime without timezone offset
     df['Date'] = pd.to_datetime(df['Date'], utc=True).dt.tz_localize(None)
-    
-    # Drop duplicates and sort newest to oldest
     df = df.drop_duplicates(subset=['Match_ID'])
     df = df.sort_values(by='Date', ascending=False)
     
-    # Ensure the data directory exists
-    output_dir = "02_Automated_Football_Analytics/data"
-    os.makedirs(output_dir, exist_ok=True)
+    # Save destinations
+    output_targets = [
+        "02_Automated_Football_Analytics/data",
+        "04_Fantasy_PL/data"
+    ]
     
-    # Static filename for stable Power BI Web Connection
-    output_path = f"{output_dir}/pl_rolling_3_years_latest.csv"
+    filename = "pl_rolling_3_years_latest.csv"
     
-    df.to_csv(output_path, index=False)
-    print(f"Extraction complete. {len(df)} matches saved to {output_path}")
+    for target_dir in output_targets:
+        os.makedirs(target_dir, exist_ok=True)
+        target_path = os.path.join(target_dir, filename)
+        df.to_csv(target_path, index=False)
+        print(f"Saved {len(df)} matches to {target_path}")
 
 if __name__ == "__main__":
     print("Starting rolling 3-year football data pipeline...")

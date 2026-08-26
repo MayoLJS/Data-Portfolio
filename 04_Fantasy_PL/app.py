@@ -392,7 +392,7 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boo
     df['xg_p90'] = np.where(df['is_pen_taker'], df['xg_p90_base'] + 0.15, df['xg_p90_base'])
     df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
-    # Granular Finishing Skill & Danger-Zone Threat Multiplier
+    # Granular Finishing Skill & Danger-Zone Threat Multiplier (FUZZY MATCHING)
     if shots_df is not None and not shots_df.empty:
         p_shots = shots_df.groupby('player').agg(
             total_shots=('xG', 'count'),
@@ -403,7 +403,19 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boo
         p_shots['finishing_delta'] = (p_shots['goals'] - p_shots['sum_xg']).clip(-2.0, 3.0)
         p_shots['box_threat_ratio'] = (p_shots['box_shots'] / p_shots['total_shots'].clip(lower=1.0)).clip(0.2, 1.0)
         
-        df = df.merge(p_shots[['player', 'finishing_delta', 'box_threat_ratio']], left_on='second_name', right_on='player', how='left')
+        # 1. Attempt exact match on full name first
+        df = df.merge(p_shots[['player', 'finishing_delta', 'box_threat_ratio']], left_on='full_name', right_on='player', how='left')
+        
+        # 2. Fuzzy fallback matching for players like "Haaland" -> "Erling Haaland"
+        missing_mask = df['finishing_delta'].isna()
+        if missing_mask.any():
+            for idx in df[missing_mask].index:
+                s_name = str(df.loc[idx, 'second_name']).strip()
+                if len(s_name) > 2: # Skip super short names to avoid random generic matches
+                    match = p_shots[p_shots['player'].str.contains(s_name, case=False, na=False, regex=False)]
+                    if not match.empty:
+                        df.loc[idx, 'finishing_delta'] = match['finishing_delta'].values[0]
+                        df.loc[idx, 'box_threat_ratio'] = match['box_threat_ratio'].values[0]
         
         finish_scale = (w_finishing / 50.0) * 0.04
         zone_scale = (w_zone / 50.0) * 0.1
@@ -790,7 +802,11 @@ elif app_mode == "👤 Advanced Player Scout":
                 with tab_shots:
                     st.markdown("### 🎯 Interactive Shot Map")
                     if understat_shots_df is not None and not understat_shots_df.empty:
-                        p_shots = understat_shots_df[understat_shots_df['player'] == p_data['second_name']]
+                        # Advanced Fuzzy Loader for Shot Maps
+                        p_shots = understat_shots_df[understat_shots_df['player'] == p_data['full_name']]
+                        if p_shots.empty and len(str(p_data['second_name'])) > 2:
+                            p_shots = understat_shots_df[understat_shots_df['player'].str.contains(str(p_data['second_name']).strip(), case=False, na=False, regex=False)]
+                            
                         if not p_shots.empty:
                             p_fig = draw_pitch_plotly(f"All Recorded Shots: {p_data['second_name']}")
                             p_fig.add_trace(go.Scatter(

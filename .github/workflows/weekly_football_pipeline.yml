@@ -3,8 +3,11 @@ name: Weekly Football ETL Pipeline
 on:
   schedule:
     # Runs at 08:00 UTC every Monday
-    - cron: '0 8 * * 1'
-  workflow_dispatch: # This allows manually trigger for testing
+    - cron: '0 8 * * 0,1,2,3'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   run-extraction:

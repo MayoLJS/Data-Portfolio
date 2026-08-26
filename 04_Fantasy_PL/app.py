@@ -135,7 +135,6 @@ if not st.session_state["authenticated"]:
             if user_str in VALID_USERS and str(VALID_USERS[user_str]) == str(password):
                 st.session_state["authenticated"] = True
                 
-                # Dynamic ID Context
                 if user_str.lower() == "olu" or user_str == "2783761":
                     st.session_state["default_manager_id"] = "2783761"
                     st.session_state["default_league_id"] = "685121"
@@ -150,7 +149,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 3. TEAM NAME STANDARDIZATION & HELPERS
+# 3. TEAM NAME STANDARDIZATION
 # ==========================================
 TEAM_NAME_STANDARDIZATION = {
     "Man City": "Manchester City",
@@ -176,12 +175,8 @@ def format_season(season_str):
         return f"20{season_str[:2]}/20{season_str[2:]} Season"
     return season_str
 
-def get_poisson_probability(lam, k):
-    if lam <= 0: return 1.0 if k == 0 else 0.0
-    return (math.exp(-lam) * (lam**k)) / math.factorial(k)
-
 # ==========================================
-# 4. DATA LOADERS & DATA ENGINEERING PIPELINE
+# 4. BULLETPROOF DATA LOADERS
 # ==========================================
 @st.cache_data(ttl=3600)
 def get_current_event():
@@ -300,7 +295,7 @@ def load_understat_data(fpl_fixtures_df):
         df = pd.read_csv(raw_url)
         df['date'] = pd.to_datetime(df['date'])
         
-        # Guard against key errors
+        # Protect against KeyErrors
         if 'home_team' not in df.columns and 'h_team' in df.columns: df['home_team'] = df['h_team']
         if 'away_team' not in df.columns and 'a_team' in df.columns: df['away_team'] = df['a_team']
             
@@ -311,7 +306,6 @@ def load_understat_data(fpl_fixtures_df):
         if not fpl_fixtures_df.empty:
             fpl_map = fpl_fixtures_df.set_index(['home_team', 'away_team'])['event'].to_dict()
             df['gameweek'] = df.apply(lambda r: fpl_map.get((r['home_team_std'], r['away_team_std']), np.nan), axis=1)
-            # Fallback to cumulative sequence if historical season not in active FPL schedule
             df['gameweek'] = df['gameweek'].fillna((df.groupby('season').cumcount() // 10) + 1).astype(int)
         else:
             df['gameweek'] = (df.groupby('season').cumcount() // 10) + 1
@@ -322,40 +316,56 @@ def load_understat_data(fpl_fixtures_df):
 
 @st.cache_data(ttl=3600)
 def load_understat_shots():
+    """Robust scraper mapper ensuring no KeyErrors occur regardless of source formatting."""
     raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/04_Fantasy_PL/data/understat_shots.csv"
     try:
         df = pd.read_csv(raw_url)
         
-        # 1. Normalize casing of common columns to avoid KeyErrors
+        # 1. Exhaustive Column Normalization
         col_map = {}
         for c in df.columns:
-            cl = c.lower()
-            if cl == 'xg': col_map[c] = 'xG'
-            elif cl == 'x': col_map[c] = 'X'
-            elif cl == 'y': col_map[c] = 'Y'
-            elif cl == 'result': col_map[c] = 'result'
-            elif cl == 'player': col_map[c] = 'player'
-            elif cl == 'minute': col_map[c] = 'minute'
-            elif cl == 'h_team': col_map[c] = 'home_team'
-            elif cl == 'a_team': col_map[c] = 'away_team'
-            elif cl == 'h_a': col_map[c] = 'h_a'
-            elif cl == 'team': col_map[c] = 'team'
-            elif cl == 'game': col_map[c] = 'game'
+            cl = str(c).lower().strip()
+            if cl in ['xg', 'expected_goals', 'shot_expected_goals']: col_map[c] = 'xG'
+            elif cl in ['x', 'start_x', 'location_x', 'pos_x']: col_map[c] = 'X'
+            elif cl in ['y', 'start_y', 'location_y', 'pos_y']: col_map[c] = 'Y'
+            elif cl in ['result', 'outcome', 'shot_result', 'event_type']: col_map[c] = 'result'
+            elif cl in ['player', 'player_name', 'name', 'player_id']: col_map[c] = 'player'
+            elif cl in ['minute', 'min', 'time']: col_map[c] = 'minute'
+            elif cl in ['h_team', 'home_team', 'home']: col_map[c] = 'home_team'
+            elif cl in ['a_team', 'away_team', 'away']: col_map[c] = 'away_team'
+            elif cl in ['h_a', 'is_home', 'home_away']: col_map[c] = 'h_a'
+            elif cl in ['team', 'team_name', 'squad']: col_map[c] = 'team'
+            elif cl in ['game', 'match', 'match_id', 'game_id']: col_map[c] = 'game'
         df = df.rename(columns=col_map)
         
-        # 2. Safely extract home_team and away_team if missing
+        # 2. Safety Defaults
+        if 'X' not in df.columns: df['X'] = 0.5
+        if 'Y' not in df.columns: df['Y'] = 0.5
+        if 'xG' not in df.columns: df['xG'] = 0.0
+        if 'minute' not in df.columns: df['minute'] = 1
+        if 'result' not in df.columns: df['result'] = 'Missed'
+        if 'player' not in df.columns: df['player'] = 'Unknown'
+        
+        # Normalize result strings
+        df['result'] = df['result'].astype(str).str.title()
+        
+        # Safely extract home_team and away_team if missing
         if 'home_team' not in df.columns:
-            if 'game' in df.columns:
+            if 'game' in df.columns and df['game'].dtype == 'O' and '-' in str(df['game'].iloc[0]):
                 df['home_team'] = df['game'].apply(lambda g: str(g).split(' ', 1)[-1].split('-')[0].strip() if '-' in str(g) else 'Unknown')
                 df['away_team'] = df['game'].apply(lambda g: str(g).split(' ', 1)[-1].split('-')[1].strip() if '-' in str(g) else 'Unknown')
             else:
-                df['home_team'] = 'Unknown'
-                df['away_team'] = 'Unknown'
+                df['home_team'], df['away_team'] = 'Unknown', 'Unknown'
                 
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        # Resolve the active team that took the shot
+        if 'team' in df.columns:
+            df['team_std'] = df['team'].apply(standardize_team)
+        elif 'h_a' in df.columns:
+            df['team_std'] = np.where(df['h_a'].astype(str).str.lower() == 'h', df['home_team'], df['away_team'])
+            df['team_std'] = df['team_std'].apply(standardize_team)
+        else:
+            df['team_std'] = 'Unknown'
             
-        df['team_std'] = df['team'].apply(standardize_team) if 'team' in df.columns else df.get('h_a')
         df['home_team'] = df['home_team'].apply(standardize_team)
         df['away_team'] = df['away_team'].apply(standardize_team)
         
@@ -387,12 +397,11 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boo
     df['xa_p90'] = np.where(is_eligible & (df['mins_played'] > 0), (df['expected_assists'] / df['mins_played']) * 90.0 * dampener, 0.0)
     
     # Granular Finishing Skill & Danger-Zone Threat Multiplier
-    if shots_df is not None and not shots_df.empty and {'player', 'xG', 'X', 'result'}.issubset(shots_df.columns):
+    if shots_df is not None and not shots_df.empty:
         p_shots = shots_df.groupby('player').agg(
             total_shots=('xG', 'count'),
             sum_xg=('xG', 'sum'),
             box_shots=('X', lambda x: (x >= 0.82).sum()),
-            six_yd_shots=('X', lambda x: (x >= 0.94).sum()),
             goals=('result', lambda r: (r == 'Goal').sum())
         ).reset_index()
         p_shots['finishing_delta'] = (p_shots['goals'] - p_shots['sum_xg']).clip(-2.0, 3.0)
@@ -400,7 +409,6 @@ def calculate_hybrid_metrics(p_df, t_df, u_df, shots_df, w_long, w_short, fa_boo
         
         df = df.merge(p_shots[['player', 'finishing_delta', 'box_threat_ratio']], left_on='second_name', right_on='player', how='left')
         
-        # Scale the boosts based on sidebar weights
         finish_scale = (w_finishing / 50.0) * 0.04
         zone_scale = (w_zone / 50.0) * 0.1
         
@@ -552,7 +560,6 @@ def fetch_league_history(league_id):
 # ==========================================
 def draw_pitch_plotly(title="Shot Map"):
     fig = go.Figure()
-    
     fig.add_shape(type="rect", x0=0, y0=0, x1=1, y1=1, line=dict(color="#D1CDC4", width=2), fillcolor="#FBFBF9")
     fig.add_shape(type="line", x0=0.5, y0=0, x1=0.5, y1=1, line=dict(color="#E5E2DC", width=2))
     fig.add_shape(type="circle", x0=0.4, y0=0.35, x1=0.6, y1=0.65, line=dict(color="#E5E2DC", width=2))
@@ -614,10 +621,10 @@ if menu_category == "🏆 Fantasy Premier League":
             horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 3, 50.0, 1.35, 0.06
             w_form, w_own, w_ict, blend_factor_g = 5, 5, 90, 10.0
             w_finishing, w_zone = 50, 50
-        elif "xG Data Analyst" in preset:
+        elif "The xG Data Analyst" in preset:
             horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 3, 40.0, 1.35, 0.06
             w_form, w_own, w_ict, blend_factor_g = 10, 10, 80, 5.0
-            w_finishing, w_zone = 100, 100  # Max out shot data reliance
+            w_finishing, w_zone = 100, 100 
         elif "Form Chaser" in preset:
             horizon_g, min_mins_g, fa_boost_g, ha_boost_g = 1, 25.0, 1.40, 0.05
             w_form, w_own, w_ict, blend_factor_g = 80, 10, 10, 40.0
@@ -754,40 +761,97 @@ elif app_mode == "👤 Advanced Player Scout":
                 p_data = filtered_df[filtered_df['full_name'] == selected_player].iloc[0]
                 st.markdown(render_scout_card(p_data), unsafe_allow_html=True)
                 
-                rc1, rc2 = st.columns([1, 1])
-                with rc1:
-                    st.markdown("### 📊 Market Percentiles")
-                    metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
-                    for label, col_name in metrics.items():
-                        if col_name in players_df.columns:
-                            val = p_data[col_name]
-                            percentile = int((players_df[col_name] < val).mean() * 100)
-                            st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: #555555;'><b>{label}</b>: <span style='color:#D97757; font-family: \"Fira Code\", monospace;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
-                            st.progress(percentile / 100.0)
+                tab_radar, tab_shots = st.tabs(["📊 Radar & Percentiles", "🎯 Shot Coordinates Profile"])
                 
-                with rc2:
-                    st.markdown("### 🎯 Shot Coordinates Profile")
-                    if understat_shots_df is not None and not understat_shots_df.empty and 'player' in understat_shots_df.columns:
+                with tab_radar:
+                    rc1, rc2 = st.columns([1, 1])
+                    with rc1:
+                        st.markdown("### 📊 Market Percentiles")
+                        metrics = {'Form': 'form', 'ICT Index': 'ict_index', 'Threat': 'threat', 'Creativity': 'creativity', 'Influence': 'influence', 'Bonus Points (BPS)': 'bps'}
+                        for label, col_name in metrics.items():
+                            if col_name in players_df.columns:
+                                val = p_data[col_name]
+                                percentile = int((players_df[col_name] < val).mean() * 100)
+                                st.markdown(f"<div style='margin-bottom:-10px; font-size: 14px; color: #555555;'><b>{label}</b>: <span style='color:#D97757; font-family: \"Fira Code\", monospace;'>{val}</span> <span style='opacity: 0.6; font-size:12px;'>(Top {100-percentile}%)</span></div>", unsafe_allow_html=True)
+                                st.progress(percentile / 100.0)
+                    with rc2:
+                        st.markdown("### 🕸️ Player Profile vs League")
+                        pct_thr = int((players_df['threat'] < p_data['threat']).mean() * 100)
+                        pct_cre = int((players_df['creativity'] < p_data['creativity']).mean() * 100)
+                        pct_inf = int((players_df['influence'] < p_data['influence']).mean() * 100)
+                        pct_xg = int((players_df['expected_goals'] < p_data['expected_goals']).mean() * 100)
+                        pct_xa = int((players_df['expected_assists'] < p_data['expected_assists']).mean() * 100)
+                        
+                        radar_options = {
+                            "tooltip": {"trigger": "item"},
+                            "radar": {
+                                "indicator": [{"name": "Threat", "max": 100}, {"name": "Creativity", "max": 100}, {"name": "Influence", "max": 100}, {"name": "xG", "max": 100}, {"name": "xA", "max": 100}],
+                                "splitArea": {"show": False}, "axisName": {"color": "#555555"}
+                            },
+                            "series": [{
+                                "name": "Player Profile vs League", "type": "radar",
+                                "data": [{"value": [pct_thr, pct_cre, pct_inf, pct_xg, pct_xa], "name": p_data['second_name'], "itemStyle": {"color": "#D97757"}, "areaStyle": {"color": "rgba(217, 119, 87, 0.3)"}}]
+                            }]
+                        }
+                        st_echarts(radar_options, height="300px")
+                        
+                with tab_shots:
+                    st.markdown("### 🎯 Interactive Shot Map")
+                    if understat_shots_df is not None and not understat_shots_df.empty:
                         p_shots = understat_shots_df[understat_shots_df['player'] == p_data['second_name']]
                         if not p_shots.empty:
-                            p_fig = draw_pitch_plotly(f"All Shots: {p_data['second_name']}")
+                            p_fig = draw_pitch_plotly(f"All Recorded Shots: {p_data['second_name']}")
                             p_fig.add_trace(go.Scatter(
                                 x=p_shots['X'], y=p_shots['Y'], mode='markers',
                                 marker=dict(size=p_shots['xG']*35 + 6, color=np.where(p_shots['result'] == 'Goal', '#4E7A5E', '#D97757'), opacity=0.8),
-                                text=p_shots.apply(lambda r: f"Minute: {r['minute']}' | xG: {r['xG']:.2f} | {r['result']}", axis=1),
-                                hoverinfo='text'
+                                text=p_shots.apply(lambda r: f"Minute: {r['minute']}' | xG: {r['xG']:.2f} | {r['result']}", axis=1), hoverinfo='text'
                             ))
                             st.plotly_chart(p_fig, use_container_width=True)
-                        else:
-                            st.info("No individual shot tracking events found for this player.")
-                    else:
-                        st.info("Understat shot dataset currently synchronizing...")
+                        else: st.info("No individual shot tracking events found for this player in the database.")
+                    else: st.info("Understat shot dataset currently synchronizing...")
             else:
                 c_a, c_b = st.columns(2)
                 with c_a: player_a = st.selectbox("Select Player A:", player_list, index=0)
                 with c_b: player_b = st.selectbox("Select Player B:", player_list, index=1 if len(player_list) > 1 else 0)
-                c_a.markdown(render_scout_card(filtered_df[filtered_df['full_name'] == player_a].iloc[0]), unsafe_allow_html=True)
-                c_b.markdown(render_scout_card(filtered_df[filtered_df['full_name'] == player_b].iloc[0]), unsafe_allow_html=True)
+                p_data_a = filtered_df[filtered_df['full_name'] == player_a].iloc[0]
+                p_data_b = filtered_df[filtered_df['full_name'] == player_b].iloc[0]
+                
+                c_a.markdown(render_scout_card(p_data_a), unsafe_allow_html=True)
+                c_b.markdown(render_scout_card(p_data_b), unsafe_allow_html=True)
+                
+                st.markdown("### ⚔️ Profile Comparison")
+                rc1, rc2 = st.columns([1, 1])
+                metrics = ['threat', 'creativity', 'influence', 'expected_goals', 'expected_assists']
+                pct_a = [int((players_df[m] < p_data_a[m]).mean() * 100) if m in players_df.columns else 0 for m in metrics]
+                pct_b = [int((players_df[m] < p_data_b[m]).mean() * 100) if m in players_df.columns else 0 for m in metrics]
+                
+                with rc1:
+                    st.markdown("#### 🕸️ Market Percentiles Radar")
+                    radar_options = {
+                        "tooltip": {"trigger": "item"},
+                        "legend": {"data": [p_data_a['second_name'], p_data_b['second_name']], "bottom": 0},
+                        "radar": {
+                            "indicator": [{"name": "Threat", "max": 100}, {"name": "Creativity", "max": 100}, {"name": "Influence", "max": 100}, {"name": "xG", "max": 100}, {"name": "xA", "max": 100}],
+                            "splitArea": {"show": False}, "axisName": {"color": "#555555"}
+                        },
+                        "series": [{
+                            "type": "radar",
+                            "data": [
+                                {"value": pct_a, "name": p_data_a['second_name'], "itemStyle": {"color": "#D97757"}, "areaStyle": {"color": "rgba(217, 119, 87, 0.3)"}},
+                                {"value": pct_b, "name": p_data_b['second_name'], "itemStyle": {"color": "#4E7A5E"}, "areaStyle": {"color": "rgba(78, 122, 94, 0.3)"}}
+                            ]
+                        }]
+                    }
+                    st_echarts(radar_options, height="350px")
+                    
+                with rc2:
+                    st.markdown("#### 📊 Metric Comparison")
+                    comp_df = pd.DataFrame({
+                        "Metric": ["Cost (£M)", "Total Points", "Form", "ICT Index", "Proj xP (Horizon)"],
+                        p_data_a['second_name']: [p_data_a['cost_m'], p_data_a['total_points'], p_data_a['form'], p_data_a['ict_index'], p_data_a['final_xp']],
+                        p_data_b['second_name']: [p_data_b['cost_m'], p_data_b['total_points'], p_data_b['form'], p_data_b['ict_index'], p_data_b['final_xp']]
+                    })
+                    st.dataframe(comp_df, width="stretch", hide_index=True)
 
 # ==========================================
 # MODULE: MODEL DATA & POINTS MATRIX
@@ -827,7 +891,6 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
             
         matrix_cols = ['full_name', 'position', 'team_name', 'v2_xp', 'finishing_boost', 'zone_boost', 'hybrid_multiplier', 'final_xp']
         
-        # Tooltip Column Configurations added back!
         col_configs = {
             "full_name": st.column_config.TextColumn("Player"),
             "v2_xp": st.column_config.NumberColumn("Base Poisson xP", help="Expected Points from pure fixture odds"),
@@ -836,7 +899,6 @@ elif app_mode == "🗄️ Model Data & Points Matrix":
             "hybrid_multiplier": st.column_config.NumberColumn("Form/ICT Mult", format="%.2f", help="Final blend modifier applying short-term form vs crowd ownership"),
             "final_xp": st.column_config.NumberColumn("Final Proj xP", format="%.2f", help="The absolute final projected points for the optimizer to solve with.")
         }
-        
         st.dataframe(filtered_matrix[matrix_cols].sort_values(by='final_xp', ascending=False), width="stretch", hide_index=True, column_config=col_configs)
 
     with tab2:
@@ -860,15 +922,13 @@ elif app_mode == "📅 Fixture Multipliers":
 # ==========================================
 elif app_mode == "⚡ Unified Squad Optimizer":
     st.title("⚡ Prescriptive Squad Optimizer (Hybrid Model)")
-    
     st.sidebar.markdown("---")
     budget_v2 = st.sidebar.number_input("1. Available Budget (£M)", min_value=80.0, max_value=110.0, value=100.0, step=0.5)
     bench_weight_v2 = st.sidebar.slider("2. Bench Investment Weight", 0.0, 1.0, 0.1, 0.1)
     target_formation_v2 = st.sidebar.selectbox("3. Preferred Starting Formation:", ["Auto (Best Points)", "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"])
     exclude_injured = st.sidebar.checkbox("4. Hide Injured/Suspended Players", value=True)
     
-    if master_df is not None:
-        locked_players_v2 = st.sidebar.multiselect("5. Select up to 14 must-have players:", sorted(master_df['full_name'].tolist()), max_selections=14)
+    if master_df is not None: locked_players_v2 = st.sidebar.multiselect("5. Select up to 14 must-have players:", sorted(master_df['full_name'].tolist()), max_selections=14)
     else: locked_players_v2 = []
 
     if st.button("🚀 Run Hybrid Solver", type="primary", width="stretch"):
@@ -889,7 +949,6 @@ elif app_mode == "⚡ Unified Squad Optimizer":
             prob += pulp.lpSum([squad_vars[i] for i in df.index]) == 15 
             prob += pulp.lpSum([starter_vars[i] for i in df.index]) == 11 
             prob += pulp.lpSum([bench_vars[i] for i in df.index]) == 4 
-            
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 1]) == 2
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 2]) == 5
             prob += pulp.lpSum([squad_vars[i] for i in df.index if df.loc[i, 'element_type'] == 3]) == 5
@@ -1076,7 +1135,6 @@ elif app_mode == "📅 Match Results & Match Center":
         for _, row in gw_matches.iterrows():
             h_xg = float(row.get('home_xg', row.get('home_xG', 0.0)))
             a_xg = float(row.get('away_xg', row.get('away_xG', 0.0)))
-            
             st.markdown(f"""
             <div class="fixture-card">
                 <div style="width: 35%; text-align: right;">
@@ -1102,7 +1160,6 @@ elif app_mode == "📅 Match Results & Match Center":
             sel_away_team = sel_match_str.split(" vs ")[1].split(" (")[0]
             
             mc1, mc2 = st.columns(2)
-            
             with mc1:
                 st.markdown("#### ⏱️ Cumulative xG Momentum Chart")
                 if understat_shots_df is not None and not understat_shots_df.empty:
@@ -1112,9 +1169,15 @@ elif app_mode == "📅 Match Results & Match Center":
                         h_shots = m_shots[m_shots['team_std'] == sel_home_team]
                         a_shots = m_shots[m_shots['team_std'] == sel_away_team]
                         
+                        h_mins = [0] + h_shots['minute'].tolist() + [90] if not h_shots.empty else [0, 90]
+                        h_xgs = [0] + h_shots['xG'].cumsum().tolist() + [h_shots['xG'].sum()] if not h_shots.empty else [0, 0]
+                        
+                        a_mins = [0] + a_shots['minute'].tolist() + [90] if not a_shots.empty else [0, 90]
+                        a_xgs = [0] + a_shots['xG'].cumsum().tolist() + [a_shots['xG'].sum()] if not a_shots.empty else [0, 0]
+                        
                         fig_mom = go.Figure()
-                        fig_mom.add_trace(go.Scatter(x=[0] + h_shots['minute'].tolist() + [90], y=[0] + h_shots['xG'].cumsum().tolist() + [h_shots['xG'].sum()], mode='lines', name=sel_home_team, line=dict(color='#D97757', width=3, shape='hv')))
-                        fig_mom.add_trace(go.Scatter(x=[0] + a_shots['minute'].tolist() + [90], y=[0] + a_shots['xG'].cumsum().tolist() + [a_shots['xG'].sum()], mode='lines', name=sel_away_team, line=dict(color='#8C8C8C', width=3, shape='hv')))
+                        fig_mom.add_trace(go.Scatter(x=h_mins, y=h_xgs, mode='lines', name=sel_home_team, line=dict(color='#D97757', width=3, shape='hv')))
+                        fig_mom.add_trace(go.Scatter(x=a_mins, y=a_xgs, mode='lines', name=sel_away_team, line=dict(color='#8C8C8C', width=3, shape='hv')))
                         fig_mom.update_layout(xaxis_title="Match Minute", yaxis_title="Cumulative xG", height=380, plot_bgcolor="#FBFBF9")
                         st.plotly_chart(fig_mom, use_container_width=True)
                     else: st.info("Granular shot timeline not available for this historical game.")
@@ -1152,7 +1215,6 @@ elif app_mode == "📊 Live League Table":
         table_df = pd.DataFrame([{'Club': k, 'Pts': v['Pts'], 'GD': v['GD'], 'GF': v['GF'], 'xG': round(v['xG'], 2), 'GA': v['GA'], 'xGA': round(v['xGA'], 2)} for k, v in team_records.items()]).sort_values(by=['Pts', 'GD', 'GF'], ascending=[False, False, False]).reset_index(drop=True)
         table_df.index += 1
         
-        # Tooltip Column Configurations added back!
         col_configs = {
             "Pts": st.column_config.NumberColumn("Pts", help="Total League Points"),
             "xG": st.column_config.NumberColumn("xG", help="Expected Goals For (Attack Quality)"),
@@ -1174,7 +1236,7 @@ elif app_mode == "🛡️ Defensive Vulnerability Map":
         conceded_shots = understat_shots_df[(understat_shots_df['home_team'] == target_team) | (understat_shots_df['away_team'] == target_team)].copy()
         conceded_shots = conceded_shots[conceded_shots['team_std'] != target_team]
         
-        if not conceded_shots.empty and 'X' in conceded_shots.columns:
+        if not conceded_shots.empty:
             vm1, vm2 = st.columns([2, 1])
             with vm1:
                 v_fig = draw_pitch_plotly(f"Shots Conceded by {target_team}")
@@ -1221,7 +1283,6 @@ elif app_mode == "🎲 Monte Carlo Match Simulator":
         h_lam = max(0.2, h_xg * 1.05 - gk_adjustment)
         a_lam = max(0.2, a_xg * 0.95 + gk_adjustment)
         
-        # Run Monte Carlo Engine
         np.random.seed(42)
         sim_home_goals = np.random.poisson(h_lam, sim_iterations)
         sim_away_goals = np.random.poisson(a_lam, sim_iterations)
@@ -1238,7 +1299,6 @@ elif app_mode == "🎲 Monte Carlo Match Simulator":
         sc2.metric("Over 2.5 Goals Odds", f"{over_25*100:.1f}%")
         sc3.metric("Both Teams To Score (BTTS)", f"{btts*100:.1f}%")
         
-        # Most Likely Scorelines Matrix
         score_counts = pd.Series([f"{h}-{a}" for h, a in zip(sim_home_goals, sim_away_goals)]).value_counts(normalize=True).head(5) * 100
         st.markdown("#### 🎯 Top 5 Most Likely Scorelines")
         st.dataframe(pd.DataFrame({'Scoreline': score_counts.index, 'Probability': score_counts.values.round(1)}), width="stretch", hide_index=True)

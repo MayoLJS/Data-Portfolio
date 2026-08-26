@@ -42,7 +42,6 @@ def fetch_rolling_3_year_matches():
         if response.status_code == 200:
             data = response.json()
             for match in data.get('matches', []):
-                # Safely extract score data to avoid KeyErrors
                 score_data = match.get('score', {})
                 ht_data = score_data.get('halfTime', {})
                 ft_data = score_data.get('fullTime', {})
@@ -53,8 +52,8 @@ def fetch_rolling_3_year_matches():
                     'Season': season,
                     'Home_Team': match.get('homeTeam', {}).get('name'),
                     'Away_Team': match.get('awayTeam', {}).get('name'),
-                    'Home_Score_HT': ht_data.get('home'), # NEW: Halftime Home
-                    'Away_Score_HT': ht_data.get('away'), # NEW: Halftime Away
+                    'Home_Score_HT': ht_data.get('home'),
+                    'Away_Score_HT': ht_data.get('away'),
                     'Home_Score_FT': ft_data.get('home'), 
                     'Away_Score_FT': ft_data.get('away'),
                     'Winner': score_data.get('winner')
@@ -63,7 +62,7 @@ def fetch_rolling_3_year_matches():
         else:
             print(f"Skipped season {season} (API Status: {response.status_code}). Free tier may restrict older data.")
         
-        # Sleep for 6 seconds to respect the free API rate limit (10 requests/minute)
+        # Sleep 6 seconds to stay within free tier rate limit (10 requests/minute)
         time.sleep(6)
         
     return pd.DataFrame(match_records)
@@ -74,18 +73,18 @@ def transform_and_save_data(df):
         print("No data fetched. Exiting.")
         return
 
-    # Convert UTC date string to actual datetime objects
-    df['Date'] = pd.to_datetime(df['Date']).dt.tz_convert(None)
+    # Standardize UTC date string to datetime without timezone offset
+    df['Date'] = pd.to_datetime(df['Date'], utc=True).dt.tz_localize(None)
     
     # Drop duplicates and sort newest to oldest
     df = df.drop_duplicates(subset=['Match_ID'])
     df = df.sort_values(by='Date', ascending=False)
     
-    # Ensure the data directory exists specifically for GitHub Actions root execution
+    # Ensure the data directory exists
     output_dir = "02_Automated_Football_Analytics/data"
     os.makedirs(output_dir, exist_ok=True)
     
-    # Save to a STATIC filename for stable Power BI Web Connection
+    # Static filename for stable Power BI Web Connection
     output_path = f"{output_dir}/pl_rolling_3_years_latest.csv"
     
     df.to_csv(output_path, index=False)

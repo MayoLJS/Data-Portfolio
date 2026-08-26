@@ -24,23 +24,41 @@ def extract_and_save():
     # Pivot to Understat: Pulling dynamic 3-year rolling window
     understat = sd.Understat(leagues=['ENG-Premier League'], seasons=rolling_seasons)
     
-    # Extract team stats
-    df = understat.read_team_match_stats()
-    
-    # Reset multi-index dataframe structure for easy CSV export
-    df = df.reset_index()
-    
-    # Flatten multi-level column names if present
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = ['_'.join(col).strip('_') for col in df.columns.values]
-    
     # Ensure data output folder exists
     os.makedirs('data', exist_ok=True)
+
+    # ---------------------------------------------------------
+    # 1. EXTRACT TEAM MATCH STATS (Existing functionality)
+    # ---------------------------------------------------------
+    print("Fetching team match stats...")
+    df_teams = understat.read_team_match_stats()
+    df_teams = df_teams.reset_index()
     
-    # Save output to CSV
-    output_path = 'data/team_shooting.csv'
-    df.to_csv(output_path, index=False)
-    print(f"Data successfully saved to {output_path}")
+    # Flatten multi-level column names if present
+    if isinstance(df_teams.columns, pd.MultiIndex):
+        df_teams.columns = ['_'.join(col).strip('_') for col in df_teams.columns.values]
+        
+    output_path_teams = 'data/team_shooting.csv'
+    df_teams.to_csv(output_path_teams, index=False)
+    print(f"✅ Team stats successfully saved to {output_path_teams}")
+
+    # ---------------------------------------------------------
+    # 2. EXTRACT GRANULAR SHOT EVENTS (New functionality)
+    # ---------------------------------------------------------
+    print("Fetching granular shot events...")
+    try:
+        df_shots = understat.read_shot_events()
+        df_shots = df_shots.reset_index()
+        
+        # Flatten multi-level column names if present
+        if isinstance(df_shots.columns, pd.MultiIndex):
+            df_shots.columns = ['_'.join(col).strip('_') for col in df_shots.columns.values]
+            
+        output_path_shots = 'data/understat_shots.csv'
+        df_shots.to_csv(output_path_shots, index=False)
+        print(f"✅ Shot events successfully saved to {output_path_shots}")
+    except Exception as e:
+        print(f"❌ Failed to extract shot events: {e}")
 
 if __name__ == '__main__':
     extract_and_save()

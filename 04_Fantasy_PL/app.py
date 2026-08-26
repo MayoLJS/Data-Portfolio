@@ -250,7 +250,7 @@ def load_fpl_data():
 
 @st.cache_data(ttl=3600)
 def load_match_data():
-    raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/02_Automated_Football_Analytics/data/pl_rolling_3_years_latest.csv"
+    raw_url = "https://raw.githubusercontent.com/MayoLJS/Data-Portfolio/refs/heads/main/04_Fantasy_PL/data/pl_rolling_3_years_latest.csv"
     try:
         df = pd.read_csv(raw_url)
         df['Date'] = pd.to_datetime(df['Date'])

@@ -28,4 +28,5 @@ jobs:
       - name: Run ETL Script
         env:
           CH_API_KEY: ${{ secrets.CH_API_KEY }}
-        run: python main.py
+        # The line below has been updated with your exact folder path
+        run: python 07_B2B_Client_Risk_Monitor/main.py

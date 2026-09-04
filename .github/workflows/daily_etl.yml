@@ -1,0 +1,31 @@
+name: Daily Risk Portfolio Pipeline
+
+on:
+  schedule:
+    - cron: '30 6 * * 1-5' # Runs at 06:30 UTC Monday to Friday
+  workflow_dispatch: # Allows you to run it manually
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests pandas google-cloud-bigquery db-dtypes
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Run ETL Script
+        env:
+          CH_API_KEY: ${{ secrets.CH_API_KEY }}
+        run: python main.py

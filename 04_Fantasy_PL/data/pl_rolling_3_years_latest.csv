@@ -1,4 +1,5 @@
 Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_FT,Away_Score_FT,Winner
+560579,2026-09-14 19:00:00,2026,Leeds United FC,Newcastle United FC,3,0,4,1,HOME_TEAM
 560580,2026-09-13 15:30:00,2026,Manchester United FC,Manchester City FC,0,0,0,1,AWAY_TEAM
 560578,2026-09-13 13:00:00,2026,Coventry City FC,Brighton & Hove Albion FC,0,1,0,5,AWAY_TEAM
 560577,2026-09-12 19:00:00,2026,Sunderland AFC,Arsenal FC,0,0,0,2,AWAY_TEAM
@@ -11,9 +12,9 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 560570,2026-09-06 15:30:00,2026,Arsenal FC,Chelsea FC,1,1,2,1,HOME_TEAM
 560567,2026-09-06 13:00:00,2026,Everton FC,Manchester United FC,0,0,2,2,DRAW
 560569,2026-09-05 16:30:00,2026,Hull City AFC,Aston Villa FC,0,0,0,0,DRAW
-560564,2026-09-05 14:00:00,2026,Brighton & Hove Albion FC,Leeds United FC,0,1,1,1,DRAW
-560568,2026-09-05 14:00:00,2026,Fulham FC,Crystal Palace FC,2,1,2,3,AWAY_TEAM
 560565,2026-09-05 14:00:00,2026,Brentford FC,Sunderland AFC,0,0,1,1,DRAW
+560568,2026-09-05 14:00:00,2026,Fulham FC,Crystal Palace FC,2,1,2,3,AWAY_TEAM
+560564,2026-09-05 14:00:00,2026,Brighton & Hove Albion FC,Leeds United FC,0,1,1,1,DRAW
 560563,2026-09-05 14:00:00,2026,Manchester City FC,Coventry City FC,1,0,1,0,HOME_TEAM
 560562,2026-09-05 14:00:00,2026,Nottingham Forest FC,Tottenham Hotspur FC,0,0,0,0,DRAW
 560571,2026-09-05 11:30:00,2026,Newcastle United FC,AFC Bournemouth,1,2,2,2,DRAW
@@ -24,8 +25,8 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 560556,2026-08-30 13:00:00,2026,Chelsea FC,Brighton & Hove Albion FC,3,1,4,3,HOME_TEAM
 560554,2026-08-30 13:00:00,2026,Sunderland AFC,Fulham FC,0,0,1,0,HOME_TEAM
 560558,2026-08-29 16:30:00,2026,Tottenham Hotspur FC,Newcastle United FC,0,0,0,2,AWAY_TEAM
-560561,2026-08-29 14:00:00,2026,Coventry City FC,Hull City AFC,0,0,0,1,AWAY_TEAM
 560560,2026-08-29 14:00:00,2026,AFC Bournemouth,Everton FC,1,0,1,1,DRAW
+560561,2026-08-29 14:00:00,2026,Coventry City FC,Hull City AFC,0,0,0,1,AWAY_TEAM
 560552,2026-08-29 11:30:00,2026,Liverpool FC,Nottingham Forest FC,0,1,2,2,DRAW
 560555,2026-08-28 19:00:00,2026,Crystal Palace FC,Manchester City FC,0,1,1,4,AWAY_TEAM
 560551,2026-08-24 19:00:00,2026,Fulham FC,Chelsea FC,1,2,2,3,AWAY_TEAM

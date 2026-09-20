@@ -1,23 +1,28 @@
 Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_FT,Away_Score_FT,Winner
+560589,2026-09-19 16:30:00,2026,Nottingham Forest FC,Coventry City FC,0,0,0,1,AWAY_TEAM
+560588,2026-09-19 14:00:00,2026,Newcastle United FC,Hull City AFC,2,0,2,1,HOME_TEAM
+560586,2026-09-19 14:00:00,2026,Brighton & Hove Albion FC,Arsenal FC,2,0,3,0,HOME_TEAM
+560584,2026-09-19 14:00:00,2026,Everton FC,Ipswich Town FC,1,0,1,0,HOME_TEAM
+560587,2026-09-19 11:30:00,2026,Tottenham Hotspur FC,Aston Villa FC,0,1,2,3,AWAY_TEAM
 560591,2026-09-18 19:00:00,2026,Brentford FC,Chelsea FC,0,0,3,0,HOME_TEAM
 560579,2026-09-14 19:00:00,2026,Leeds United FC,Newcastle United FC,3,0,4,1,HOME_TEAM
 560580,2026-09-13 15:30:00,2026,Manchester United FC,Manchester City FC,0,0,0,1,AWAY_TEAM
 560578,2026-09-13 13:00:00,2026,Coventry City FC,Brighton & Hove Albion FC,0,1,0,5,AWAY_TEAM
 560577,2026-09-12 19:00:00,2026,Sunderland AFC,Arsenal FC,0,0,0,2,AWAY_TEAM
 560575,2026-09-12 16:30:00,2026,Tottenham Hotspur FC,Everton FC,0,0,0,0,DRAW
-560581,2026-09-12 14:00:00,2026,Chelsea FC,Hull City AFC,1,2,2,2,DRAW
 560576,2026-09-12 14:00:00,2026,AFC Bournemouth,Brentford FC,1,1,2,2,DRAW
 560574,2026-09-12 14:00:00,2026,Aston Villa FC,Nottingham Forest FC,0,0,1,2,AWAY_TEAM
 560573,2026-09-12 14:00:00,2026,Liverpool FC,Fulham FC,0,0,0,0,DRAW
 560572,2026-09-12 14:00:00,2026,Crystal Palace FC,Ipswich Town FC,1,2,2,3,AWAY_TEAM
+560581,2026-09-12 14:00:00,2026,Chelsea FC,Hull City AFC,1,2,2,2,DRAW
 560570,2026-09-06 15:30:00,2026,Arsenal FC,Chelsea FC,1,1,2,1,HOME_TEAM
 560567,2026-09-06 13:00:00,2026,Everton FC,Manchester United FC,0,0,2,2,DRAW
 560569,2026-09-05 16:30:00,2026,Hull City AFC,Aston Villa FC,0,0,0,0,DRAW
+560562,2026-09-05 14:00:00,2026,Nottingham Forest FC,Tottenham Hotspur FC,0,0,0,0,DRAW
+560563,2026-09-05 14:00:00,2026,Manchester City FC,Coventry City FC,1,0,1,0,HOME_TEAM
+560564,2026-09-05 14:00:00,2026,Brighton & Hove Albion FC,Leeds United FC,0,1,1,1,DRAW
 560565,2026-09-05 14:00:00,2026,Brentford FC,Sunderland AFC,0,0,1,1,DRAW
 560568,2026-09-05 14:00:00,2026,Fulham FC,Crystal Palace FC,2,1,2,3,AWAY_TEAM
-560564,2026-09-05 14:00:00,2026,Brighton & Hove Albion FC,Leeds United FC,0,1,1,1,DRAW
-560563,2026-09-05 14:00:00,2026,Manchester City FC,Coventry City FC,1,0,1,0,HOME_TEAM
-560562,2026-09-05 14:00:00,2026,Nottingham Forest FC,Tottenham Hotspur FC,0,0,0,0,DRAW
 560571,2026-09-05 11:30:00,2026,Newcastle United FC,AFC Bournemouth,1,2,2,2,DRAW
 560566,2026-09-04 19:00:00,2026,Ipswich Town FC,Liverpool FC,0,2,0,2,AWAY_TEAM
 560557,2026-08-31 19:00:00,2026,Aston Villa FC,Arsenal FC,0,0,0,1,AWAY_TEAM
@@ -26,8 +31,8 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 560556,2026-08-30 13:00:00,2026,Chelsea FC,Brighton & Hove Albion FC,3,1,4,3,HOME_TEAM
 560554,2026-08-30 13:00:00,2026,Sunderland AFC,Fulham FC,0,0,1,0,HOME_TEAM
 560558,2026-08-29 16:30:00,2026,Tottenham Hotspur FC,Newcastle United FC,0,0,0,2,AWAY_TEAM
-560560,2026-08-29 14:00:00,2026,AFC Bournemouth,Everton FC,1,0,1,1,DRAW
 560561,2026-08-29 14:00:00,2026,Coventry City FC,Hull City AFC,0,0,0,1,AWAY_TEAM
+560560,2026-08-29 14:00:00,2026,AFC Bournemouth,Everton FC,1,0,1,1,DRAW
 560552,2026-08-29 11:30:00,2026,Liverpool FC,Nottingham Forest FC,0,1,2,2,DRAW
 560555,2026-08-28 19:00:00,2026,Crystal Palace FC,Manchester City FC,0,1,1,4,AWAY_TEAM
 560551,2026-08-24 19:00:00,2026,Fulham FC,Chelsea FC,1,2,2,3,AWAY_TEAM
@@ -63,13 +68,13 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 538091,2026-05-13 19:00:00,2025,Manchester City FC,Crystal Palace FC,2,0,3,0,HOME_TEAM
 538143,2026-05-11 19:00:00,2025,Tottenham Hotspur FC,Leeds United FC,0,0,1,1,DRAW
 538144,2026-05-10 15:30:00,2025,West Ham United FC,Arsenal FC,0,0,0,1,AWAY_TEAM
-538137,2026-05-10 13:00:00,2025,Crystal Palace FC,Everton FC,1,1,2,2,DRAW
-538138,2026-05-10 13:00:00,2025,Burnley FC,Aston Villa FC,1,1,2,2,DRAW
 538142,2026-05-10 13:00:00,2025,Nottingham Forest FC,Newcastle United FC,0,0,1,1,DRAW
+538138,2026-05-10 13:00:00,2025,Burnley FC,Aston Villa FC,1,1,2,2,DRAW
+538137,2026-05-10 13:00:00,2025,Crystal Palace FC,Everton FC,1,1,2,2,DRAW
 538141,2026-05-09 16:30:00,2025,Manchester City FC,Brentford FC,0,0,3,0,HOME_TEAM
-538136,2026-05-09 14:00:00,2025,Brighton & Hove Albion FC,Wolverhampton Wanderers FC,2,0,3,0,HOME_TEAM
-538139,2026-05-09 14:00:00,2025,Fulham FC,AFC Bournemouth,0,0,0,1,AWAY_TEAM
 538135,2026-05-09 14:00:00,2025,Sunderland AFC,Manchester United FC,0,0,0,0,DRAW
+538139,2026-05-09 14:00:00,2025,Fulham FC,AFC Bournemouth,0,0,0,1,AWAY_TEAM
+538136,2026-05-09 14:00:00,2025,Brighton & Hove Albion FC,Wolverhampton Wanderers FC,2,0,3,0,HOME_TEAM
 538140,2026-05-09 11:30:00,2025,Liverpool FC,Chelsea FC,1,1,1,1,DRAW
 538130,2026-05-04 19:00:00,2025,Everton FC,Manchester City FC,0,1,3,3,DRAW
 538129,2026-05-04 14:00:00,2025,Chelsea FC,Nottingham Forest FC,0,2,1,3,AWAY_TEAM
@@ -77,35 +82,35 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 538132,2026-05-03 14:30:00,2025,Manchester United FC,Liverpool FC,2,0,3,2,HOME_TEAM
 538125,2026-05-03 13:00:00,2025,AFC Bournemouth,Crystal Palace FC,2,0,3,0,HOME_TEAM
 538127,2026-05-02 16:30:00,2025,Arsenal FC,Fulham FC,3,0,3,0,HOME_TEAM
+538128,2026-05-02 14:00:00,2025,Brentford FC,West Ham United FC,1,0,3,0,HOME_TEAM
 538134,2026-05-02 14:00:00,2025,Wolverhampton Wanderers FC,Sunderland AFC,0,1,1,1,DRAW
 538133,2026-05-02 14:00:00,2025,Newcastle United FC,Brighton & Hove Albion FC,2,0,3,1,HOME_TEAM
-538128,2026-05-02 14:00:00,2025,Brentford FC,West Ham United FC,1,0,3,0,HOME_TEAM
 538131,2026-05-01 19:00:00,2025,Leeds United FC,Burnley FC,1,0,3,1,HOME_TEAM
 538122,2026-04-27 19:00:00,2025,Manchester United FC,Brentford FC,2,0,2,1,HOME_TEAM
 538118,2026-04-25 16:30:00,2025,Arsenal FC,Newcastle United FC,1,0,1,0,HOME_TEAM
-538121,2026-04-25 14:00:00,2025,Liverpool FC,Crystal Palace FC,2,0,3,1,HOME_TEAM
-538123,2026-04-25 14:00:00,2025,West Ham United FC,Everton FC,0,0,2,1,HOME_TEAM
 538124,2026-04-25 14:00:00,2025,Wolverhampton Wanderers FC,Tottenham Hotspur FC,0,0,0,1,AWAY_TEAM
+538123,2026-04-25 14:00:00,2025,West Ham United FC,Everton FC,0,0,2,1,HOME_TEAM
+538121,2026-04-25 14:00:00,2025,Liverpool FC,Crystal Palace FC,2,0,3,1,HOME_TEAM
 538120,2026-04-25 11:30:00,2025,Fulham FC,Aston Villa FC,1,0,1,0,HOME_TEAM
 538116,2026-04-24 19:00:00,2025,Sunderland AFC,Nottingham Forest FC,0,4,0,5,AWAY_TEAM
-538119,2026-04-22 19:00:00,2025,Burnley FC,Manchester City FC,0,1,0,1,AWAY_TEAM
 538115,2026-04-22 19:00:00,2025,AFC Bournemouth,Leeds United FC,0,0,2,2,DRAW
+538119,2026-04-22 19:00:00,2025,Burnley FC,Manchester City FC,0,1,0,1,AWAY_TEAM
 538117,2026-04-21 19:00:00,2025,Brighton & Hove Albion FC,Chelsea FC,1,0,3,0,HOME_TEAM
 538106,2026-04-20 19:00:00,2025,Crystal Palace FC,West Ham United FC,0,0,0,0,DRAW
 538111,2026-04-19 15:30:00,2025,Manchester City FC,Arsenal FC,1,1,2,1,HOME_TEAM
 538109,2026-04-19 13:00:00,2025,Everton FC,Liverpool FC,0,1,1,2,AWAY_TEAM
-538113,2026-04-19 13:00:00,2025,Nottingham Forest FC,Burnley FC,0,1,4,1,HOME_TEAM
 538105,2026-04-19 13:00:00,2025,Aston Villa FC,Sunderland AFC,2,1,4,3,HOME_TEAM
+538113,2026-04-19 13:00:00,2025,Nottingham Forest FC,Burnley FC,0,1,4,1,HOME_TEAM
 538108,2026-04-18 19:00:00,2025,Chelsea FC,Manchester United FC,0,1,0,1,AWAY_TEAM
 538114,2026-04-18 16:30:00,2025,Tottenham Hotspur FC,Brighton & Hove Albion FC,1,1,2,2,DRAW
-538110,2026-04-18 14:00:00,2025,Leeds United FC,Wolverhampton Wanderers FC,2,0,3,0,HOME_TEAM
 538112,2026-04-18 14:00:00,2025,Newcastle United FC,AFC Bournemouth,0,1,1,2,AWAY_TEAM
+538110,2026-04-18 14:00:00,2025,Leeds United FC,Wolverhampton Wanderers FC,2,0,3,0,HOME_TEAM
 538107,2026-04-18 11:30:00,2025,Brentford FC,Fulham FC,0,0,0,0,DRAW
 538102,2026-04-13 19:00:00,2025,Manchester United FC,Leeds United FC,0,2,1,2,AWAY_TEAM
 538100,2026-04-12 15:30:00,2025,Chelsea FC,Manchester City FC,0,0,0,3,AWAY_TEAM
 538103,2026-04-12 13:00:00,2025,Nottingham Forest FC,Aston Villa FC,1,1,1,1,DRAW
-538095,2026-04-12 13:00:00,2025,Sunderland AFC,Tottenham Hotspur FC,0,0,1,0,HOME_TEAM
 538096,2026-04-12 13:00:00,2025,Crystal Palace FC,Newcastle United FC,0,1,2,1,HOME_TEAM
+538095,2026-04-12 13:00:00,2025,Sunderland AFC,Tottenham Hotspur FC,0,0,1,0,HOME_TEAM
 538101,2026-04-11 16:30:00,2025,Liverpool FC,Fulham FC,2,0,2,0,HOME_TEAM
 538099,2026-04-11 14:00:00,2025,Burnley FC,Brighton & Hove Albion FC,0,1,0,2,AWAY_TEAM
 538098,2026-04-11 14:00:00,2025,Brentford FC,Everton FC,1,1,2,2,DRAW
@@ -121,28 +126,28 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 538085,2026-03-20 20:00:00,2025,AFC Bournemouth,Manchester United FC,0,0,2,2,DRAW
 538078,2026-03-16 20:00:00,2025,Brentford FC,Wolverhampton Wanderers FC,2,1,2,2,DRAW
 538081,2026-03-15 16:30:00,2025,Liverpool FC,Tottenham Hotspur FC,1,0,1,1,DRAW
-538076,2026-03-15 14:00:00,2025,Crystal Palace FC,Leeds United FC,0,0,0,0,DRAW
-538082,2026-03-15 14:00:00,2025,Manchester United FC,Aston Villa FC,0,0,3,1,HOME_TEAM
 538083,2026-03-15 14:00:00,2025,Nottingham Forest FC,Fulham FC,0,0,0,0,DRAW
+538082,2026-03-15 14:00:00,2025,Manchester United FC,Aston Villa FC,0,0,3,1,HOME_TEAM
+538076,2026-03-15 14:00:00,2025,Crystal Palace FC,Leeds United FC,0,0,0,0,DRAW
 538084,2026-03-14 20:00:00,2025,West Ham United FC,Manchester City FC,1,1,1,1,DRAW
-538077,2026-03-14 17:30:00,2025,Arsenal FC,Everton FC,0,0,2,0,HOME_TEAM
 538080,2026-03-14 17:30:00,2025,Chelsea FC,Newcastle United FC,0,1,0,1,AWAY_TEAM
+538077,2026-03-14 17:30:00,2025,Arsenal FC,Everton FC,0,0,2,0,HOME_TEAM
 538079,2026-03-14 15:00:00,2025,Burnley FC,AFC Bournemouth,0,0,0,0,DRAW
 538075,2026-03-14 15:00:00,2025,Sunderland AFC,Brighton & Hove Albion FC,0,0,0,1,AWAY_TEAM
 538073,2026-03-05 20:00:00,2025,Tottenham Hotspur FC,Crystal Palace FC,1,3,1,3,AWAY_TEAM
 538072,2026-03-04 20:15:00,2025,Newcastle United FC,Manchester United FC,1,1,2,1,HOME_TEAM
-538071,2026-03-04 19:30:00,2025,Manchester City FC,Nottingham Forest FC,1,0,2,2,DRAW
-538067,2026-03-04 19:30:00,2025,Brighton & Hove Albion FC,Arsenal FC,0,1,0,1,AWAY_TEAM
 538066,2026-03-04 19:30:00,2025,Aston Villa FC,Chelsea FC,1,2,1,4,AWAY_TEAM
+538071,2026-03-04 19:30:00,2025,Manchester City FC,Nottingham Forest FC,1,0,2,2,DRAW
 538069,2026-03-04 19:30:00,2025,Fulham FC,West Ham United FC,0,0,0,1,AWAY_TEAM
+538067,2026-03-04 19:30:00,2025,Brighton & Hove Albion FC,Arsenal FC,0,1,0,1,AWAY_TEAM
 538074,2026-03-03 20:15:00,2025,Wolverhampton Wanderers FC,Liverpool FC,0,0,2,1,HOME_TEAM
 538070,2026-03-03 19:30:00,2025,Leeds United FC,Sunderland AFC,0,0,0,1,AWAY_TEAM
-538068,2026-03-03 19:30:00,2025,Everton FC,Burnley FC,1,0,2,0,HOME_TEAM
 538065,2026-03-03 19:30:00,2025,AFC Bournemouth,Brentford FC,0,0,0,0,DRAW
+538068,2026-03-03 19:30:00,2025,Everton FC,Burnley FC,1,0,2,0,HOME_TEAM
 538057,2026-03-01 16:30:00,2025,Arsenal FC,Chelsea FC,1,1,2,1,HOME_TEAM
-538056,2026-03-01 14:00:00,2025,Brighton & Hove Albion FC,Nottingham Forest FC,2,1,2,1,HOME_TEAM
 538062,2026-03-01 14:00:00,2025,Manchester United FC,Crystal Palace FC,0,1,2,1,HOME_TEAM
 538059,2026-03-01 14:00:00,2025,Fulham FC,Tottenham Hotspur FC,2,0,2,1,HOME_TEAM
+538056,2026-03-01 14:00:00,2025,Brighton & Hove Albion FC,Nottingham Forest FC,2,1,2,1,HOME_TEAM
 538061,2026-02-28 17:30:00,2025,Leeds United FC,Manchester City FC,0,1,0,1,AWAY_TEAM
 538058,2026-02-28 15:00:00,2025,Burnley FC,Brentford FC,1,3,3,4,AWAY_TEAM
 538063,2026-02-28 15:00:00,2025,Newcastle United FC,Everton FC,1,2,2,3,AWAY_TEAM
@@ -156,49 +161,49 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 538045,2026-02-22 14:00:00,2025,Sunderland AFC,Fulham FC,0,0,1,3,AWAY_TEAM
 538051,2026-02-21 20:00:00,2025,Manchester City FC,Newcastle United FC,2,1,2,1,HOME_TEAM
 538054,2026-02-21 17:30:00,2025,West Ham United FC,AFC Bournemouth,0,0,0,0,DRAW
-538049,2026-02-21 15:00:00,2025,Chelsea FC,Burnley FC,1,0,1,1,DRAW
 538048,2026-02-21 15:00:00,2025,Brentford FC,Brighton & Hove Albion FC,0,2,0,2,AWAY_TEAM
 538046,2026-02-21 15:00:00,2025,Aston Villa FC,Leeds United FC,0,1,1,1,DRAW
+538049,2026-02-21 15:00:00,2025,Chelsea FC,Burnley FC,1,0,1,1,DRAW
 538094,2026-02-18 20:00:00,2025,Wolverhampton Wanderers FC,Arsenal FC,0,1,2,2,DRAW
 538038,2026-02-12 20:00:00,2025,Brentford FC,Arsenal FC,0,0,1,1,DRAW
 538035,2026-02-11 20:15:00,2025,Sunderland AFC,Liverpool FC,0,0,0,1,AWAY_TEAM
 538037,2026-02-11 19:40:00,2025,Crystal Palace FC,Burnley FC,2,3,2,3,AWAY_TEAM
 538042,2026-02-11 19:30:00,2025,Nottingham Forest FC,Wolverhampton Wanderers FC,0,0,0,0,DRAW
-538036,2026-02-11 19:30:00,2025,Aston Villa FC,Brighton & Hove Albion FC,0,0,1,0,HOME_TEAM
 538041,2026-02-11 19:30:00,2025,Manchester City FC,Fulham FC,3,0,3,0,HOME_TEAM
+538036,2026-02-11 19:30:00,2025,Aston Villa FC,Brighton & Hove Albion FC,0,0,1,0,HOME_TEAM
 538044,2026-02-10 20:15:00,2025,West Ham United FC,Manchester United FC,0,0,1,1,DRAW
-538043,2026-02-10 19:30:00,2025,Tottenham Hotspur FC,Newcastle United FC,0,1,1,2,AWAY_TEAM
 538040,2026-02-10 19:30:00,2025,Everton FC,AFC Bournemouth,1,0,1,2,AWAY_TEAM
 538039,2026-02-10 19:30:00,2025,Chelsea FC,Leeds United FC,1,0,2,2,DRAW
+538043,2026-02-10 19:30:00,2025,Tottenham Hotspur FC,Newcastle United FC,0,1,1,2,AWAY_TEAM
 538030,2026-02-08 16:30:00,2025,Liverpool FC,Manchester City FC,0,0,1,2,AWAY_TEAM
 538026,2026-02-08 14:00:00,2025,Brighton & Hove Albion FC,Crystal Palace FC,0,0,0,1,AWAY_TEAM
 538033,2026-02-07 17:30:00,2025,Newcastle United FC,Brentford FC,1,2,2,3,AWAY_TEAM
+538025,2026-02-07 15:00:00,2025,AFC Bournemouth,Aston Villa FC,0,1,1,1,DRAW
+538034,2026-02-07 15:00:00,2025,Wolverhampton Wanderers FC,Chelsea FC,0,3,1,3,AWAY_TEAM
 538029,2026-02-07 15:00:00,2025,Fulham FC,Everton FC,1,0,1,2,AWAY_TEAM
 538028,2026-02-07 15:00:00,2025,Burnley FC,West Ham United FC,0,2,0,2,AWAY_TEAM
 538027,2026-02-07 15:00:00,2025,Arsenal FC,Sunderland AFC,1,0,3,0,HOME_TEAM
-538025,2026-02-07 15:00:00,2025,AFC Bournemouth,Aston Villa FC,0,1,1,1,DRAW
-538034,2026-02-07 15:00:00,2025,Wolverhampton Wanderers FC,Chelsea FC,0,3,1,3,AWAY_TEAM
 538032,2026-02-07 12:30:00,2025,Manchester United FC,Tottenham Hotspur FC,1,0,2,0,HOME_TEAM
 538031,2026-02-06 20:00:00,2025,Leeds United FC,Nottingham Forest FC,2,0,3,1,HOME_TEAM
 538015,2026-02-02 20:00:00,2025,Sunderland AFC,Burnley FC,2,0,3,0,HOME_TEAM
 538023,2026-02-01 16:30:00,2025,Tottenham Hotspur FC,Manchester City FC,0,2,2,2,DRAW
-538021,2026-02-01 14:00:00,2025,Manchester United FC,Fulham FC,1,0,3,2,HOME_TEAM
 538022,2026-02-01 14:00:00,2025,Nottingham Forest FC,Crystal Palace FC,1,1,1,1,DRAW
+538021,2026-02-01 14:00:00,2025,Manchester United FC,Fulham FC,1,0,3,2,HOME_TEAM
 538016,2026-02-01 14:00:00,2025,Aston Villa FC,Brentford FC,0,1,0,1,AWAY_TEAM
 538019,2026-01-31 20:00:00,2025,Liverpool FC,Newcastle United FC,2,1,4,1,HOME_TEAM
 538018,2026-01-31 17:30:00,2025,Chelsea FC,West Ham United FC,0,2,3,2,HOME_TEAM
-538024,2026-01-31 15:00:00,2025,Wolverhampton Wanderers FC,AFC Bournemouth,0,1,0,2,AWAY_TEAM
 538020,2026-01-31 15:00:00,2025,Leeds United FC,Arsenal FC,0,2,0,4,AWAY_TEAM
 538017,2026-01-31 15:00:00,2025,Brighton & Hove Albion FC,Everton FC,0,0,1,1,DRAW
+538024,2026-01-31 15:00:00,2025,Wolverhampton Wanderers FC,AFC Bournemouth,0,1,0,2,AWAY_TEAM
 538010,2026-01-26 20:00:00,2025,Everton FC,Leeds United FC,0,1,1,1,DRAW
 538007,2026-01-25 16:30:00,2025,Arsenal FC,Manchester United FC,1,1,2,3,AWAY_TEAM
+538013,2026-01-25 14:00:00,2025,Newcastle United FC,Aston Villa FC,0,1,0,2,AWAY_TEAM
 538008,2026-01-25 14:00:00,2025,Brentford FC,Nottingham Forest FC,0,1,0,2,AWAY_TEAM
 538006,2026-01-25 14:00:00,2025,Crystal Palace FC,Chelsea FC,0,1,1,3,AWAY_TEAM
-538013,2026-01-25 14:00:00,2025,Newcastle United FC,Aston Villa FC,0,1,0,2,AWAY_TEAM
 538005,2026-01-24 17:30:00,2025,AFC Bournemouth,Liverpool FC,2,1,3,2,HOME_TEAM
-538012,2026-01-24 15:00:00,2025,Manchester City FC,Wolverhampton Wanderers FC,2,0,2,0,HOME_TEAM
 538011,2026-01-24 15:00:00,2025,Fulham FC,Brighton & Hove Albion FC,0,1,2,1,HOME_TEAM
 538009,2026-01-24 15:00:00,2025,Burnley FC,Tottenham Hotspur FC,1,1,2,2,DRAW
+538012,2026-01-24 15:00:00,2025,Manchester City FC,Wolverhampton Wanderers FC,2,0,2,0,HOME_TEAM
 538014,2026-01-24 12:30:00,2025,West Ham United FC,Sunderland AFC,3,0,3,1,HOME_TEAM
 537997,2026-01-19 20:00:00,2025,Brighton & Hove Albion FC,AFC Bournemouth,0,1,1,1,DRAW
 537996,2026-01-18 16:30:00,2025,Aston Villa FC,Everton FC,0,0,0,1,AWAY_TEAM
@@ -211,14 +216,14 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537995,2026-01-17 15:00:00,2025,Sunderland AFC,Crystal Palace FC,1,1,2,1,HOME_TEAM
 538001,2026-01-17 12:30:00,2025,Manchester United FC,Manchester City FC,0,0,2,0,HOME_TEAM
 537987,2026-01-08 20:00:00,2025,Arsenal FC,Liverpool FC,0,0,0,0,DRAW
-537993,2026-01-07 20:15:00,2025,Newcastle United FC,Leeds United FC,1,2,4,3,HOME_TEAM
 537989,2026-01-07 20:15:00,2025,Burnley FC,Manchester United FC,1,0,2,2,DRAW
-537992,2026-01-07 19:30:00,2025,Manchester City FC,Brighton & Hove Albion FC,1,0,1,1,DRAW
+537993,2026-01-07 20:15:00,2025,Newcastle United FC,Leeds United FC,1,2,4,3,HOME_TEAM
 537990,2026-01-07 19:30:00,2025,Everton FC,Wolverhampton Wanderers FC,1,0,1,1,DRAW
 537988,2026-01-07 19:30:00,2025,Brentford FC,Sunderland AFC,1,0,3,0,HOME_TEAM
-537986,2026-01-07 19:30:00,2025,Crystal Palace FC,Aston Villa FC,0,0,0,0,DRAW
 537985,2026-01-07 19:30:00,2025,AFC Bournemouth,Tottenham Hotspur FC,2,1,3,2,HOME_TEAM
 537991,2026-01-07 19:30:00,2025,Fulham FC,Chelsea FC,0,0,2,1,HOME_TEAM
+537986,2026-01-07 19:30:00,2025,Crystal Palace FC,Aston Villa FC,0,0,0,0,DRAW
+537992,2026-01-07 19:30:00,2025,Manchester City FC,Brighton & Hove Albion FC,1,0,1,1,DRAW
 537994,2026-01-06 20:00:00,2025,West Ham United FC,Nottingham Forest FC,1,0,1,2,AWAY_TEAM
 537981,2026-01-04 17:30:00,2025,Manchester City FC,Chelsea FC,1,0,1,1,DRAW
 537979,2026-01-04 15:15:00,2025,Fulham FC,Liverpool FC,1,0,2,2,DRAW
@@ -243,22 +248,22 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537956,2025-12-28 16:30:00,2025,Crystal Palace FC,Tottenham Hotspur FC,0,1,0,1,AWAY_TEAM
 537955,2025-12-28 14:00:00,2025,Sunderland AFC,Leeds United FC,1,0,1,1,DRAW
 537960,2025-12-27 17:30:00,2025,Chelsea FC,Aston Villa FC,1,0,1,2,AWAY_TEAM
-537961,2025-12-27 15:00:00,2025,Liverpool FC,Wolverhampton Wanderers FC,2,0,2,1,HOME_TEAM
-537957,2025-12-27 15:00:00,2025,Arsenal FC,Brighton & Hove Albion FC,1,0,2,1,HOME_TEAM
 537964,2025-12-27 15:00:00,2025,West Ham United FC,Fulham FC,0,0,0,1,AWAY_TEAM
+537961,2025-12-27 15:00:00,2025,Liverpool FC,Wolverhampton Wanderers FC,2,0,2,1,HOME_TEAM
 537959,2025-12-27 15:00:00,2025,Burnley FC,Everton FC,0,0,0,0,DRAW
 537958,2025-12-27 15:00:00,2025,Brentford FC,AFC Bournemouth,2,0,4,1,HOME_TEAM
+537957,2025-12-27 15:00:00,2025,Arsenal FC,Brighton & Hove Albion FC,1,0,2,1,HOME_TEAM
 537963,2025-12-27 12:30:00,2025,Nottingham Forest FC,Manchester City FC,0,0,1,2,AWAY_TEAM
 537962,2025-12-26 20:00:00,2025,Manchester United FC,Newcastle United FC,1,0,1,0,HOME_TEAM
 537949,2025-12-22 20:00:00,2025,Fulham FC,Nottingham Forest FC,1,0,1,0,HOME_TEAM
 537946,2025-12-21 16:30:00,2025,Aston Villa FC,Manchester United FC,1,1,2,1,HOME_TEAM
-537948,2025-12-20 20:00:00,2025,Everton FC,Arsenal FC,0,1,0,1,AWAY_TEAM
 537950,2025-12-20 20:00:00,2025,Leeds United FC,Crystal Palace FC,2,0,4,1,HOME_TEAM
+537948,2025-12-20 20:00:00,2025,Everton FC,Arsenal FC,0,1,0,1,AWAY_TEAM
 537953,2025-12-20 17:30:00,2025,Tottenham Hotspur FC,Liverpool FC,0,0,1,2,AWAY_TEAM
-537954,2025-12-20 15:00:00,2025,Wolverhampton Wanderers FC,Brentford FC,0,0,0,2,AWAY_TEAM
-537951,2025-12-20 15:00:00,2025,Manchester City FC,West Ham United FC,2,0,3,0,HOME_TEAM
 537947,2025-12-20 15:00:00,2025,Brighton & Hove Albion FC,Sunderland AFC,0,0,0,0,DRAW
 537945,2025-12-20 15:00:00,2025,AFC Bournemouth,Burnley FC,0,0,1,1,DRAW
+537954,2025-12-20 15:00:00,2025,Wolverhampton Wanderers FC,Brentford FC,0,0,0,2,AWAY_TEAM
+537951,2025-12-20 15:00:00,2025,Manchester City FC,West Ham United FC,2,0,3,0,HOME_TEAM
 537952,2025-12-20 12:30:00,2025,Newcastle United FC,Chelsea FC,2,0,2,2,DRAW
 537942,2025-12-15 20:00:00,2025,Manchester United FC,AFC Bournemouth,2,1,4,4,DRAW
 537938,2025-12-14 16:30:00,2025,Brentford FC,Leeds United FC,0,0,1,1,DRAW
@@ -274,26 +279,26 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537929,2025-12-07 16:30:00,2025,Fulham FC,Crystal Palace FC,1,1,1,2,AWAY_TEAM
 537927,2025-12-07 14:00:00,2025,Brighton & Hove Albion FC,West Ham United FC,0,0,1,1,DRAW
 537930,2025-12-06 17:30:00,2025,Leeds United FC,Liverpool FC,0,0,3,3,DRAW
-537928,2025-12-06 15:00:00,2025,Everton FC,Nottingham Forest FC,2,0,3,0,HOME_TEAM
-537925,2025-12-06 15:00:00,2025,AFC Bournemouth,Chelsea FC,0,0,0,0,DRAW
+537933,2025-12-06 15:00:00,2025,Tottenham Hotspur FC,Brentford FC,2,0,2,0,HOME_TEAM
 537932,2025-12-06 15:00:00,2025,Newcastle United FC,Burnley FC,2,0,2,1,HOME_TEAM
 537931,2025-12-06 15:00:00,2025,Manchester City FC,Sunderland AFC,2,0,3,0,HOME_TEAM
-537933,2025-12-06 15:00:00,2025,Tottenham Hotspur FC,Brentford FC,2,0,2,0,HOME_TEAM
+537928,2025-12-06 15:00:00,2025,Everton FC,Nottingham Forest FC,2,0,3,0,HOME_TEAM
+537925,2025-12-06 15:00:00,2025,AFC Bournemouth,Chelsea FC,0,0,0,0,DRAW
 537926,2025-12-06 12:30:00,2025,Aston Villa FC,Arsenal FC,1,0,2,1,HOME_TEAM
 537922,2025-12-04 20:00:00,2025,Manchester United FC,West Ham United FC,0,0,1,1,DRAW
-537920,2025-12-03 20:15:00,2025,Liverpool FC,Sunderland AFC,0,0,1,1,DRAW
 537921,2025-12-03 20:15:00,2025,Leeds United FC,Chelsea FC,2,0,3,1,HOME_TEAM
+537920,2025-12-03 20:15:00,2025,Liverpool FC,Sunderland AFC,0,0,1,1,DRAW
 537924,2025-12-03 19:30:00,2025,Wolverhampton Wanderers FC,Nottingham Forest FC,0,0,0,1,AWAY_TEAM
 537918,2025-12-03 19:30:00,2025,Burnley FC,Crystal Palace FC,0,1,0,1,AWAY_TEAM
 537917,2025-12-03 19:30:00,2025,Arsenal FC,Brentford FC,1,0,2,0,HOME_TEAM
 537916,2025-12-03 19:30:00,2025,Brighton & Hove Albion FC,Aston Villa FC,2,2,3,4,AWAY_TEAM
 537923,2025-12-02 20:15:00,2025,Newcastle United FC,Tottenham Hotspur FC,0,0,2,2,DRAW
-537919,2025-12-02 19:30:00,2025,Fulham FC,Manchester City FC,1,3,4,5,AWAY_TEAM
 537915,2025-12-02 19:30:00,2025,AFC Bournemouth,Everton FC,0,0,0,1,AWAY_TEAM
+537919,2025-12-02 19:30:00,2025,Fulham FC,Manchester City FC,1,3,4,5,AWAY_TEAM
 537909,2025-11-30 16:30:00,2025,Chelsea FC,Arsenal FC,0,0,1,1,DRAW
-537906,2025-11-30 14:05:00,2025,Aston Villa FC,Wolverhampton Wanderers FC,0,0,1,0,HOME_TEAM
 537914,2025-11-30 14:05:00,2025,West Ham United FC,Liverpool FC,0,0,0,2,AWAY_TEAM
 537912,2025-11-30 14:05:00,2025,Nottingham Forest FC,Brighton & Hove Albion FC,0,1,0,2,AWAY_TEAM
+537906,2025-11-30 14:05:00,2025,Aston Villa FC,Wolverhampton Wanderers FC,0,0,1,0,HOME_TEAM
 537907,2025-11-30 12:00:00,2025,Crystal Palace FC,Manchester United FC,1,0,1,2,AWAY_TEAM
 537913,2025-11-29 20:00:00,2025,Tottenham Hotspur FC,Fulham FC,0,2,1,2,AWAY_TEAM
 537910,2025-11-29 17:30:00,2025,Everton FC,Newcastle United FC,0,3,1,4,AWAY_TEAM
@@ -304,9 +309,9 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537897,2025-11-23 16:30:00,2025,Arsenal FC,Tottenham Hotspur FC,2,0,4,1,HOME_TEAM
 537901,2025-11-23 14:00:00,2025,Leeds United FC,Aston Villa FC,1,0,1,2,AWAY_TEAM
 537903,2025-11-22 17:30:00,2025,Newcastle United FC,Manchester City FC,0,0,2,1,HOME_TEAM
-537896,2025-11-22 15:00:00,2025,Brighton & Hove Albion FC,Brentford FC,0,1,2,1,HOME_TEAM
-537895,2025-11-22 15:00:00,2025,AFC Bournemouth,West Ham United FC,0,2,2,2,DRAW
 537899,2025-11-22 15:00:00,2025,Fulham FC,Sunderland AFC,0,0,1,0,HOME_TEAM
+537895,2025-11-22 15:00:00,2025,AFC Bournemouth,West Ham United FC,0,2,2,2,DRAW
+537896,2025-11-22 15:00:00,2025,Brighton & Hove Albion FC,Brentford FC,0,1,2,1,HOME_TEAM
 537900,2025-11-22 15:00:00,2025,Liverpool FC,Nottingham Forest FC,0,1,0,3,AWAY_TEAM
 537904,2025-11-22 15:00:00,2025,Wolverhampton Wanderers FC,Crystal Palace FC,0,0,0,2,AWAY_TEAM
 537898,2025-11-22 12:30:00,2025,Burnley FC,Chelsea FC,0,1,0,2,AWAY_TEAM
@@ -331,14 +336,14 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537877,2025-11-01 15:00:00,2025,Crystal Palace FC,Brentford FC,1,0,2,0,HOME_TEAM
 537876,2025-11-01 15:00:00,2025,Brighton & Hove Albion FC,Leeds United FC,1,0,3,0,HOME_TEAM
 537870,2025-10-26 16:30:00,2025,Everton FC,Tottenham Hotspur FC,0,2,0,3,AWAY_TEAM
+537865,2025-10-26 14:00:00,2025,AFC Bournemouth,Nottingham Forest FC,2,0,2,0,HOME_TEAM
 537874,2025-10-26 14:00:00,2025,Wolverhampton Wanderers FC,Burnley FC,2,2,2,3,AWAY_TEAM
 537867,2025-10-26 14:00:00,2025,Arsenal FC,Crystal Palace FC,1,0,1,0,HOME_TEAM
 537866,2025-10-26 14:00:00,2025,Aston Villa FC,Manchester City FC,1,0,1,0,HOME_TEAM
-537865,2025-10-26 14:00:00,2025,AFC Bournemouth,Nottingham Forest FC,2,0,2,0,HOME_TEAM
 537868,2025-10-25 19:00:00,2025,Brentford FC,Liverpool FC,2,1,3,2,HOME_TEAM
 537872,2025-10-25 16:30:00,2025,Manchester United FC,Brighton & Hove Albion FC,2,0,4,2,HOME_TEAM
-537869,2025-10-25 14:00:00,2025,Chelsea FC,Sunderland AFC,1,1,1,2,AWAY_TEAM
 537873,2025-10-25 14:00:00,2025,Newcastle United FC,Fulham FC,1,0,2,1,HOME_TEAM
+537869,2025-10-25 14:00:00,2025,Chelsea FC,Sunderland AFC,1,1,1,2,AWAY_TEAM
 537871,2025-10-24 19:00:00,2025,Leeds United FC,West Ham United FC,2,0,2,1,HOME_TEAM
 537864,2025-10-20 19:00:00,2025,West Ham United FC,Brentford FC,0,1,0,2,AWAY_TEAM
 537860,2025-10-19 15:30:00,2025,Liverpool FC,Manchester United FC,0,1,1,2,AWAY_TEAM
@@ -352,8 +357,8 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537862,2025-10-18 11:30:00,2025,Nottingham Forest FC,Chelsea FC,0,0,0,3,AWAY_TEAM
 537848,2025-10-05 15:30:00,2025,Brentford FC,Manchester City FC,0,1,0,1,AWAY_TEAM
 537846,2025-10-05 13:00:00,2025,Aston Villa FC,Burnley FC,1,0,2,1,HOME_TEAM
-537854,2025-10-05 13:00:00,2025,Wolverhampton Wanderers FC,Brighton & Hove Albion FC,1,0,1,1,DRAW
 537850,2025-10-05 13:00:00,2025,Everton FC,Crystal Palace FC,0,1,2,1,HOME_TEAM
+537854,2025-10-05 13:00:00,2025,Wolverhampton Wanderers FC,Brighton & Hove Albion FC,1,0,1,1,DRAW
 537853,2025-10-05 13:00:00,2025,Newcastle United FC,Nottingham Forest FC,0,0,2,0,HOME_TEAM
 537849,2025-10-04 16:30:00,2025,Chelsea FC,Liverpool FC,1,0,2,1,HOME_TEAM
 537852,2025-10-04 14:00:00,2025,Manchester United FC,Sunderland AFC,2,0,2,0,HOME_TEAM
@@ -365,10 +370,10 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537835,2025-09-28 13:00:00,2025,Aston Villa FC,Fulham FC,1,1,3,1,HOME_TEAM
 537844,2025-09-27 19:00:00,2025,Tottenham Hotspur FC,Wolverhampton Wanderers FC,0,0,1,1,DRAW
 537843,2025-09-27 16:30:00,2025,Nottingham Forest FC,Sunderland AFC,0,1,0,1,AWAY_TEAM
-537841,2025-09-27 14:00:00,2025,Manchester City FC,Burnley FC,1,1,5,1,HOME_TEAM
 537840,2025-09-27 14:00:00,2025,Leeds United FC,AFC Bournemouth,1,1,2,2,DRAW
-537838,2025-09-27 14:00:00,2025,Chelsea FC,Brighton & Hove Albion FC,1,0,1,3,AWAY_TEAM
 537836,2025-09-27 14:00:00,2025,Crystal Palace FC,Liverpool FC,1,0,2,1,HOME_TEAM
+537838,2025-09-27 14:00:00,2025,Chelsea FC,Brighton & Hove Albion FC,1,0,1,3,AWAY_TEAM
+537841,2025-09-27 14:00:00,2025,Manchester City FC,Burnley FC,1,1,5,1,HOME_TEAM
 537837,2025-09-27 11:30:00,2025,Brentford FC,Manchester United FC,2,1,3,1,HOME_TEAM
 537828,2025-09-21 15:30:00,2025,Arsenal FC,Manchester City FC,0,1,1,1,DRAW
 537826,2025-09-21 13:00:00,2025,Sunderland AFC,Aston Villa FC,0,0,1,1,DRAW
@@ -387,16 +392,16 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 537823,2025-09-13 14:00:00,2025,Newcastle United FC,Wolverhampton Wanderers FC,1,0,1,0,HOME_TEAM
 537821,2025-09-13 14:00:00,2025,Fulham FC,Leeds United FC,0,0,1,0,HOME_TEAM
 537820,2025-09-13 14:00:00,2025,Everton FC,Aston Villa FC,0,0,0,0,DRAW
-537815,2025-09-13 14:00:00,2025,AFC Bournemouth,Brighton & Hove Albion FC,1,0,2,1,HOME_TEAM
 537816,2025-09-13 14:00:00,2025,Crystal Palace FC,Sunderland AFC,0,0,0,0,DRAW
+537815,2025-09-13 14:00:00,2025,AFC Bournemouth,Brighton & Hove Albion FC,1,0,2,1,HOME_TEAM
 537817,2025-09-13 11:30:00,2025,Arsenal FC,Nottingham Forest FC,1,0,3,0,HOME_TEAM
 537806,2025-08-31 18:00:00,2025,Aston Villa FC,Crystal Palace FC,0,1,0,3,AWAY_TEAM
 537809,2025-08-31 15:30:00,2025,Liverpool FC,Arsenal FC,0,0,1,0,HOME_TEAM
 537812,2025-08-31 13:00:00,2025,Nottingham Forest FC,West Ham United FC,0,0,0,3,AWAY_TEAM
 537807,2025-08-31 13:00:00,2025,Brighton & Hove Albion FC,Manchester City FC,0,1,2,1,HOME_TEAM
 537810,2025-08-30 16:30:00,2025,Leeds United FC,Newcastle United FC,0,0,0,0,DRAW
-537805,2025-08-30 14:00:00,2025,Sunderland AFC,Brentford FC,0,0,2,1,HOME_TEAM
 537811,2025-08-30 14:00:00,2025,Manchester United FC,Burnley FC,1,0,3,2,HOME_TEAM
+537805,2025-08-30 14:00:00,2025,Sunderland AFC,Brentford FC,0,0,2,1,HOME_TEAM
 537813,2025-08-30 14:00:00,2025,Tottenham Hotspur FC,AFC Bournemouth,0,1,0,1,AWAY_TEAM
 537814,2025-08-30 14:00:00,2025,Wolverhampton Wanderers FC,Everton FC,1,2,2,3,AWAY_TEAM
 537808,2025-08-30 11:30:00,2025,Chelsea FC,Fulham FC,1,0,2,0,HOME_TEAM
@@ -430,8 +435,8 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497781,2025-05-25 15:00:00,2024,Fulham FC,Manchester City FC,0,1,0,2,AWAY_TEAM
 497780,2025-05-25 15:00:00,2024,AFC Bournemouth,Leicester City FC,0,0,2,0,HOME_TEAM
 497789,2025-05-25 15:00:00,2024,Wolverhampton Wanderers FC,Brentford FC,0,1,1,1,DRAW
-497775,2025-05-20 19:00:00,2024,Crystal Palace FC,Wolverhampton Wanderers FC,2,1,4,2,HOME_TEAM
 497778,2025-05-20 19:00:00,2024,Manchester City FC,AFC Bournemouth,2,0,3,1,HOME_TEAM
+497775,2025-05-20 19:00:00,2024,Crystal Palace FC,Wolverhampton Wanderers FC,2,1,4,2,HOME_TEAM
 497773,2025-05-19 19:00:00,2024,Brighton & Hove Albion FC,Liverpool FC,1,2,3,2,HOME_TEAM
 497770,2025-05-18 15:30:00,2024,Arsenal FC,Newcastle United FC,0,0,1,0,HOME_TEAM
 497777,2025-05-18 14:00:00,2024,Leicester City FC,Ipswich Town FC,1,0,2,0,HOME_TEAM
@@ -441,9 +446,9 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497774,2025-05-16 19:15:00,2024,Chelsea FC,Manchester United FC,0,0,1,0,HOME_TEAM
 497771,2025-05-16 18:30:00,2024,Aston Villa FC,Tottenham Hotspur FC,0,0,2,0,HOME_TEAM
 497763,2025-05-11 15:30:00,2024,Liverpool FC,Arsenal FC,2,0,2,2,DRAW
+497764,2025-05-11 13:15:00,2024,Manchester United FC,West Ham United FC,0,1,0,2,AWAY_TEAM
 497768,2025-05-11 13:15:00,2024,Tottenham Hotspur FC,Crystal Palace FC,0,1,0,2,AWAY_TEAM
 497766,2025-05-11 13:15:00,2024,Nottingham Forest FC,Leicester City FC,1,1,2,2,DRAW
-497764,2025-05-11 13:15:00,2024,Manchester United FC,West Ham United FC,0,1,0,2,AWAY_TEAM
 497765,2025-05-11 11:00:00,2024,Newcastle United FC,Chelsea FC,1,0,2,0,HOME_TEAM
 497760,2025-05-10 16:30:00,2024,AFC Bournemouth,Aston Villa FC,0,1,0,1,AWAY_TEAM
 497769,2025-05-10 14:00:00,2024,Wolverhampton Wanderers FC,Brighton & Hove Albion FC,0,1,0,2,AWAY_TEAM
@@ -472,51 +477,51 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497745,2025-04-22 19:00:00,2024,Manchester City FC,Aston Villa FC,1,1,2,1,HOME_TEAM
 497738,2025-04-21 19:00:00,2024,Tottenham Hotspur FC,Nottingham Forest FC,0,2,1,2,AWAY_TEAM
 497736,2025-04-20 15:30:00,2024,Leicester City FC,Liverpool FC,0,0,0,1,AWAY_TEAM
-497734,2025-04-20 13:00:00,2024,Fulham FC,Chelsea FC,1,0,1,2,AWAY_TEAM
-497735,2025-04-20 13:00:00,2024,Ipswich Town FC,Arsenal FC,0,2,0,4,AWAY_TEAM
 497737,2025-04-20 13:00:00,2024,Manchester United FC,Wolverhampton Wanderers FC,0,0,0,1,AWAY_TEAM
+497735,2025-04-20 13:00:00,2024,Ipswich Town FC,Arsenal FC,0,2,0,4,AWAY_TEAM
+497734,2025-04-20 13:00:00,2024,Fulham FC,Chelsea FC,1,0,1,2,AWAY_TEAM
 497730,2025-04-19 16:30:00,2024,Aston Villa FC,Newcastle United FC,1,1,4,1,HOME_TEAM
-497739,2025-04-19 14:00:00,2024,West Ham United FC,Southampton FC,0,0,1,1,DRAW
-497733,2025-04-19 14:00:00,2024,Everton FC,Manchester City FC,0,0,0,2,AWAY_TEAM
-497732,2025-04-19 14:00:00,2024,Crystal Palace FC,AFC Bournemouth,0,0,0,0,DRAW
 497731,2025-04-19 14:00:00,2024,Brentford FC,Brighton & Hove Albion FC,1,1,4,2,HOME_TEAM
+497732,2025-04-19 14:00:00,2024,Crystal Palace FC,AFC Bournemouth,0,0,0,0,DRAW
+497733,2025-04-19 14:00:00,2024,Everton FC,Manchester City FC,0,0,0,2,AWAY_TEAM
+497739,2025-04-19 14:00:00,2024,West Ham United FC,Southampton FC,0,0,1,1,DRAW
 497698,2025-04-16 18:30:00,2024,Newcastle United FC,Crystal Palace FC,4,0,5,0,HOME_TEAM
 497720,2025-04-14 19:00:00,2024,AFC Bournemouth,Fulham FC,1,0,1,0,HOME_TEAM
 497726,2025-04-13 15:30:00,2024,Newcastle United FC,Manchester United FC,1,1,4,1,HOME_TEAM
-497723,2025-04-13 13:00:00,2024,Chelsea FC,Ipswich Town FC,0,2,2,2,DRAW
 497729,2025-04-13 13:00:00,2024,Wolverhampton Wanderers FC,Tottenham Hotspur FC,2,0,4,2,HOME_TEAM
 497724,2025-04-13 13:00:00,2024,Liverpool FC,West Ham United FC,1,0,2,1,HOME_TEAM
+497723,2025-04-13 13:00:00,2024,Chelsea FC,Ipswich Town FC,0,2,2,2,DRAW
 497721,2025-04-12 16:30:00,2024,Arsenal FC,Brentford FC,0,0,1,1,DRAW
-497728,2025-04-12 14:00:00,2024,Southampton FC,Aston Villa FC,0,0,0,3,AWAY_TEAM
-497727,2025-04-12 14:00:00,2024,Nottingham Forest FC,Everton FC,0,0,0,1,AWAY_TEAM
 497722,2025-04-12 14:00:00,2024,Brighton & Hove Albion FC,Leicester City FC,1,1,2,2,DRAW
+497727,2025-04-12 14:00:00,2024,Nottingham Forest FC,Everton FC,0,0,0,1,AWAY_TEAM
+497728,2025-04-12 14:00:00,2024,Southampton FC,Aston Villa FC,0,0,0,3,AWAY_TEAM
 497725,2025-04-12 11:30:00,2024,Manchester City FC,Crystal Palace FC,2,2,5,2,HOME_TEAM
 497716,2025-04-07 19:00:00,2024,Leicester City FC,Newcastle United FC,0,3,0,3,AWAY_TEAM
 497717,2025-04-06 15:30:00,2024,Manchester United FC,Manchester City FC,0,0,0,0,DRAW
+497718,2025-04-06 13:00:00,2024,Tottenham Hotspur FC,Southampton FC,2,0,3,1,HOME_TEAM
 497714,2025-04-06 13:00:00,2024,Fulham FC,Liverpool FC,3,1,3,2,HOME_TEAM
 497711,2025-04-06 13:00:00,2024,Brentford FC,Chelsea FC,0,0,0,0,DRAW
-497718,2025-04-06 13:00:00,2024,Tottenham Hotspur FC,Southampton FC,2,0,3,1,HOME_TEAM
 497710,2025-04-05 16:30:00,2024,Aston Villa FC,Nottingham Forest FC,2,0,2,1,HOME_TEAM
-497719,2025-04-05 14:00:00,2024,West Ham United FC,AFC Bournemouth,0,1,2,2,DRAW
-497715,2025-04-05 14:00:00,2024,Ipswich Town FC,Wolverhampton Wanderers FC,1,0,1,2,AWAY_TEAM
 497712,2025-04-05 14:00:00,2024,Crystal Palace FC,Brighton & Hove Albion FC,1,1,2,1,HOME_TEAM
+497715,2025-04-05 14:00:00,2024,Ipswich Town FC,Wolverhampton Wanderers FC,1,0,1,2,AWAY_TEAM
+497719,2025-04-05 14:00:00,2024,West Ham United FC,AFC Bournemouth,0,1,2,2,DRAW
 497713,2025-04-05 11:30:00,2024,Everton FC,Arsenal FC,0,1,1,1,DRAW
 497705,2025-04-03 19:00:00,2024,Chelsea FC,Tottenham Hotspur FC,0,0,1,0,HOME_TEAM
 497709,2025-04-02 19:00:00,2024,Liverpool FC,Everton FC,0,0,1,0,HOME_TEAM
-497700,2025-04-02 18:45:00,2024,AFC Bournemouth,Ipswich Town FC,0,1,1,2,AWAY_TEAM
-497702,2025-04-02 18:45:00,2024,Brighton & Hove Albion FC,Aston Villa FC,0,0,0,3,AWAY_TEAM
-497706,2025-04-02 18:45:00,2024,Manchester City FC,Leicester City FC,2,0,2,0,HOME_TEAM
-497707,2025-04-02 18:45:00,2024,Newcastle United FC,Brentford FC,1,0,2,1,HOME_TEAM
 497708,2025-04-02 18:45:00,2024,Southampton FC,Crystal Palace FC,1,0,1,1,DRAW
+497707,2025-04-02 18:45:00,2024,Newcastle United FC,Brentford FC,1,0,2,1,HOME_TEAM
+497706,2025-04-02 18:45:00,2024,Manchester City FC,Leicester City FC,2,0,2,0,HOME_TEAM
+497702,2025-04-02 18:45:00,2024,Brighton & Hove Albion FC,Aston Villa FC,0,0,0,3,AWAY_TEAM
+497700,2025-04-02 18:45:00,2024,AFC Bournemouth,Ipswich Town FC,0,1,1,2,AWAY_TEAM
 497703,2025-04-01 19:00:00,2024,Nottingham Forest FC,Manchester United FC,1,0,1,0,HOME_TEAM
-497704,2025-04-01 18:45:00,2024,Wolverhampton Wanderers FC,West Ham United FC,1,0,1,0,HOME_TEAM
 497701,2025-04-01 18:45:00,2024,Arsenal FC,Fulham FC,1,0,2,1,HOME_TEAM
+497704,2025-04-01 18:45:00,2024,Wolverhampton Wanderers FC,West Ham United FC,1,0,1,0,HOME_TEAM
 497696,2025-03-16 19:00:00,2024,Leicester City FC,Manchester United FC,0,1,0,3,AWAY_TEAM
 497694,2025-03-16 13:30:00,2024,Fulham FC,Tottenham Hotspur FC,0,0,2,0,HOME_TEAM
 497691,2025-03-16 13:30:00,2024,Arsenal FC,Chelsea FC,1,0,1,0,HOME_TEAM
 497690,2025-03-15 17:30:00,2024,AFC Bournemouth,Brentford FC,1,1,1,2,AWAY_TEAM
-497693,2025-03-15 15:00:00,2024,Everton FC,West Ham United FC,0,0,1,1,DRAW
 497695,2025-03-15 15:00:00,2024,Ipswich Town FC,Nottingham Forest FC,0,3,2,4,AWAY_TEAM
+497693,2025-03-15 15:00:00,2024,Everton FC,West Ham United FC,0,0,1,1,DRAW
 497697,2025-03-15 15:00:00,2024,Manchester City FC,Brighton & Hove Albion FC,2,1,2,2,DRAW
 497699,2025-03-15 15:00:00,2024,Southampton FC,Wolverhampton Wanderers FC,0,1,1,2,AWAY_TEAM
 497686,2025-03-10 20:00:00,2024,West Ham United FC,Newcastle United FC,0,0,0,1,AWAY_TEAM
@@ -525,9 +530,9 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497680,2025-03-09 14:00:00,2024,Tottenham Hotspur FC,AFC Bournemouth,0,1,2,2,DRAW
 497683,2025-03-08 20:00:00,2024,Wolverhampton Wanderers FC,Everton FC,1,1,1,1,DRAW
 497682,2025-03-08 17:30:00,2024,Brentford FC,Aston Villa FC,0,0,0,1,AWAY_TEAM
-497685,2025-03-08 15:00:00,2024,Crystal Palace FC,Ipswich Town FC,0,0,1,0,HOME_TEAM
-497684,2025-03-08 15:00:00,2024,Brighton & Hove Albion FC,Fulham FC,1,1,2,1,HOME_TEAM
 497688,2025-03-08 15:00:00,2024,Liverpool FC,Southampton FC,0,1,3,1,HOME_TEAM
+497684,2025-03-08 15:00:00,2024,Brighton & Hove Albion FC,Fulham FC,1,1,2,1,HOME_TEAM
+497685,2025-03-08 15:00:00,2024,Crystal Palace FC,Ipswich Town FC,0,0,1,0,HOME_TEAM
 497687,2025-03-08 12:30:00,2024,Nottingham Forest FC,Manchester City FC,0,0,1,0,HOME_TEAM
 497676,2025-02-27 20:00:00,2024,West Ham United FC,Leicester City FC,2,0,2,0,HOME_TEAM
 497679,2025-02-26 20:15:00,2024,Liverpool FC,Newcastle United FC,1,0,2,0,HOME_TEAM
@@ -542,11 +547,11 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497664,2025-02-23 16:30:00,2024,Manchester City FC,Liverpool FC,0,2,0,2,AWAY_TEAM
 497663,2025-02-23 14:00:00,2024,Newcastle United FC,Nottingham Forest FC,4,1,4,3,HOME_TEAM
 497662,2025-02-22 17:30:00,2024,Aston Villa FC,Chelsea FC,0,1,2,1,HOME_TEAM
-497661,2025-02-22 15:00:00,2024,Southampton FC,Brighton & Hove Albion FC,0,1,0,4,AWAY_TEAM
-497669,2025-02-22 15:00:00,2024,AFC Bournemouth,Wolverhampton Wanderers FC,0,1,0,1,AWAY_TEAM
-497668,2025-02-22 15:00:00,2024,Arsenal FC,West Ham United FC,0,1,0,1,AWAY_TEAM
 497667,2025-02-22 15:00:00,2024,Fulham FC,Crystal Palace FC,0,1,0,2,AWAY_TEAM
 497666,2025-02-22 15:00:00,2024,Ipswich Town FC,Tottenham Hotspur FC,1,2,1,4,AWAY_TEAM
+497669,2025-02-22 15:00:00,2024,AFC Bournemouth,Wolverhampton Wanderers FC,0,1,0,1,AWAY_TEAM
+497668,2025-02-22 15:00:00,2024,Arsenal FC,West Ham United FC,0,1,0,1,AWAY_TEAM
+497661,2025-02-22 15:00:00,2024,Southampton FC,Brighton & Hove Albion FC,0,1,0,4,AWAY_TEAM
 497665,2025-02-22 12:30:00,2024,Everton FC,Manchester United FC,2,0,2,2,DRAW
 497660,2025-02-21 20:00:00,2024,Leicester City FC,Brentford FC,0,3,0,4,AWAY_TEAM
 497692,2025-02-19 19:30:00,2024,Aston Villa FC,Liverpool FC,2,1,2,2,DRAW
@@ -567,9 +572,9 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497642,2025-02-02 14:00:00,2024,Manchester United FC,Crystal Palace FC,0,0,0,2,AWAY_TEAM
 497640,2025-02-01 17:30:00,2024,Wolverhampton Wanderers FC,Aston Villa FC,1,0,2,0,HOME_TEAM
 497647,2025-02-01 15:00:00,2024,Ipswich Town FC,Southampton FC,1,1,1,2,AWAY_TEAM
+497643,2025-02-01 15:00:00,2024,Newcastle United FC,Fulham FC,1,0,1,2,AWAY_TEAM
 497645,2025-02-01 15:00:00,2024,AFC Bournemouth,Liverpool FC,0,1,0,2,AWAY_TEAM
 497644,2025-02-01 15:00:00,2024,Everton FC,Leicester City FC,3,0,4,0,HOME_TEAM
-497643,2025-02-01 15:00:00,2024,Newcastle United FC,Fulham FC,1,0,1,2,AWAY_TEAM
 497641,2025-02-01 12:30:00,2024,Nottingham Forest FC,Brighton & Hove Albion FC,3,0,7,0,HOME_TEAM
 497630,2025-01-26 19:00:00,2024,Fulham FC,Manchester United FC,0,0,0,1,AWAY_TEAM
 497636,2025-01-26 16:30:00,2024,Aston Villa FC,West Ham United FC,1,0,1,1,DRAW
@@ -583,20 +588,20 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497631,2025-01-25 15:00:00,2024,Liverpool FC,Ipswich Town FC,3,0,4,1,HOME_TEAM
 497629,2025-01-20 20:00:00,2024,Chelsea FC,Wolverhampton Wanderers FC,1,1,3,1,HOME_TEAM
 497626,2025-01-19 16:30:00,2024,Ipswich Town FC,Manchester City FC,0,3,0,6,AWAY_TEAM
+497622,2025-01-19 14:00:00,2024,Manchester United FC,Brighton & Hove Albion FC,1,1,1,3,AWAY_TEAM
 497628,2025-01-19 14:00:00,2024,Everton FC,Tottenham Hotspur FC,3,0,3,2,HOME_TEAM
 497627,2025-01-19 14:00:00,2024,Nottingham Forest FC,Southampton FC,3,0,3,2,HOME_TEAM
-497622,2025-01-19 14:00:00,2024,Manchester United FC,Brighton & Hove Albion FC,1,1,1,3,AWAY_TEAM
 497621,2025-01-18 17:30:00,2024,Arsenal FC,Aston Villa FC,1,0,2,2,DRAW
 497625,2025-01-18 15:00:00,2024,Brentford FC,Liverpool FC,0,0,0,2,AWAY_TEAM
-497624,2025-01-18 15:00:00,2024,Leicester City FC,Fulham FC,0,0,0,2,AWAY_TEAM
 497623,2025-01-18 15:00:00,2024,West Ham United FC,Crystal Palace FC,0,0,0,2,AWAY_TEAM
+497624,2025-01-18 15:00:00,2024,Leicester City FC,Fulham FC,0,0,0,2,AWAY_TEAM
 497620,2025-01-18 12:30:00,2024,Newcastle United FC,AFC Bournemouth,1,2,1,4,AWAY_TEAM
 497618,2025-01-16 20:00:00,2024,Manchester United FC,Southampton FC,0,1,3,1,HOME_TEAM
 497611,2025-01-16 19:30:00,2024,Ipswich Town FC,Brighton & Hove Albion FC,0,0,0,2,AWAY_TEAM
 497616,2025-01-15 20:00:00,2024,Arsenal FC,Tottenham Hotspur FC,2,1,2,1,HOME_TEAM
+497610,2025-01-15 19:30:00,2024,Everton FC,Aston Villa FC,0,0,0,1,AWAY_TEAM
 497619,2025-01-15 19:30:00,2024,Newcastle United FC,Wolverhampton Wanderers FC,1,0,3,0,HOME_TEAM
 497612,2025-01-15 19:30:00,2024,Leicester City FC,Crystal Palace FC,0,0,0,2,AWAY_TEAM
-497610,2025-01-15 19:30:00,2024,Everton FC,Aston Villa FC,0,0,0,1,AWAY_TEAM
 497614,2025-01-14 20:00:00,2024,Nottingham Forest FC,Liverpool FC,1,0,1,1,DRAW
 497617,2025-01-14 19:30:00,2024,Chelsea FC,AFC Bournemouth,1,0,2,2,DRAW
 497615,2025-01-14 19:30:00,2024,Brentford FC,Manchester City FC,0,0,2,2,DRAW
@@ -616,10 +621,10 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497595,2024-12-30 19:45:00,2024,Ipswich Town FC,Chelsea FC,1,0,2,0,HOME_TEAM
 497590,2024-12-30 19:45:00,2024,Aston Villa FC,Brighton & Hove Albion FC,1,1,2,2,DRAW
 497599,2024-12-29 17:15:00,2024,West Ham United FC,Liverpool FC,0,3,0,5,AWAY_TEAM
-497593,2024-12-29 15:00:00,2024,Everton FC,Nottingham Forest FC,0,1,0,2,AWAY_TEAM
 497592,2024-12-29 15:00:00,2024,Crystal Palace FC,Southampton FC,1,1,2,1,HOME_TEAM
-497598,2024-12-29 15:00:00,2024,Tottenham Hotspur FC,Wolverhampton Wanderers FC,2,1,2,2,DRAW
 497594,2024-12-29 15:00:00,2024,Fulham FC,AFC Bournemouth,1,0,2,2,DRAW
+497598,2024-12-29 15:00:00,2024,Tottenham Hotspur FC,Wolverhampton Wanderers FC,2,1,2,2,DRAW
+497593,2024-12-29 15:00:00,2024,Everton FC,Nottingham Forest FC,0,1,0,2,AWAY_TEAM
 497596,2024-12-29 14:30:00,2024,Leicester City FC,Manchester City FC,0,1,0,2,AWAY_TEAM
 497581,2024-12-27 20:15:00,2024,Arsenal FC,Ipswich Town FC,1,0,1,0,HOME_TEAM
 497582,2024-12-27 19:30:00,2024,Brighton & Hove Albion FC,Brentford FC,0,0,0,0,DRAW
@@ -632,14 +637,14 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497580,2024-12-26 15:00:00,2024,AFC Bournemouth,Crystal Palace FC,0,0,0,0,DRAW
 497585,2024-12-26 12:30:00,2024,Manchester City FC,Everton FC,1,1,1,1,DRAW
 497578,2024-12-22 16:30:00,2024,Tottenham Hotspur FC,Liverpool FC,1,3,3,6,AWAY_TEAM
+497577,2024-12-22 14:00:00,2024,Manchester United FC,AFC Bournemouth,0,1,0,3,AWAY_TEAM
+497576,2024-12-22 14:00:00,2024,Leicester City FC,Wolverhampton Wanderers FC,0,3,0,3,AWAY_TEAM
 497574,2024-12-22 14:00:00,2024,Fulham FC,Southampton FC,0,0,0,0,DRAW
 497573,2024-12-22 14:00:00,2024,Everton FC,Chelsea FC,0,0,0,0,DRAW
-497576,2024-12-22 14:00:00,2024,Leicester City FC,Wolverhampton Wanderers FC,0,3,0,3,AWAY_TEAM
-497577,2024-12-22 14:00:00,2024,Manchester United FC,AFC Bournemouth,0,1,0,3,AWAY_TEAM
 497572,2024-12-21 17:30:00,2024,Crystal Palace FC,Arsenal FC,1,3,1,5,AWAY_TEAM
+497571,2024-12-21 15:00:00,2024,Brentford FC,Nottingham Forest FC,0,1,0,2,AWAY_TEAM
 497579,2024-12-21 15:00:00,2024,West Ham United FC,Brighton & Hove Albion FC,0,0,1,1,DRAW
 497575,2024-12-21 15:00:00,2024,Ipswich Town FC,Newcastle United FC,0,3,0,4,AWAY_TEAM
-497571,2024-12-21 15:00:00,2024,Brentford FC,Nottingham Forest FC,0,1,0,2,AWAY_TEAM
 497570,2024-12-21 12:30:00,2024,Aston Villa FC,Manchester City FC,1,0,2,1,HOME_TEAM
 497560,2024-12-16 20:00:00,2024,AFC Bournemouth,West Ham United FC,0,0,1,1,DRAW
 497568,2024-12-15 19:00:00,2024,Southampton FC,Tottenham Hotspur FC,0,5,0,5,AWAY_TEAM
@@ -648,9 +653,9 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497562,2024-12-15 14:00:00,2024,Brighton & Hove Albion FC,Crystal Palace FC,0,2,1,3,AWAY_TEAM
 497567,2024-12-14 17:30:00,2024,Nottingham Forest FC,Aston Villa FC,0,0,2,1,HOME_TEAM
 497569,2024-12-14 15:00:00,2024,Wolverhampton Wanderers FC,Ipswich Town FC,0,1,1,2,AWAY_TEAM
-497566,2024-12-14 15:00:00,2024,Newcastle United FC,Leicester City FC,1,0,4,0,HOME_TEAM
 497564,2024-12-14 15:00:00,2024,Liverpool FC,Fulham FC,0,1,2,2,DRAW
 497561,2024-12-14 15:00:00,2024,Arsenal FC,Everton FC,0,0,0,0,DRAW
+497566,2024-12-14 15:00:00,2024,Newcastle United FC,Leicester City FC,1,0,4,0,HOME_TEAM
 497559,2024-12-09 20:00:00,2024,West Ham United FC,Wolverhampton Wanderers FC,0,0,2,1,HOME_TEAM
 497558,2024-12-08 16:30:00,2024,Tottenham Hotspur FC,Chelsea FC,2,1,3,4,AWAY_TEAM
 497556,2024-12-08 14:00:00,2024,Leicester City FC,Brighton & Hove Albion FC,0,1,2,2,DRAW
@@ -662,8 +667,8 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497551,2024-12-07 15:00:00,2024,Brentford FC,Newcastle United FC,2,2,4,2,HOME_TEAM
 497540,2024-12-05 20:15:00,2024,AFC Bournemouth,Tottenham Hotspur FC,1,0,1,0,HOME_TEAM
 497544,2024-12-05 19:30:00,2024,Fulham FC,Brighton & Hove Albion FC,1,0,3,1,HOME_TEAM
-497542,2024-12-04 20:15:00,2024,Aston Villa FC,Brentford FC,3,0,3,1,HOME_TEAM
 497541,2024-12-04 20:15:00,2024,Arsenal FC,Manchester United FC,0,0,2,0,HOME_TEAM
+497542,2024-12-04 20:15:00,2024,Aston Villa FC,Brentford FC,3,0,3,1,HOME_TEAM
 497549,2024-12-04 19:30:00,2024,Southampton FC,Chelsea FC,1,3,1,5,AWAY_TEAM
 497548,2024-12-04 19:30:00,2024,Newcastle United FC,Liverpool FC,1,0,3,3,DRAW
 497547,2024-12-04 19:30:00,2024,Manchester City FC,Nottingham Forest FC,2,0,3,0,HOME_TEAM
@@ -676,19 +681,19 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497532,2024-12-01 13:30:00,2024,Chelsea FC,Aston Villa FC,2,0,3,0,HOME_TEAM
 497538,2024-11-30 17:30:00,2024,West Ham United FC,Arsenal FC,2,5,2,5,AWAY_TEAM
 497530,2024-11-30 15:00:00,2024,Brentford FC,Leicester City FC,3,1,4,1,HOME_TEAM
-497533,2024-11-30 15:00:00,2024,Crystal Palace FC,Newcastle United FC,0,0,1,1,DRAW
-497539,2024-11-30 15:00:00,2024,Wolverhampton Wanderers FC,AFC Bournemouth,1,3,2,4,AWAY_TEAM
 497536,2024-11-30 15:00:00,2024,Nottingham Forest FC,Ipswich Town FC,0,0,1,0,HOME_TEAM
+497539,2024-11-30 15:00:00,2024,Wolverhampton Wanderers FC,AFC Bournemouth,1,3,2,4,AWAY_TEAM
+497533,2024-11-30 15:00:00,2024,Crystal Palace FC,Newcastle United FC,0,0,1,1,DRAW
 497531,2024-11-29 20:00:00,2024,Brighton & Hove Albion FC,Southampton FC,1,0,1,1,DRAW
 497528,2024-11-25 20:00:00,2024,Newcastle United FC,West Ham United FC,0,1,0,2,AWAY_TEAM
 497525,2024-11-24 16:30:00,2024,Ipswich Town FC,Manchester United FC,1,1,1,1,DRAW
 497529,2024-11-24 14:00:00,2024,Southampton FC,Liverpool FC,1,1,2,3,AWAY_TEAM
 497527,2024-11-23 17:30:00,2024,Manchester City FC,Tottenham Hotspur FC,0,2,0,4,AWAY_TEAM
-497522,2024-11-23 15:00:00,2024,Aston Villa FC,Crystal Palace FC,1,2,2,2,DRAW
-497520,2024-11-23 15:00:00,2024,AFC Bournemouth,Brighton & Hove Albion FC,0,1,1,2,AWAY_TEAM
-497521,2024-11-23 15:00:00,2024,Arsenal FC,Nottingham Forest FC,1,0,3,0,HOME_TEAM
-497523,2024-11-23 15:00:00,2024,Everton FC,Brentford FC,0,0,0,0,DRAW
 497524,2024-11-23 15:00:00,2024,Fulham FC,Wolverhampton Wanderers FC,1,1,1,4,AWAY_TEAM
+497523,2024-11-23 15:00:00,2024,Everton FC,Brentford FC,0,0,0,0,DRAW
+497521,2024-11-23 15:00:00,2024,Arsenal FC,Nottingham Forest FC,1,0,3,0,HOME_TEAM
+497520,2024-11-23 15:00:00,2024,AFC Bournemouth,Brighton & Hove Albion FC,0,1,1,2,AWAY_TEAM
+497522,2024-11-23 15:00:00,2024,Aston Villa FC,Crystal Palace FC,1,2,2,2,DRAW
 497526,2024-11-23 12:30:00,2024,Leicester City FC,Chelsea FC,0,1,1,2,AWAY_TEAM
 497512,2024-11-10 16:30:00,2024,Chelsea FC,Arsenal FC,0,0,1,1,DRAW
 497517,2024-11-10 14:00:00,2024,Tottenham Hotspur FC,Ipswich Town FC,0,2,1,2,AWAY_TEAM
@@ -696,19 +701,19 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497515,2024-11-10 14:00:00,2024,Manchester United FC,Leicester City FC,2,0,3,0,HOME_TEAM
 497514,2024-11-09 20:00:00,2024,Liverpool FC,Aston Villa FC,1,0,2,0,HOME_TEAM
 497511,2024-11-09 17:30:00,2024,Brighton & Hove Albion FC,Manchester City FC,0,1,2,1,HOME_TEAM
-497510,2024-11-09 15:00:00,2024,Brentford FC,AFC Bournemouth,1,1,3,2,HOME_TEAM
-497513,2024-11-09 15:00:00,2024,Crystal Palace FC,Fulham FC,0,1,0,2,AWAY_TEAM
 497518,2024-11-09 15:00:00,2024,West Ham United FC,Everton FC,0,0,0,0,DRAW
+497513,2024-11-09 15:00:00,2024,Crystal Palace FC,Fulham FC,0,1,0,2,AWAY_TEAM
+497510,2024-11-09 15:00:00,2024,Brentford FC,AFC Bournemouth,1,1,3,2,HOME_TEAM
 497519,2024-11-09 15:00:00,2024,Wolverhampton Wanderers FC,Southampton FC,1,0,2,0,HOME_TEAM
 497501,2024-11-04 20:00:00,2024,Fulham FC,Brentford FC,0,1,2,1,HOME_TEAM
 497504,2024-11-03 16:30:00,2024,Manchester United FC,Chelsea FC,0,0,1,1,DRAW
 497508,2024-11-03 14:00:00,2024,Tottenham Hotspur FC,Aston Villa FC,0,1,4,1,HOME_TEAM
 497509,2024-11-02 17:30:00,2024,Wolverhampton Wanderers FC,Crystal Palace FC,0,0,2,2,DRAW
-497507,2024-11-02 15:00:00,2024,Southampton FC,Everton FC,0,0,1,0,HOME_TEAM
-497506,2024-11-02 15:00:00,2024,Nottingham Forest FC,West Ham United FC,1,0,3,0,HOME_TEAM
-497503,2024-11-02 15:00:00,2024,Liverpool FC,Brighton & Hove Albion FC,0,1,2,1,HOME_TEAM
-497502,2024-11-02 15:00:00,2024,Ipswich Town FC,Leicester City FC,0,0,1,1,DRAW
 497500,2024-11-02 15:00:00,2024,AFC Bournemouth,Manchester City FC,1,0,2,1,HOME_TEAM
+497506,2024-11-02 15:00:00,2024,Nottingham Forest FC,West Ham United FC,1,0,3,0,HOME_TEAM
+497507,2024-11-02 15:00:00,2024,Southampton FC,Everton FC,0,0,1,0,HOME_TEAM
+497502,2024-11-02 15:00:00,2024,Ipswich Town FC,Leicester City FC,0,0,1,1,DRAW
+497503,2024-11-02 15:00:00,2024,Liverpool FC,Brighton & Hove Albion FC,0,1,2,1,HOME_TEAM
 497505,2024-11-02 12:30:00,2024,Newcastle United FC,Arsenal FC,1,0,1,0,HOME_TEAM
 497490,2024-10-27 16:30:00,2024,Arsenal FC,Liverpool FC,2,1,2,2,DRAW
 497499,2024-10-27 14:00:00,2024,West Ham United FC,Manchester United FC,0,0,2,1,HOME_TEAM
@@ -724,30 +729,30 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497483,2024-10-20 15:30:00,2024,Liverpool FC,Chelsea FC,1,0,2,1,HOME_TEAM
 497489,2024-10-20 13:00:00,2024,Wolverhampton Wanderers FC,Manchester City FC,1,1,1,2,AWAY_TEAM
 497480,2024-10-19 16:30:00,2024,AFC Bournemouth,Arsenal FC,0,0,2,0,HOME_TEAM
-497482,2024-10-19 14:00:00,2024,Ipswich Town FC,Everton FC,0,2,0,2,AWAY_TEAM
 497481,2024-10-19 14:00:00,2024,Fulham FC,Aston Villa FC,1,1,1,3,AWAY_TEAM
-497487,2024-10-19 14:00:00,2024,Southampton FC,Leicester City FC,2,0,2,3,AWAY_TEAM
-497484,2024-10-19 14:00:00,2024,Manchester United FC,Brentford FC,0,1,2,1,HOME_TEAM
 497485,2024-10-19 14:00:00,2024,Newcastle United FC,Brighton & Hove Albion FC,0,1,0,1,AWAY_TEAM
+497487,2024-10-19 14:00:00,2024,Southampton FC,Leicester City FC,2,0,2,3,AWAY_TEAM
+497482,2024-10-19 14:00:00,2024,Ipswich Town FC,Everton FC,0,2,0,2,AWAY_TEAM
+497484,2024-10-19 14:00:00,2024,Manchester United FC,Brentford FC,0,1,2,1,HOME_TEAM
 497488,2024-10-19 11:30:00,2024,Tottenham Hotspur FC,West Ham United FC,1,1,4,1,HOME_TEAM
 497473,2024-10-06 15:30:00,2024,Brighton & Hove Albion FC,Tottenham Hotspur FC,0,2,3,2,HOME_TEAM
 497474,2024-10-06 13:00:00,2024,Chelsea FC,Nottingham Forest FC,0,0,1,1,DRAW
 497471,2024-10-06 13:00:00,2024,Aston Villa FC,Manchester United FC,0,0,0,0,DRAW
 497476,2024-10-05 16:30:00,2024,Everton FC,Newcastle United FC,0,0,0,0,DRAW
-497470,2024-10-05 14:00:00,2024,Arsenal FC,Southampton FC,0,0,3,1,HOME_TEAM
-497472,2024-10-05 14:00:00,2024,Brentford FC,Wolverhampton Wanderers FC,4,2,5,3,HOME_TEAM
-497477,2024-10-05 14:00:00,2024,Leicester City FC,AFC Bournemouth,1,0,1,0,HOME_TEAM
-497478,2024-10-05 14:00:00,2024,Manchester City FC,Fulham FC,1,1,3,2,HOME_TEAM
 497479,2024-10-05 14:00:00,2024,West Ham United FC,Ipswich Town FC,2,1,4,1,HOME_TEAM
+497478,2024-10-05 14:00:00,2024,Manchester City FC,Fulham FC,1,1,3,2,HOME_TEAM
+497477,2024-10-05 14:00:00,2024,Leicester City FC,AFC Bournemouth,1,0,1,0,HOME_TEAM
+497472,2024-10-05 14:00:00,2024,Brentford FC,Wolverhampton Wanderers FC,4,2,5,3,HOME_TEAM
+497470,2024-10-05 14:00:00,2024,Arsenal FC,Southampton FC,0,0,3,1,HOME_TEAM
 497475,2024-10-05 11:30:00,2024,Crystal Palace FC,Liverpool FC,0,1,0,1,AWAY_TEAM
 497460,2024-09-30 19:00:00,2024,AFC Bournemouth,Southampton FC,3,0,3,1,HOME_TEAM
 497466,2024-09-29 15:30:00,2024,Manchester United FC,Tottenham Hotspur FC,0,1,0,3,AWAY_TEAM
 497465,2024-09-29 13:00:00,2024,Ipswich Town FC,Aston Villa FC,1,2,2,2,DRAW
 497469,2024-09-28 16:30:00,2024,Wolverhampton Wanderers FC,Liverpool FC,0,1,1,2,AWAY_TEAM
-497461,2024-09-28 14:00:00,2024,Arsenal FC,Leicester City FC,2,0,4,2,HOME_TEAM
-497462,2024-09-28 14:00:00,2024,Brentford FC,West Ham United FC,1,0,1,1,DRAW
-497463,2024-09-28 14:00:00,2024,Chelsea FC,Brighton & Hove Albion FC,4,2,4,2,HOME_TEAM
 497464,2024-09-28 14:00:00,2024,Everton FC,Crystal Palace FC,0,1,2,1,HOME_TEAM
+497462,2024-09-28 14:00:00,2024,Brentford FC,West Ham United FC,1,0,1,1,DRAW
+497461,2024-09-28 14:00:00,2024,Arsenal FC,Leicester City FC,2,0,4,2,HOME_TEAM
+497463,2024-09-28 14:00:00,2024,Chelsea FC,Brighton & Hove Albion FC,4,2,4,2,HOME_TEAM
 497468,2024-09-28 14:00:00,2024,Nottingham Forest FC,Fulham FC,0,0,0,1,AWAY_TEAM
 497467,2024-09-28 11:30:00,2024,Newcastle United FC,Manchester City FC,0,1,1,1,DRAW
 497456,2024-09-22 15:30:00,2024,Manchester City FC,Arsenal FC,1,2,2,2,DRAW
@@ -764,31 +769,31 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 497448,2024-09-15 13:00:00,2024,Tottenham Hotspur FC,Arsenal FC,0,0,0,1,AWAY_TEAM
 497440,2024-09-14 19:00:00,2024,AFC Bournemouth,Chelsea FC,0,0,0,1,AWAY_TEAM
 497441,2024-09-14 16:30:00,2024,Aston Villa FC,Everton FC,1,2,3,2,HOME_TEAM
-497444,2024-09-14 14:00:00,2024,Fulham FC,West Ham United FC,1,0,1,1,DRAW
 497443,2024-09-14 14:00:00,2024,Crystal Palace FC,Leicester City FC,0,1,2,2,DRAW
 497442,2024-09-14 14:00:00,2024,Brighton & Hove Albion FC,Ipswich Town FC,0,0,0,0,DRAW
 497445,2024-09-14 14:00:00,2024,Liverpool FC,Nottingham Forest FC,0,0,0,1,AWAY_TEAM
+497444,2024-09-14 14:00:00,2024,Fulham FC,West Ham United FC,1,0,1,1,DRAW
 497446,2024-09-14 14:00:00,2024,Manchester City FC,Brentford FC,2,1,2,1,HOME_TEAM
 497447,2024-09-14 11:30:00,2024,Southampton FC,Manchester United FC,0,2,0,3,AWAY_TEAM
 497436,2024-09-01 15:00:00,2024,Manchester United FC,Liverpool FC,0,2,0,3,AWAY_TEAM
 497437,2024-09-01 12:30:00,2024,Newcastle United FC,Tottenham Hotspur FC,1,0,2,1,HOME_TEAM
 497432,2024-09-01 12:30:00,2024,Chelsea FC,Crystal Palace FC,1,0,1,1,DRAW
 497439,2024-08-31 16:30:00,2024,West Ham United FC,Manchester City FC,1,2,1,3,AWAY_TEAM
-497434,2024-08-31 14:00:00,2024,Ipswich Town FC,Fulham FC,1,1,1,1,DRAW
+497438,2024-08-31 14:00:00,2024,Nottingham Forest FC,Wolverhampton Wanderers FC,1,1,1,1,DRAW
+497435,2024-08-31 14:00:00,2024,Leicester City FC,Aston Villa FC,0,1,1,2,AWAY_TEAM
 497433,2024-08-31 14:00:00,2024,Everton FC,AFC Bournemouth,0,0,2,3,AWAY_TEAM
 497431,2024-08-31 14:00:00,2024,Brentford FC,Southampton FC,1,0,3,1,HOME_TEAM
-497435,2024-08-31 14:00:00,2024,Leicester City FC,Aston Villa FC,0,1,1,2,AWAY_TEAM
-497438,2024-08-31 14:00:00,2024,Nottingham Forest FC,Wolverhampton Wanderers FC,1,1,1,1,DRAW
+497434,2024-08-31 14:00:00,2024,Ipswich Town FC,Fulham FC,1,1,1,1,DRAW
 497430,2024-08-31 11:30:00,2024,Arsenal FC,Brighton & Hove Albion FC,1,0,1,1,DRAW
 497425,2024-08-25 15:30:00,2024,Liverpool FC,Brentford FC,1,0,2,0,HOME_TEAM
 497429,2024-08-25 13:00:00,2024,Wolverhampton Wanderers FC,Chelsea FC,2,2,2,6,AWAY_TEAM
 497420,2024-08-25 13:00:00,2024,AFC Bournemouth,Newcastle United FC,1,0,1,1,DRAW
 497421,2024-08-24 16:30:00,2024,Aston Villa FC,Arsenal FC,0,0,0,2,AWAY_TEAM
+497423,2024-08-24 14:00:00,2024,Crystal Palace FC,West Ham United FC,0,0,0,2,AWAY_TEAM
 497428,2024-08-24 14:00:00,2024,Tottenham Hotspur FC,Everton FC,2,0,4,0,HOME_TEAM
 497427,2024-08-24 14:00:00,2024,Southampton FC,Nottingham Forest FC,0,0,0,1,AWAY_TEAM
 497426,2024-08-24 14:00:00,2024,Manchester City FC,Ipswich Town FC,3,1,4,1,HOME_TEAM
 497424,2024-08-24 14:00:00,2024,Fulham FC,Leicester City FC,1,1,2,1,HOME_TEAM
-497423,2024-08-24 14:00:00,2024,Crystal Palace FC,West Ham United FC,0,0,0,2,AWAY_TEAM
 497422,2024-08-24 11:30:00,2024,Brighton & Hove Albion FC,Manchester United FC,1,0,2,1,HOME_TEAM
 497419,2024-08-19 19:00:00,2024,Leicester City FC,Tottenham Hotspur FC,0,1,1,1,DRAW
 497418,2024-08-18 15:30:00,2024,Chelsea FC,Manchester City FC,0,1,0,2,AWAY_TEAM

@@ -1,4 +1,5 @@
 Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_FT,Away_Score_FT,Winner
+560606,2026-10-19 19:00:00,2026,Tottenham Hotspur FC,Coventry City FC,1,0,3,1,HOME_TEAM
 560608,2026-10-18 15:30:00,2026,Nottingham Forest FC,Arsenal FC,0,0,0,1,AWAY_TEAM
 560609,2026-10-18 13:00:00,2026,Brighton & Hove Albion FC,Crystal Palace FC,3,0,5,0,HOME_TEAM
 560605,2026-10-18 13:00:00,2026,Leeds United FC,Manchester United FC,0,1,1,1,DRAW
@@ -15,16 +16,16 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 560600,2026-10-10 16:30:00,2026,Manchester United FC,Tottenham Hotspur FC,0,0,1,1,DRAW
 560601,2026-10-10 14:00:00,2026,Aston Villa FC,Brentford FC,1,1,2,2,DRAW
 560599,2026-10-10 14:00:00,2026,Ipswich Town FC,Fulham FC,0,0,2,1,HOME_TEAM
-560595,2026-10-10 14:00:00,2026,Chelsea FC,AFC Bournemouth,2,0,5,1,HOME_TEAM
 560592,2026-10-10 14:00:00,2026,Sunderland AFC,Brighton & Hove Albion FC,0,0,0,2,AWAY_TEAM
+560595,2026-10-10 14:00:00,2026,Chelsea FC,AFC Bournemouth,2,0,5,1,HOME_TEAM
 560593,2026-10-10 11:30:00,2026,Arsenal FC,Leeds United FC,0,0,2,1,HOME_TEAM
 560583,2026-09-20 15:30:00,2026,Fulham FC,Manchester United FC,0,0,1,1,DRAW
 560590,2026-09-20 13:00:00,2026,Manchester City FC,Sunderland AFC,3,2,5,3,HOME_TEAM
 560585,2026-09-20 13:00:00,2026,Leeds United FC,Crystal Palace FC,0,0,0,0,DRAW
 560582,2026-09-20 13:00:00,2026,AFC Bournemouth,Liverpool FC,0,0,0,1,AWAY_TEAM
 560589,2026-09-19 16:30:00,2026,Nottingham Forest FC,Coventry City FC,0,0,0,1,AWAY_TEAM
-560586,2026-09-19 14:00:00,2026,Brighton & Hove Albion FC,Arsenal FC,2,0,3,0,HOME_TEAM
 560588,2026-09-19 14:00:00,2026,Newcastle United FC,Hull City AFC,2,0,2,1,HOME_TEAM
+560586,2026-09-19 14:00:00,2026,Brighton & Hove Albion FC,Arsenal FC,2,0,3,0,HOME_TEAM
 560584,2026-09-19 14:00:00,2026,Everton FC,Ipswich Town FC,1,0,1,0,HOME_TEAM
 560587,2026-09-19 11:30:00,2026,Tottenham Hotspur FC,Aston Villa FC,0,1,2,3,AWAY_TEAM
 560591,2026-09-18 19:00:00,2026,Brentford FC,Chelsea FC,0,0,3,0,HOME_TEAM
@@ -50,9 +51,9 @@ Match_ID,Date,Season,Home_Team,Away_Team,Home_Score_HT,Away_Score_HT,Home_Score_
 560566,2026-09-04 19:00:00,2026,Ipswich Town FC,Liverpool FC,0,2,0,2,AWAY_TEAM
 560557,2026-08-31 19:00:00,2026,Aston Villa FC,Arsenal FC,0,0,0,1,AWAY_TEAM
 560553,2026-08-30 15:30:00,2026,Manchester United FC,Ipswich Town FC,1,1,5,2,HOME_TEAM
-560554,2026-08-30 13:00:00,2026,Sunderland AFC,Fulham FC,0,0,1,0,HOME_TEAM
 560559,2026-08-30 13:00:00,2026,Leeds United FC,Brentford FC,0,1,1,1,DRAW
 560556,2026-08-30 13:00:00,2026,Chelsea FC,Brighton & Hove Albion FC,3,1,4,3,HOME_TEAM
+560554,2026-08-30 13:00:00,2026,Sunderland AFC,Fulham FC,0,0,1,0,HOME_TEAM
 560558,2026-08-29 16:30:00,2026,Tottenham Hotspur FC,Newcastle United FC,0,0,0,2,AWAY_TEAM
 560561,2026-08-29 14:00:00,2026,Coventry City FC,Hull City AFC,0,0,0,1,AWAY_TEAM
 560560,2026-08-29 14:00:00,2026,AFC Bournemouth,Everton FC,1,0,1,1,DRAW
